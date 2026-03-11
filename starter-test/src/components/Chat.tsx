@@ -4,8 +4,14 @@ import { ToolApproval } from "./ToolApproval";
 import { useChat } from "../hooks/useChat";
 
 export function Chat() {
-  const { messages, sendMessage, isLoading, pendingApproval, handleApproval } =
-    useChat();
+  const {
+    messages,
+    sendMessage,
+    isLoading,
+    pendingApproval,
+    handleApproval,
+    pendingCIBA,
+  } = useChat();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -44,16 +50,35 @@ export function Chat() {
               </button>
               <button
                 className="suggestion"
-                onClick={() => sendMessage("Send a booking confirmation to my email")}
+                onClick={() =>
+                  sendMessage("Send a booking confirmation to my email")
+                }
               >
                 Send booking confirmation
+              </button>
+              <button
+                className="suggestion"
+                onClick={() => sendMessage("What documents do I have access to?")}
+              >
+                My documents
+              </button>
+              <button
+                className="suggestion"
+                onClick={() => sendMessage("Show my files from storage")}
+              >
+                External files
               </button>
             </div>
           </div>
         )}
 
         {messages.map((msg, i) => (
-          <Message key={i} role={msg.role} content={msg.content} toolCalls={msg.toolCalls} />
+          <Message
+            key={i}
+            role={msg.role}
+            content={msg.content}
+            toolCalls={msg.toolCalls}
+          />
         ))}
 
         {isLoading && (
@@ -77,6 +102,39 @@ export function Chat() {
             onApprove={() => handleApproval(pendingApproval.toolName, true)}
             onDeny={() => handleApproval(pendingApproval.toolName, false)}
           />
+        )}
+
+        {pendingCIBA && (
+          <div className="tool-approval">
+            <div className="tool-approval-card">
+              <div className="tool-approval-header">
+                <span className="tool-approval-icon">&#128274;</span>
+                <h3>Out-of-Band Approval Required</h3>
+              </div>
+              <p>
+                The agent needs approval to execute{" "}
+                <code>{pendingCIBA.toolName}</code>. A notification has been
+                sent to your device.
+              </p>
+              <div className="tool-details">
+                <div className="tool-detail-row">
+                  <strong>Request ID:</strong>{" "}
+                  <code>{pendingCIBA.authReqId}</code>
+                </div>
+                <div className="tool-detail-row">
+                  <strong>Status:</strong> Waiting for approval...
+                </div>
+              </div>
+              <div
+                className="typing-indicator"
+                style={{ justifyContent: "center", padding: "8px 0" }}
+              >
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          </div>
         )}
 
         <div ref={messagesEndRef} />

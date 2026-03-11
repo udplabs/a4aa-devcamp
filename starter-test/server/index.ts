@@ -11,8 +11,8 @@ app.use(cors());
 app.use(express.json());
 
 // =============================================================
-// LAB 2: Import and apply JWT validation middleware
-// See: lab-guide/02-chat-interface.md - Step 4
+// LAB 1: Import and apply JWT validation middleware
+// See: lab-guide/01-user-authentication.md - Step 9
 //
 // import { validateAccessToken, extractUser } from "./middleware/auth";
 // =============================================================
@@ -26,10 +26,10 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Chat endpoint
-// LAB 2: Add validateAccessToken middleware to this route
+// LAB 1: Add validateAccessToken middleware to this route
 app.post("/api/chat", async (req, res) => {
   try {
-    // LAB 2: Extract authenticated user from token
+    // LAB 1: Extract authenticated user from token
     // const user = extractUser(req);
     // console.log(`Authenticated request from user: ${user.sub}`);
 
@@ -55,16 +55,36 @@ app.post("/api/chat", async (req, res) => {
 });
 
 // =============================================================
-// LAB 3: Add consent endpoints
-// See: lab-guide/03-protect-the-api.md - Step 4
+// LAB 2: Add CIBA endpoints
+// See: lab-guide/02-async-authorization-ciba.md - Step 4
 //
-// POST /api/consent/approve
-// POST /api/consent/deny
+// POST /api/ciba/initiate
+// GET  /api/ciba/status/:authReqId
+// POST /api/ciba/approve/:authReqId
+// POST /api/ciba/deny/:authReqId
+// GET  /api/ciba/pending
 // =============================================================
 
 // =============================================================
-// LAB 4: Start the MCP server
-// See: lab-guide/04-agent-authorization.md - Step 6
+// LAB 4: Add Token Vault endpoints
+// See: lab-guide/04-token-vault.md - Step 6
+//
+// POST /api/vault/link
+// POST /api/vault/unlink
+// GET  /api/vault/providers
+// =============================================================
+
+// =============================================================
+// LAB 4: Start the third-party API server
+// See: lab-guide/04-token-vault.md - Step 5
+//
+// import { startThirdPartyAPI } from "./token-vault/third-party-api";
+// startThirdPartyAPI();
+// =============================================================
+
+// =============================================================
+// LAB 5: Start the MCP server
+// See: lab-guide/05-auth-for-mcp.md - Part E
 //
 // import { startMCPServer } from "./mcp/server";
 // startMCPServer();

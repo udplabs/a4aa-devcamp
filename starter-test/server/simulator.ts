@@ -5,8 +5,10 @@
 // The focus of this lab is on auth, not AI - so we fake the LLM
 // and keep the security layers real.
 //
-// LAB 3: Update this to check authorization before tool calls
-// See: lab-guide/03-protect-the-api.md - Step 3
+// LAB 2: Update to check authorization + trigger CIBA
+// LAB 3: Add document intent detection (FGA)
+// LAB 4: Add external files intent detection (Token Vault)
+// LAB 5: Route tool execution through MCP
 // =============================================================
 
 export interface AgentUser {
@@ -23,6 +25,12 @@ export interface LLMResponse {
     description: string;
     riskLevel: string;
     requiredScopes: string[];
+  };
+  pendingCIBA?: {
+    authReqId: string;
+    toolName: string;
+    expiresIn: number;
+    interval: number;
   };
 }
 
@@ -41,21 +49,8 @@ export async function processMessage(
 
   if (intent.toolName) {
     // =============================================================
-    // LAB 3: Add authorization check here BEFORE executing the tool
-    //
-    // const authResult = checkToolAuthorization(
-    //   user.sub, user.scope, intent.toolName
-    // );
-    //
-    // if (!authResult.authorized) {
-    //   if (authResult.requiresConsent) {
-    //     return {
-    //       message: `I'd like to use **${intent.toolName}** but this requires your approval.`,
-    //       pendingApproval: authResult.consentDetails,
-    //     };
-    //   }
-    //   return { message: `I don't have permission to use ${intent.toolName}.` };
-    // }
+    // LAB 2: Add authorization check here BEFORE executing the tool
+    // For consent-required tools, initiate CIBA flow
     // =============================================================
 
     // Execute the tool directly (no auth check in starter)
@@ -78,6 +73,11 @@ function detectIntent(
     const location = extractLocation(message) || "Bali";
     return { toolName: "get_weather", parameters: { location } };
   }
+
+  // =============================================================
+  // LAB 3: Add document intent detection here
+  // LAB 4: Add external files intent detection here
+  // =============================================================
 
   if (
     lower.includes("calendar") ||
@@ -113,7 +113,6 @@ function extractLocation(message: string): string | null {
 }
 
 function extractEmailParams(message: string) {
-  // Simple extraction - a real LLM would do this much better
   const toMatch = message.match(/to\s+(\S+@\S+)/i);
   return {
     to: toMatch ? toMatch[1] : "traveler@example.com",
@@ -123,8 +122,7 @@ function extractEmailParams(message: string) {
 }
 
 // =============================================================
-// LAB 4: Replace this with MCP client calls
-// See: lab-guide/04-agent-authorization.md - Step 5
+// LAB 5: Replace this with MCP client calls
 // =============================================================
 function executeToolLocally(
   name: string,

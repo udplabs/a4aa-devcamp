@@ -1,11 +1,13 @@
 // =============================================================
-// LAB 3: Define tool permission levels
-// See: lab-guide/03-protect-the-api.md - Step 1
+// LAB 2: Define tool permission levels (used by CIBA flow)
+// LAB 3: Add document tools (FGA)
+// LAB 4: Add external files tool (Token Vault)
+// LAB 5: Replace local execution with MCP client calls
 //
 // Each tool has:
 // - requiredScopes: what OAuth scopes the user/agent needs
 // - riskLevel: low / medium / high
-// - requiresConsent: whether the agent must ask the user first
+// - requiresConsent: whether the agent must ask the user first (triggers CIBA)
 // =============================================================
 
 export interface ToolDefinition {
@@ -17,11 +19,13 @@ export interface ToolDefinition {
   requiresConsent: boolean;
 }
 
-// LAB 3: Fill in the tool registry
+// TODO: Fill in the tool registry with tool definitions
 export const toolRegistry: Record<string, ToolDefinition> = {
   // TODO: Define get_weather (low risk, no consent)
   // TODO: Define get_calendar (medium risk, no consent)
-  // TODO: Define send_email (high risk, requires consent)
+  // TODO: Define send_email (high risk, requires consent → triggers CIBA)
+  // TODO (Lab 3): Define get_document, list_documents
+  // TODO (Lab 4): Define get_external_files
 };
 
 export function getToolsForDisplay(): Array<{
@@ -35,7 +39,7 @@ export function getToolsForDisplay(): Array<{
 }
 
 // =============================================================
-// LAB 4: Replace this with MCP client calls
+// LAB 5: Replace this with MCP client calls
 // For now, tools execute locally
 // =============================================================
 export async function executeTool(
@@ -43,6 +47,6 @@ export async function executeTool(
   parameters: Record<string, any>
 ): Promise<any> {
   console.log(`Executing tool: ${toolName}`, parameters);
-  // This will be replaced with MCP client calls in Lab 4
+  // This will be replaced with MCP client calls in Lab 5
   throw new Error(`Tool execution not implemented: ${toolName}`);
 }

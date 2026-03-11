@@ -1,6 +1,6 @@
 // =============================================================
-// LAB 2: Implement JWT validation middleware
-// See: lab-guide/02-chat-interface.md - Step 3
+// LAB 1: Implement JWT validation middleware
+// See: lab-guide/01-user-authentication.md - Step 8
 //
 // Use express-oauth2-jwt-bearer to validate Auth0 JWTs:
 //
