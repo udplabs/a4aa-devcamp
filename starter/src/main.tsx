@@ -2,11 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles/index.css";
-import "./styles/lab-guide.css";
 
 // =============================================================
 // LAB 1: Wrap <App /> with Auth0Provider
-// See: lab-guide/01-environment-setup.md - Step 5
+// See: lab-guide/01-user-authentication.md - Step 6
 // =============================================================
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

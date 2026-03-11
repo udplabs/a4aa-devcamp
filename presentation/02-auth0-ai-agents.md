@@ -4,134 +4,135 @@
 
 ## What Is It?
 
-Auth0 AI for Agents extends Auth0's identity platform to cover **AI agent workflows**. It answers the question:
+Auth0 AI for Agents extends Auth0's identity platform to cover **AI agent workflows**. It answers:
 
-> "How does an AI agent prove it's allowed to act on behalf of a specific user?"
-
----
-
-## The Problem
-
-Traditional OAuth flows assume a human is present to click "Authorize." But AI agents operate autonomously. They need to:
-
-1. **Obtain tokens** scoped to a specific user without a browser redirect
-2. **Request permission** for sensitive actions asynchronously
-3. **Access third-party APIs** with the user's credentials (not the agent's)
-4. **Respect boundaries** - different tools need different permission levels
+> "How does an AI agent prove it's allowed to act on behalf of a specific user — and what can it access?"
 
 ---
 
-## Core Concepts
+## Four Use Cases
 
-### 1. Tool-Level Authorization
+### 1. User Authentication (Session & Context)
 
-Each tool the agent can call is associated with required scopes:
+The foundation. The agent needs to know **who** it's acting for.
 
 ```typescript
-// Define what permissions a tool needs
-const weatherTool = {
-  name: "get_weather",
-  scopes: ["weather:read"]  // Low risk - auto-approved
-};
+// Frontend: Auth0 SPA login
+const { user, getAccessTokenSilently } = useAuth0();
 
-const emailTool = {
-  name: "send_email",
-  scopes: ["email:send"]    // High risk - requires user consent
-};
+// Backend: JWT validation
+app.post("/api/chat", validateAccessToken, (req, res) => {
+  const user = extractUser(req); // { sub, email, scopes }
+  const response = await processMessage(message, user);
+});
 ```
 
-### 2. Async User Consent
+**What it provides:** User identity, scoped access tokens, session management
 
-When an agent needs elevated permissions, it triggers an async authorization flow:
+---
+
+### 2. Async Authorization (CIBA)
+
+When the agent needs to do something sensitive, it requests **out-of-band approval** from the user.
 
 ```
-Agent: "I need email:send permission to complete this task"
+Agent: "I need to send an email on your behalf"
     │
     ▼
-Auth0: Sends consent request to user
+Auth0: POST /bc-authorize → Notification to user's device
     │
     ▼
-User: Reviews and approves/denies in their app
+User: Reviews and approves on their phone
     │
     ▼
-Agent: Receives scoped token (or denial)
+Agent: Polls /oauth/token → Receives scoped access token
+    │
+    ▼
+Agent: Executes the tool
 ```
 
-### 3. Token Exchange
+**Key difference from in-app consent:** The user doesn't need to be looking at the agent's UI. Approval happens on a separate device/channel.
 
-The agent exchanges its own credentials + user context for a scoped token:
+**What it provides:** Asynchronous consent, separation of agent and approval device
+
+---
+
+### 3. Fine Grained Authorization (FGA)
+
+Per-object access control using relationships, not just scopes.
+
+```typescript
+// Define relationships
+writeTuple("user:alice", "viewer", "document:roadmap");
+writeTuple("user:alice", "editor", "document:budget");
+// No relation to document:classified → access denied
+
+// Check access before returning data
+const allowed = checkAccess("user:alice", "can_view", "document:classified");
+// → false
+```
+
+**FGA model:**
+```
+type document
+  relations
+    define viewer: [user]
+    define editor: [user]
+    define owner: [user]
+    define can_view: viewer or editor or owner
+```
+
+**What it provides:** Per-document access control, relationship-based authorization
+
+---
+
+### 4. Token Vault
+
+Securely store and manage the user's third-party OAuth credentials.
 
 ```
-Agent Token + User Assertion  →  Auth0  →  Scoped Access Token
-(machine-to-machine)           (token      (acts on behalf of
-                                exchange)   specific user)
+Agent needs to call Google Drive on behalf of Alice:
+    │
+    ▼
+Token Vault: getToken("alice", "google-drive")
+    │
+    ├── Token found and valid → return it
+    └── Token expired → refresh → return new token
+    │
+    ▼
+Agent: Calls Google Drive API with vaulted token
 ```
+
+**What it provides:** Secure credential storage, automatic refresh, user-keyed access
 
 ---
 
 ## Architecture Pattern
 
 ```
-┌──────────────────────────────────────────────────┐
-│                  Your Application                 │
-│                                                   │
-│  ┌───────────┐    ┌───────────┐    ┌───────────┐ │
-│  │   Chat    │───▶│  Agent    │───▶│  Tools    │ │
-│  │   UI      │    │  (LLM)   │    │           │ │
-│  └───────────┘    └─────┬─────┘    └─────┬─────┘ │
-│                         │                │        │
-│                    ┌────▼────────────────▼────┐   │
-│                    │   Auth0 AI for Agents    │   │
-│                    │                          │   │
-│                    │  • getTokenForTool()     │   │
-│                    │  • requestConsent()      │   │
-│                    │  • validatePermission()  │   │
-│                    └────────────┬─────────────┘   │
-│                                 │                  │
-└─────────────────────────────────┼──────────────────┘
-                                  │
-                            ┌─────▼─────┐
-                            │   Auth0   │
-                            │  Tenant   │
-                            └───────────┘
+┌──────────────────────────────────────────────────────┐
+│                  Your Application                     │
+│                                                       │
+│  ┌───────────┐    ┌──────────────────────────────┐   │
+│  │   Chat    │───▶│         Agent (LLM)          │   │
+│  │   UI      │    │                              │   │
+│  └───────────┘    │  ┌────────────────────────┐  │   │
+│                   │  │  1. User Auth (JWT)     │  │   │
+│                   │  │  2. CIBA (async consent)│  │   │
+│                   │  │  3. FGA (per-doc access) │  │   │
+│                   │  │  4. Token Vault (3P API) │  │   │
+│                   │  └────────────────────────┘  │   │
+│                   └──────────────┬───────────────┘   │
+│                                  │                    │
+│                            ┌─────▼─────┐             │
+│                            │   Auth0   │             │
+│                            │   Tenant  │             │
+│                            └───────────┘             │
+└──────────────────────────────────────────────────────┘
 ```
-
----
-
-## Integration Points
-
-### Frontend (React)
-- `@auth0/auth0-react` for user login
-- Access token attached to API calls
-
-### Backend (Node.js)
-- `express-oauth2-jwt-bearer` for API protection
-- Token exchange for agent-to-tool authorization
-- CIBA (Client-Initiated Backchannel Authentication) for async consent
-
-### Tool Definitions
-- Each tool declares required scopes
-- Agent checks authorization before execution
-- Unauthorized tools trigger consent flow
 
 ---
 
 ## Key Differentiator
 
-Auth0 AI for Agents doesn't replace your agent framework (LangChain, CrewAI, Vercel AI SDK, etc.). It **wraps around your tools** to add identity:
-
-```typescript
-// Without Auth0 - tool executes blindly
-function sendEmail(to, subject, body) {
-  return emailService.send(to, subject, body);
-}
-
-// With Auth0 AI for Agents - tool checks identity first
-async function sendEmail(to, subject, body, agentContext) {
-  const token = await auth0AI.getTokenForTool("send_email", agentContext);
-  if (!token) {
-    return await auth0AI.requestUserConsent("email:send", agentContext);
-  }
-  return emailService.send(to, subject, body, { authorization: token });
-}
-```
+Auth0 AI for Agents doesn't replace your agent framework. It **wraps around your tools** to add identity at every layer — from user login to CIBA consent to FGA checks to vaulted third-party credentials.

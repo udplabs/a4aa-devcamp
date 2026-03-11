@@ -2,7 +2,7 @@ import { PropsWithChildren } from "react";
 
 // =============================================================
 // LAB 1: Implement Auth0Provider
-// See: lab-guide/01-environment-setup.md - Step 4
+// See: lab-guide/01-user-authentication.md - Step 5
 //
 // Replace this placeholder with the real Auth0Provider using
 // @auth0/auth0-react. You'll need:
@@ -13,12 +13,5 @@ import { PropsWithChildren } from "react";
 
 export function Auth0Provider({ children }: PropsWithChildren) {
   // TODO: Replace with Auth0Provider from @auth0/auth0-react
-  return (
-    <>
-      <div className="lab-stub-banner" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 999 }}>
-        <strong>Lab 1, Step 4:</strong> Replace this file with the real Auth0Provider — see <code>lab-guide/01-environment-setup.md</code>
-      </div>
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }

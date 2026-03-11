@@ -1,10 +1,10 @@
-# Auth for GenAI: Securing MCP
+# Auth for MCP: Securing the Model Context Protocol
 
 ---
 
 ## What Is MCP?
 
-**Model Context Protocol (MCP)** is an open standard for connecting AI models to external tools and data sources. Think of it as a USB-C port for AI:
+**Model Context Protocol (MCP)** is an open standard for connecting AI models to external tools and data sources.
 
 ```
 ┌─────────┐     MCP      ┌─────────────┐
@@ -19,125 +19,131 @@ MCP servers expose **tools** (functions) and **resources** (data) that any MCP-c
 
 ## The Problem: MCP Has No Built-In Auth
 
-The MCP specification defines the protocol for communication but **does not prescribe authentication or authorization**. This means:
+The MCP specification defines the protocol but **does not prescribe authentication**:
 
 - Any client can connect to any MCP server
 - Tools execute without verifying the caller
-- No user context flows through to the tool
+- No user context flows through
 - Sensitive operations have no access control
 
 ---
 
-## Auth for MCP: The Solution
+## Five Capabilities of Auth for MCP
 
-Auth0's Auth for MCP adds an **OAuth 2.0 layer** to MCP servers:
+### 1. API Registration for Tools
 
-```
-┌─────────┐                        ┌───────────────┐
-│  Agent  │──── 1. Auth Request ──▶│    Auth0      │
-│         │◀─── 2. Access Token ───│    Tenant     │
-│         │                        └───────────────┘
-│         │                        ┌───────────────┐
-│         │──── 3. MCP Request ───▶│  MCP Server   │
-│         │     + Access Token     │  (Protected)  │
-│         │◀─── 4. Tool Result ────│               │
-└─────────┘                        └───────────────┘
-```
-
----
-
-## How It Works
-
-### 1. MCP Server Registration
-
-Register the MCP server as a **Resource Server** in Auth0:
+Register the MCP server as a **Resource Server** in Auth0 with per-tool scopes:
 
 ```
 Auth0 Dashboard → APIs → Create API
-  - Name: "My MCP Server"
   - Identifier: "https://mcp.example.com"
-  - Permissions: weather:read, calendar:read, email:send
+  - Permissions: mcp:weather:read, mcp:calendar:read, mcp:email:send
 ```
 
-### 2. OAuth 2.0 Metadata Discovery
+Each tool has a required scope. M2M applications are authorized with specific scopes.
 
-The protected MCP server exposes a standard OAuth metadata endpoint:
+---
+
+### 2. Protected Resource Metadata (RFC 9728)
+
+The MCP server advertises its auth requirements:
 
 ```
-GET /.well-known/oauth-authorization-server
+GET /.well-known/oauth-protected-resource
 
 {
-  "issuer": "https://your-tenant.auth0.com",
-  "authorization_endpoint": "https://your-tenant.auth0.com/authorize",
-  "token_endpoint": "https://your-tenant.auth0.com/oauth/token",
-  "registration_endpoint": "https://your-tenant.auth0.com/oidc/register"
+  "resource": "https://mcp.example.com",
+  "authorization_servers": ["https://your-tenant.auth0.com"],
+  "scopes_supported": ["mcp:weather:read", "mcp:calendar:read", "mcp:email:send"],
+  "bearer_methods_supported": ["header"]
 }
 ```
 
-### 3. Token Validation on Every Tool Call
+MCP clients read this metadata **before authenticating** — they know exactly what they need.
+
+---
+
+### 3. Dynamic Client Registration (DCR)
+
+MCP clients register themselves instead of being pre-configured:
+
+```
+POST https://your-tenant.auth0.com/oidc/register
+{
+  "client_name": "My MCP Agent",
+  "grant_types": ["client_credentials"],
+  "token_endpoint_auth_method": "client_secret_post"
+}
+
+→ { "client_id": "...", "client_secret": "..." }
+```
+
+New agents can connect without manual dashboard configuration.
+
+---
+
+### 4. Token Scoping via Resource Indicators (RFC 8707)
+
+When requesting tokens, specify which MCP server the token is for:
+
+```
+POST /oauth/token
+{
+  "grant_type": "client_credentials",
+  "audience": "https://mcp.example.com",
+  "resource": "https://mcp.example.com"  ← Resource Indicator
+}
+```
+
+The MCP server validates that the token's `aud` claim matches its own identifier. Tokens for Server A can't be used on Server B.
+
+---
+
+### 5. OAuth 2.0 Token Validation
+
+Every tool call is validated:
 
 ```typescript
-// MCP Server middleware
-server.use(async (request, next) => {
-  const token = request.headers.authorization?.split(" ")[1];
+const validateMCPToken = auth({
+  issuerBaseURL: `https://${AUTH0_DOMAIN}`,
+  audience: "https://mcp.example.com",
+});
 
-  // Validate with Auth0
-  const decoded = await validateToken(token, {
-    issuer: "https://your-tenant.auth0.com/",
-    audience: "https://mcp.example.com"
-  });
+app.post("/mcp/tools/call", validateMCPToken, (req, res) => {
+  const scopes = req.auth.payload.scope.split(" ");
+  const required = scopeMap[toolName];
 
-  // Check tool-specific scopes
-  const requiredScope = getRequiredScope(request.method);
-  if (!decoded.scope.includes(requiredScope)) {
-    throw new UnauthorizedError("Insufficient scope");
+  if (!scopes.includes(required)) {
+    return res.status(403).json({ error: "Insufficient scope" });
   }
-
-  return next();
+  // Execute tool...
 });
 ```
 
 ---
 
-## Auth for MCP vs Traditional API Auth
-
-| Aspect | Traditional API Auth | Auth for MCP |
-|--------|---------------------|--------------|
-| Client | Known, registered app | Any MCP-compatible agent |
-| Discovery | Hardcoded config | `.well-known` metadata |
-| Registration | Manual in dashboard | Dynamic client registration |
-| Scopes | Per-API | Per-tool granularity |
-| Token flow | Standard OAuth | OAuth + MCP transport |
-
----
-
-## The Full Picture: AI for Agents + Auth for MCP Together
+## The MCP Auth Flow (All 5 Together)
 
 ```
-┌──────────┐      ┌──────────────┐      ┌──────────────┐
-│  User    │─────▶│  AI Agent    │─────▶│  MCP Server  │
-│  (Auth0  │      │  (Auth0 AI   │      │  (Auth for   │
-│   Login) │      │   for Agents)│      │   MCP)       │
-└──────────┘      └──────────────┘      └──────────────┘
-     │                   │                      │
-     │      ┌────────────▼──────────────────────▼──┐
-     └─────▶│           Auth0 Tenant               │
-             │  • User identities                   │
-             │  • Agent credentials                  │
-             │  • MCP server registration            │
-             │  • Scopes & permissions               │
-             │  • Consent records                    │
-             └─────────────────────────────────────┘
+MCP Client                   MCP Server                    Auth0
+    │                            │                            │
+    │── GET /.well-known/prm ───▶│                            │
+    │◀── PRM metadata ──────────│                            │
+    │                            │                            │
+    │── POST /oidc/register ────────────────────────────────▶│  (DCR)
+    │◀── client_id, secret ──────────────────────────────────│
+    │                            │                            │
+    │── POST /oauth/token (resource=...) ──────────────────▶│  (Resource Indicator)
+    │◀── access_token ───────────────────────────────────────│
+    │                            │                            │
+    │── POST /mcp/tools/call ───▶│                            │
+    │   + Bearer token           │── Validate JWT ──────────▶│  (Token Validation)
+    │                            │── Check scope              │
+    │◀── Tool result ───────────│                            │
 ```
-
-**Auth0 AI for Agents** handles the agent's authorization to act on behalf of a user.
-
-**Auth for MCP** handles the MCP server's requirement that callers prove their identity.
-
-Together, they create an end-to-end identity chain from **human** to **agent** to **tool**.
 
 ---
 
 ## Key Takeaway
 
-> MCP gives AI agents a standard way to use tools. Auth for MCP gives those tools a standard way to verify who's using them and what they're allowed to do.
+> MCP gives AI agents a standard way to use tools. Auth for MCP gives those tools a standard way to verify who's using them and what they're allowed to do — through discovery, registration, scoping, and validation.

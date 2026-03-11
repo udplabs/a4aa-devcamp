@@ -1,14 +1,12 @@
 # Securing AI Agents with Auth0
 
-## Auth0 AI for Agents & Auth for MCP
+## Auth0 for AI Agents & Auth for MCP
 
 ---
 
 ### DevCamp Workshop
 
-**Duration:** 30 min presentation + 90 min hands-on lab
-
-**What you'll build:** A protected AI chat assistant with tool-calling capabilities, secured end-to-end with Auth0.
+**What you'll build:** A protected AI chat assistant secured end-to-end with Auth0 — from user authentication through CIBA, FGA, Token Vault, and MCP authorization.
 
 ---
 
@@ -22,14 +20,15 @@
 
 ### Agenda
 
-| Block | Topic | Duration |
-|-------|-------|----------|
-| Presentation | Why Identity Matters for AI | 5 min |
-| Presentation | Auth0 AI for Agents | 10 min |
-| Presentation | Auth for GenAI / MCP | 10 min |
-| Presentation | Lab Architecture Walkthrough | 5 min |
-| Lab 1 | Chat UI + User Authentication | 20 min |
-| Lab 2 | Protected LLM API | 15 min |
-| Lab 3 | Agent Authorization + Tool Calling | 25 min |
-| Lab 4 | MCP Server with Auth for MCP | 25 min |
-| Lab 5 | End-to-End Test | 5 min |
+| Block | Topic |
+|-------|-------|
+| Presentation | Why Identity Matters for AI |
+| Presentation | Auth0 AI for Agents (4 Use Cases) |
+| Presentation | Auth for MCP (5 Capabilities) |
+| Presentation | Lab Architecture Walkthrough |
+| Lab 1 | User Authentication |
+| Lab 2 | Async Authorization (CIBA) |
+| Lab 3 | Fine Grained Authorization (FGA) |
+| Lab 4 | Token Vault |
+| Lab 5 | Auth for MCP |
+| Lab 6 | End-to-End Integration Test |

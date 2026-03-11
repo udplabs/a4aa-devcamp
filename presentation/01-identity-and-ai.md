@@ -10,6 +10,8 @@ AI agents are the new application layer. They act on behalf of users, call APIs,
 - **What can they do?** There's no boundary on what data or actions the agent can access.
 - **Who approved this?** No audit trail of user consent for agent actions.
 - **Which tools are safe?** External tools (MCP servers) have no way to validate the caller.
+- **What can they see?** No per-document or per-resource access control.
+- **Whose credentials?** No secure way to access third-party APIs on the user's behalf.
 
 ---
 
@@ -26,20 +28,18 @@ Human User
           │
           ▼
 ┌─────────────────────┐
-│   AI Agent / LLM     │  ← Layer 2: API Protection
+│   AI Agent / LLM     │  ← Layer 2: API Protection + Agent Auth
 │   (Backend Service)  │     "Is this request authorized?"
+│                      │     CIBA: "Did the user approve this action?"
+│                      │     FGA: "Can this user see this document?"
+│                      │     Token Vault: "Get the user's 3P credentials"
 └─────────┬───────────┘
           │
           ▼
 ┌─────────────────────┐
-│   Tool Execution     │  ← Layer 3: Agent Authorization
-│   (Function Calls)   │     "Can the agent act for this user?"
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│   External Services  │  ← Layer 4: MCP / Third-Party Auth
-│   (MCP Servers)      │     "Does this agent have valid credentials?"
+│   External Services  │  ← Layer 3: MCP Auth
+│   (MCP Servers)      │     "Does this agent have valid, scoped credentials?"
+│   (Third-Party APIs) │     DCR, PRM, Resource Indicators, Token Validation
 └─────────────────────┘
 ```
 
@@ -49,29 +49,36 @@ Every layer in this chain needs identity. Auth0 provides it.
 
 ## Real-World Scenarios
 
-### Without Protection
+### Scenario 1: Sensitive Action Without CIBA
 1. User asks agent: "Send an email to my boss saying I quit"
-2. Agent calls email tool immediately
-3. No verification, no consent, no audit trail
-4. Email sent. Oops.
+2. Agent calls email tool immediately — no verification, no consent
+3. Email sent. Oops.
 
-### With Auth0 Protection
+### Scenario 2: With CIBA
 1. User asks agent: "Send an email to my boss saying I quit"
-2. Agent identifies this requires the `email:send` scope
-3. User is prompted to approve the action (async authorization)
-4. User reviews and confirms (or rejects)
-5. Agent receives a scoped token and executes
-6. Full audit trail recorded
+2. Agent triggers CIBA — sends approval request to user's device
+3. User reviews and confirms (or rejects) on their phone
+4. Only then does the agent execute
+
+### Scenario 3: Document Access Without FGA
+1. User asks agent: "Show me the classified report"
+2. Agent returns the document — no access check
+3. Unauthorized data exposed
+
+### Scenario 4: With FGA
+1. User asks agent: "Show me the classified report"
+2. FGA check: user has no `viewer` relation to this document
+3. Agent responds: "Access denied"
 
 ---
 
 ## Three Products, One Identity Layer
 
-| Product | What It Secures | Key Capability |
-|---------|----------------|----------------|
+| Product | What It Secures | Key Capabilities |
+|---------|----------------|-----------------|
 | **Auth0 (Core)** | The human user | Login, MFA, session management |
-| **Auth0 AI for Agents** | The AI agent's actions | Tool authorization, token exchange, user consent |
-| **Auth for GenAI (MCP)** | External tool servers | OAuth 2.0 for MCP, credential relay, scope enforcement |
+| **Auth0 AI for Agents** | The AI agent's actions | CIBA (async consent), FGA (per-object access), Token Vault (3P credentials) |
+| **Auth for MCP** | External tool servers | DCR, Protected Resource Metadata, Resource Indicators, Token Validation |
 
 ---
 

@@ -40,6 +40,33 @@ export const toolRegistry: Record<string, ToolDefinition> = {
     riskLevel: "high",
     requiresConsent: true,
   },
+
+  get_document: {
+    name: "get_document",
+    description: "Retrieve a specific document by ID",
+    parameters: { documentId: { type: "string", required: true } },
+    requiredScopes: ["tools:read"],
+    riskLevel: "medium",
+    requiresConsent: false,
+  },
+
+  list_documents: {
+    name: "list_documents",
+    description: "List all documents you have access to",
+    parameters: {},
+    requiredScopes: ["tools:read"],
+    riskLevel: "low",
+    requiresConsent: false,
+  },
+
+  get_external_files: {
+    name: "get_external_files",
+    description: "Get your files from the linked File Storage service",
+    parameters: {},
+    requiredScopes: ["tools:read"],
+    riskLevel: "medium",
+    requiresConsent: false,
+  },
 };
 
 export function getToolsForDisplay(): Array<{

@@ -1,12 +1,14 @@
 // =============================================================
-// LAB 4: Build the MCP Client
-// See: lab-guide/04-agent-authorization.md - Step 4
+// LAB 5: Build the MCP Client
+// See: lab-guide/05-auth-for-mcp.md
 //
 // This module connects the agent (Express API) to the MCP server.
 // It handles:
-// 1. Getting M2M tokens from Auth0 (client credentials flow)
-// 2. Listing available tools from the MCP server
-// 3. Calling tools with proper authorization
+// 1. PRM discovery (Part B)
+// 2. Dynamic client registration (Part C)
+// 3. Getting M2M tokens with resource indicators (Part D)
+// 4. Listing available tools from the MCP server
+// 5. Calling tools with proper authorization
 // =============================================================
 
 interface MCPClientConfig {
@@ -24,19 +26,24 @@ export class MCPClient {
     this.config = config;
   }
 
-  // TODO: Implement getToken() - client credentials flow with Auth0
+  // TODO (Part D): Implement getToken() - client credentials flow with resource indicator
   private async getToken(): Promise<string> {
-    throw new Error("MCPClient.getToken() not implemented - see Lab 4");
+    throw new Error("MCPClient.getToken() not implemented - see Lab 5");
   }
 
   // TODO: Implement listTools() - GET /mcp/tools with Bearer token
   async listTools(): Promise<any[]> {
-    throw new Error("MCPClient.listTools() not implemented - see Lab 4");
+    throw new Error("MCPClient.listTools() not implemented - see Lab 5");
   }
 
   // TODO: Implement callTool() - POST /mcp/tools/call with Bearer token
   async callTool(name: string, args: Record<string, any>): Promise<any> {
-    throw new Error("MCPClient.callTool() not implemented - see Lab 4");
+    throw new Error("MCPClient.callTool() not implemented - see Lab 5");
+  }
+
+  // TODO (Part B + C): Implement discoverAndRegister() - PRM + DCR
+  async discoverAndRegister(): Promise<void> {
+    throw new Error("MCPClient.discoverAndRegister() not implemented - see Lab 5");
   }
 }
 

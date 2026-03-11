@@ -1,9 +1,8 @@
 import { Chat } from "./components/Chat";
-import { LabGuide } from "./components/LabGuide";
 
 // =============================================================
 // LAB 1: Add authentication gate
-// See: lab-guide/01-environment-setup.md - Step 7
+// See: lab-guide/01-user-authentication.md - Step 7
 //
 // Currently the chat is shown to everyone. After Lab 1, only
 // authenticated users should see the chat.
@@ -20,7 +19,6 @@ export default function App() {
         </div>
       </header>
       <Chat />
-      <LabGuide />
     </div>
   );
 }

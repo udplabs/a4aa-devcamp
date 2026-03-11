@@ -1,6 +1,6 @@
 // =============================================================
-// LAB 3: Implement agent authorization
-// See: lab-guide/03-protect-the-api.md - Step 2
+// LAB 2: Implement agent authorization
+// See: lab-guide/02-async-authorization-ciba.md
 //
 // This module handles:
 // 1. Checking if a tool requires user consent

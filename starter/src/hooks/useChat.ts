@@ -1,11 +1,11 @@
 import { useState } from "react";
 
 // =============================================================
-// LAB 2: Add access token to fetch requests
-// See: lab-guide/02-chat-interface.md - Step 5
+// LAB 1: Add access token to fetch requests
+// See: lab-guide/01-user-authentication.md - Step 10
 //
-// LAB 3: Add pendingApproval state and handleApproval function
-// See: lab-guide/03-protect-the-api.md - Step 6
+// LAB 2: Add pendingCIBA state and polling
+// See: lab-guide/02-async-authorization-ciba.md - Step 6
 // =============================================================
 
 interface ChatMessage {
@@ -24,9 +24,14 @@ interface PendingApproval {
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
+  const [pendingApproval, setPendingApproval] =
+    useState<PendingApproval | null>(null);
+  const [pendingCIBA, setPendingCIBA] = useState<{
+    authReqId: string;
+    toolName: string;
+  } | null>(null);
 
-  // LAB 2: Uncomment and use this for authenticated requests
+  // LAB 1: Uncomment and use this for authenticated requests
   // const { getAccessTokenSilently } = useAuth0();
 
   const sendMessage = async (content: string) => {
@@ -36,7 +41,7 @@ export function useChat() {
 
     try {
       // =============================================================
-      // LAB 2: Add Authorization header with access token
+      // LAB 1: Add Authorization header with access token
       // const token = await getAccessTokenSilently({
       //   authorizationParams: {
       //     audience: import.meta.env.VITE_AUTH0_AUDIENCE,
@@ -49,7 +54,7 @@ export function useChat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // LAB 2: Add this header:
+          // LAB 1: Add this header:
           // Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -68,10 +73,15 @@ export function useChat() {
 
       const data = await response.json();
 
-      // LAB 3: Check for pending approval
+      // Check for pending approval (consent-required tools)
       if (data.pendingApproval) {
         setPendingApproval(data.pendingApproval);
       }
+
+      // =============================================================
+      // LAB 2: Check for pendingCIBA and start polling
+      // if (data.pendingCIBA) { ... }
+      // =============================================================
 
       setMessages((prev) => [
         ...prev,
@@ -91,16 +101,11 @@ export function useChat() {
     }
   };
 
-  // =============================================================
-  // LAB 3: Implement handleApproval
-  // See: lab-guide/03-protect-the-api.md - Step 6
-  // =============================================================
   const handleApproval = async (toolName: string, approved: boolean) => {
-    // LAB 3: Implement this function
-    // 1. Get access token
-    // 2. POST to /api/consent/approve or /api/consent/deny
-    // 3. Clear pendingApproval
-    // 4. If approved, re-send the last user message
+    // =============================================================
+    // LAB 2: Implement CIBA-based approval flow
+    // See: lab-guide/02-async-authorization-ciba.md
+    // =============================================================
 
     setPendingApproval(null);
 
@@ -115,5 +120,12 @@ export function useChat() {
     }
   };
 
-  return { messages, sendMessage, isLoading, pendingApproval, handleApproval };
+  return {
+    messages,
+    sendMessage,
+    isLoading,
+    pendingApproval,
+    handleApproval,
+    pendingCIBA,
+  };
 }

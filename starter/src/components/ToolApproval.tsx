@@ -1,9 +1,9 @@
 // =============================================================
-// LAB 3: This component is provided for you.
-// It renders a consent dialog when the agent needs approval
+// Tool Approval Dialog (pre-built)
+// Renders a consent dialog when the agent needs approval
 // to execute a high-risk tool.
 //
-// The approval flow is wired up in useChat.ts (Lab 3, Step 6)
+// The approval flow is wired up in useChat.ts
 // =============================================================
 
 interface ToolApprovalProps {

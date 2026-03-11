@@ -4,13 +4,15 @@
 
 ## The Application
 
-A **protected AI chat assistant** that:
+A **protected AI chat assistant** (Voyager — travel concierge) that:
 
-1. Authenticates users via Auth0
-2. Processes messages through a simulated LLM
-3. Calls tools (weather, calendar, email) on the user's behalf
-4. Protects tool calls with agent authorization
-5. Serves tools through an MCP server secured with Auth for MCP
+1. Authenticates users via Auth0 (User Auth)
+2. Requires out-of-band approval for sensitive actions (CIBA)
+3. Controls document access per-user (FGA)
+4. Accesses third-party APIs with stored credentials (Token Vault)
+5. Serves tools through a protected MCP server (Auth for MCP)
+
+**The chat UI is pre-built.** You focus entirely on the security and identity layers.
 
 ---
 
@@ -20,11 +22,11 @@ A **protected AI chat assistant** that:
 ┌─────────────────────────────────────────────────────────┐
 │                      Browser                             │
 │  ┌───────────────────────────────────────────────────┐  │
-│  │              React Chat Interface                  │  │
+│  │              React Chat Interface (pre-built)      │  │
 │  │                                                    │  │
 │  │   ┌──────────┐  ┌────────────┐  ┌──────────────┐ │  │
-│  │   │  Login   │  │  Message   │  │    Tool      │ │  │
-│  │   │  Screen  │  │  Thread    │  │   Approval   │ │  │
+│  │   │  Login   │  │  Message   │  │    CIBA      │ │  │
+│  │   │  Screen  │  │  Thread    │  │   Status     │ │  │
 │  │   └──────────┘  └────────────┘  └──────────────┘ │  │
 │  │              @auth0/auth0-react                    │  │
 │  └──────────────────────┬────────────────────────────┘  │
@@ -35,25 +37,25 @@ A **protected AI chat assistant** that:
                     │  Express    │
                     │  API Server │
                     ├─────────────┤
-                    │ JWT Verify  │ ← express-oauth2-jwt-bearer
+                    │ JWT Verify  │ ← Lab 1: User Authentication
                     ├─────────────┤
-                    │ LLM Sim    │ ← Simulated LLM (pattern matching)
+                    │ CIBA Auth   │ ← Lab 2: Async Authorization
                     ├─────────────┤
-                    │ Agent Auth  │ ← Auth0 AI for Agents
+                    │ FGA Checks  │ ← Lab 3: Fine Grained Authorization
                     ├─────────────┤
-                    │ MCP Client  │ ← Connects to MCP Server
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
+                    │ Token Vault │ ← Lab 4: Third-Party Access
+                    ├─────────────┤        ┌──────────────┐
+                    │ MCP Client  │───────▶│ Third-Party  │
+                    └──────┬──────┘        │ File Storage │
+                           │               │ API (:3002)  │
+                    ┌──────▼──────┐        └──────────────┘
                     │ MCP Server  │
+                    │   (:3001)   │ ← Lab 5: Auth for MCP
                     ├─────────────┤
-                    │ Auth for    │ ← OAuth 2.0 token validation
-                    │ MCP         │
-                    ├─────────────┤
-                    │ Tools:      │
-                    │  • Weather  │
-                    │  • Calendar │
-                    │  • Email    │
+                    │ PRM (9728)  │
+                    │ DCR         │
+                    │ Token Valid. │
+                    │ Scope Check │
                     └─────────────┘
 ```
 
@@ -61,50 +63,28 @@ A **protected AI chat assistant** that:
 
 ## Lab Progression
 
-### Lab 1: Chat UI + User Auth (20 min)
-**Start:** Bare React app with a chat layout
-**End:** Users can log in via Auth0 and see the chat interface
+### Lab 1: User Authentication
+**Start:** Pre-built chat UI, no auth
+**End:** Auth0 login, JWT-protected API, user context in agent
 
-You will:
-- Configure an Auth0 SPA application
-- Add `@auth0/auth0-react` to the app
-- Wrap the app in `Auth0Provider`
-- Implement login/logout buttons
-- Gate the chat behind authentication
+### Lab 2: Async Authorization (CIBA)
+**Start:** Tools execute without consent
+**End:** Sensitive tools require CIBA out-of-band approval
 
-### Lab 2: Protected LLM API (15 min)
-**Start:** Chat UI sends messages but backend is open
-**End:** API validates Auth0 JWTs on every request
+### Lab 3: Fine Grained Authorization (FGA)
+**Start:** No document access control
+**End:** Per-document authorization via FGA relationship model
 
-You will:
-- Create an Auth0 API (resource server)
-- Add `express-oauth2-jwt-bearer` middleware
-- Send access tokens from the frontend
-- Connect the simulated LLM to respond to messages
+### Lab 4: Token Vault
+**Start:** No third-party API access
+**End:** Agent accesses external File Storage API with vaulted tokens
 
-### Lab 3: Agent Authorization (25 min)
-**Start:** LLM responds but executes tools without permission
-**End:** Sensitive tools require user approval before execution
+### Lab 5: Auth for MCP
+**Start:** MCP server with no auth
+**End:** Full MCP auth: DCR, PRM, resource indicators, scope enforcement
 
-You will:
-- Define tool permission levels (auto-approve vs. consent-required)
-- Implement an approval flow in the UI
-- Add token exchange for tool execution
-- Build the async consent loop
-
-### Lab 4: MCP Server with Auth for MCP (25 min)
-**Start:** Tools run locally in the same process
-**End:** Tools are served via a protected MCP server
-
-You will:
-- Build an MCP server with the MCP SDK
-- Register it as an Auth0 API
-- Add OAuth 2.0 token validation
-- Connect the agent to the MCP server with credentials
-- Test end-to-end tool calls through MCP
-
-### Lab 5: End-to-End Test (5 min)
-Run through the complete flow and verify each protection layer.
+### Lab 6: End-to-End Test
+Run through all 8 test scenarios to verify every protection layer.
 
 ---
 
@@ -112,15 +92,18 @@ Run through the complete flow and verify each protection layer.
 
 | Component | Real or Simulated? | Why? |
 |-----------|-------------------|------|
-| Auth0 login | **Real** | You'll configure a real Auth0 tenant |
+| Auth0 login | **Real** | Real Auth0 tenant |
 | JWT validation | **Real** | Real tokens, real validation |
-| LLM | **Simulated** | No API key needed; focus is on auth, not AI |
-| Tool execution | **Simulated** | Mock responses; real auth flow |
-| MCP protocol | **Real** | Actual MCP SDK and transport |
-| Auth for MCP | **Real** | Real OAuth 2.0 token flow |
+| CIBA flow | **Simulated** | No push notifications in a lab; manual approval endpoint |
+| FGA model | **Simulated** | In-memory tuples instead of Auth0 FGA dashboard |
+| Token Vault | **Simulated** | In-memory store instead of managed vault |
+| Third-party API | **Simulated** | Local Express server instead of real Google/Dropbox |
+| LLM | **Simulated** | No API key needed; focus is on auth |
+| MCP protocol | **Real** | Actual HTTP endpoints + token flow |
+| Auth for MCP | **Real** | Real OAuth 2.0 token validation |
 
 ---
 
 ## Let's Build It
 
-Open your StackBlitz environment and proceed to **Lab 1**.
+Open your starter project and proceed to **Lab 1: User Authentication**.
