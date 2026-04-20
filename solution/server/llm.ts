@@ -31,6 +31,7 @@ export interface AgentUser {
   sub: string;
   scope: string[];
   email?: string;
+  accessToken?: string;
 }
 
 export interface LLMResponse {
@@ -142,7 +143,7 @@ export async function processMessage(
     } else {
       // MCP tools route through MCP client
       try {
-        result = await executeTool(toolName, parameters);
+        result = await executeTool(toolName, parameters, user.accessToken);
       } catch (error: any) {
         return {
           message: `Failed to execute ${toolName}: ${error.message}`,

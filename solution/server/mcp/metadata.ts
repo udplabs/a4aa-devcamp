@@ -15,6 +15,7 @@ export function protectedResourceMetadata(req: Request, res: Response) {
       "mcp:documents:read",
     ],
     bearer_methods_supported: ["header"],
+    client_registration_types_supported: ["metadata"],
     resource_documentation: "https://devcamp.example.com/mcp-api-docs",
   });
 }

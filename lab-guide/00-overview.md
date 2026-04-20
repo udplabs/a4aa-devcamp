@@ -17,7 +17,7 @@ The chat UI ships pre-built — your focus is entirely on the security and ident
 4. **Token Vault** — Securely store and manage third-party OAuth tokens for agent access
 
 ### Auth for MCP (Lab 5)
-5. **MCP Authentication** — API registration, Protected Resource Metadata (RFC 9728), Dynamic Client Registration, Resource Indicators (RFC 8707), and OAuth 2.0 token validation
+5. **MCP Authentication** — API registration, Protected Resource Metadata (RFC 9728), Client ID Metadata (CIMD), On-Behalf-Of Token Exchange, and OAuth 2.0 token validation
 
 ---
 
@@ -28,9 +28,9 @@ Browser (React)  →  Express API  →  MCP Server
    ↕                    ↕                ↕
   Auth0              Auth0            Auth0
   Login             JWT Verify      Token Validation
-                    CIBA             DCR
+                    CIBA             CIMD
                     FGA              Protected Resource Metadata
-                    Token Vault      Resource Indicators
+                    Token Vault      Token Exchange
 ```
 
 ---
@@ -77,7 +77,7 @@ app/
         ├── server.ts           # MCP server
         ├── client.ts           # MCP client
         ├── metadata.ts         # Protected Resource Metadata
-        └── dcr.ts              # Dynamic Client Registration
+        └── cimd.ts             # Client ID Metadata
 ```
 
 ---
@@ -102,7 +102,7 @@ The following components are fully implemented in the starter code and require n
 | 2 | CIBA authorization request, polling loop, out-of-band approval, tool gating |
 | 3 | FGA model, authorization tuples, per-document access checks, document tool |
 | 4 | Token vault store/retrieve, simulated third-party API, external files tool |
-| 5 | DCR flow, API registration, PRM endpoint, resource indicators, MCP token validation |
+| 5 | CIMD configuration, API registration, PRM endpoint, on-behalf-of token exchange, MCP token validation |
 | 6 | End-to-end integration test across all layers |
 
 ---
@@ -115,5 +115,5 @@ The following components are fully implemented in the starter code and require n
 | 2 | [Async Authorization (CIBA)](./02-async-authorization-ciba.md) | Backchannel consent for sensitive agent actions |
 | 3 | [Fine Grained Authorization](./03-fine-grained-authorization.md) | FGA for document-level access control |
 | 4 | [Token Vault](./04-token-vault.md) | Third-party API access via stored OAuth tokens |
-| 5 | [Auth for MCP](./05-auth-for-mcp.md) | DCR, API registration, PRM, resource indicators, token validation |
+| 5 | [Auth for MCP](./05-auth-for-mcp.md) | CIMD, API registration, PRM, on-behalf-of token exchange, token validation |
 | 6 | [End-to-End](./06-end-to-end.md) | Full integration test across all layers |

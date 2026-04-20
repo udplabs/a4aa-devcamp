@@ -1,14 +1,20 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
+
+let apiPort = 3000;
+try {
+  apiPort = parseInt(fs.readFileSync(".port", "utf-8").trim());
+} catch {}
 
 export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    strictPort: false, // auto-increment if port is in use
+    strictPort: false,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true,
       },
     },

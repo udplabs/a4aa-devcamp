@@ -13,7 +13,7 @@ import {
 import { storeToken, removeToken, listLinkedProviders } from "./token-vault/vault";
 import { startThirdPartyAPI } from "./token-vault/third-party-api";
 import { startMCPServer } from "./mcp/server";
-import { findAvailablePort } from "./utils/port";
+import fs from "fs";
 import guideRouter from "./routes/guide";
 
 // Use OpenAI LLM when API key is available, otherwise fall back to pattern matching
@@ -29,7 +29,9 @@ if (useLLM) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+let PORT = Number(process.env.PORT || 3000);
+try { PORT = parseInt(fs.readFileSync(".port", "utf-8").trim()); } catch {}
 
 app.use(cors());
 app.use(express.json());
@@ -120,9 +122,8 @@ app.get("/api/vault/providers", validateAccessToken, (req, res) => {
 });
 
 // Start servers
-const actualPort = await findAvailablePort(Number(PORT), "API");
-app.listen(actualPort, () => {
-  console.log(`API Server running on http://localhost:${actualPort}`);
+app.listen(PORT, () => {
+  console.log(`API Server running on http://localhost:${PORT}`);
 });
 
 startMCPServer();

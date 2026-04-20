@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import { processMessage as simulatorProcessMessage } from "./simulator";
 import { labStatusHandler } from "./lab-status";
-import { findAvailablePort } from "./utils/port";
+import fs from "fs";
 import guideRouter from "./routes/guide";
 
 // Use OpenAI LLM when API key is available, otherwise fall back to pattern matching
@@ -19,7 +19,9 @@ if (useLLM) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+let PORT = Number(process.env.PORT || 3000);
+try { PORT = parseInt(fs.readFileSync(".port", "utf-8").trim()); } catch {}
 
 app.use(cors());
 app.use(express.json());
@@ -107,9 +109,8 @@ app.post("/api/chat", async (req, res) => {
 // startMCPServer();
 // =============================================================
 
-const actualPort = await findAvailablePort(Number(PORT), "API");
-app.listen(actualPort, () => {
-  console.log(`API Server running on http://localhost:${actualPort}`);
+app.listen(PORT, () => {
+  console.log(`API Server running on http://localhost:${PORT}`);
 });
 
 export default app;

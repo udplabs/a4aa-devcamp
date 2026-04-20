@@ -35,12 +35,12 @@ The MCP specification defines the protocol but **does not prescribe authenticati
 Register the MCP server as a **Resource Server** in Auth0 with per-tool scopes:
 
 ```
-Auth0 Dashboard → APIs → Create API
+Auth0 Dashboard > APIs > Create API
   - Identifier: "https://mcp.example.com"
   - Permissions: mcp:weather:read, mcp:calendar:read, mcp:email:send
 ```
 
-Each tool has a required scope. M2M applications are authorized with specific scopes.
+Each tool has a required scope. Applications are authorized with specific scopes.
 
 ---
 
@@ -55,47 +55,50 @@ GET /.well-known/oauth-protected-resource
   "resource": "https://mcp.example.com",
   "authorization_servers": ["https://your-tenant.auth0.com"],
   "scopes_supported": ["mcp:weather:read", "mcp:calendar:read", "mcp:email:send"],
-  "bearer_methods_supported": ["header"]
+  "bearer_methods_supported": ["header"],
+  "client_registration_types_supported": ["metadata"]
 }
 ```
 
-MCP clients read this metadata **before authenticating** — they know exactly what they need.
+MCP clients read this metadata **before authenticating** -- they know exactly what they need.
 
 ---
 
-### 3. Dynamic Client Registration (DCR)
+### 3. Client ID Metadata (CIMD)
 
-MCP clients register themselves instead of being pre-configured:
+MCP clients are pre-configured in the Auth0 Dashboard with metadata that describes their identity and capabilities:
 
 ```
-POST https://your-tenant.auth0.com/oidc/register
-{
-  "client_name": "My MCP Agent",
-  "grant_types": ["client_credentials"],
-  "token_endpoint_auth_method": "client_secret_post"
-}
+Auth0 Dashboard > Applications > Create Application
+  - Name: "My MCP Agent"
+  - Type: Machine to Machine
+  - Authorized APIs: mcp.example.com
+  - Scopes: mcp:weather:read, mcp:calendar:read
 
-→ { "client_id": "...", "client_secret": "..." }
+→ client_id + client_secret (pre-configured, admin-controlled)
 ```
 
-New agents can connect without manual dashboard configuration.
+Unlike Dynamic Client Registration (DCR), clients don't self-register at runtime. An administrator pre-approves each client, controlling exactly which tools it can access.
 
 ---
 
-### 4. Token Scoping via Resource Indicators (RFC 8707)
+### 4. On-Behalf-Of Token Exchange
 
-When requesting tokens, specify which MCP server the token is for:
+When the agent needs to call an MCP tool, it exchanges the user's access token for one scoped to the MCP server:
 
 ```
 POST /oauth/token
 {
-  "grant_type": "client_credentials",
+  "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+  "subject_token": "<user's access token>",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
   "audience": "https://mcp.example.com",
-  "resource": "https://mcp.example.com"  ← Resource Indicator
+  "client_id": "...",
+  "client_secret": "..."
 }
 ```
 
-The MCP server validates that the token's `aud` claim matches its own identifier. Tokens for Server A can't be used on Server B.
+The resulting token carries the **user's identity** (`sub` claim) and targets the MCP server's audience. The MCP server knows both *who* is making the request and *what* they're allowed to do.
 
 ---
 
@@ -128,17 +131,20 @@ app.post("/mcp/tools/call", validateMCPToken, (req, res) => {
 MCP Client                   MCP Server                    Auth0
     │                            │                            │
     │── GET /.well-known/prm ───▶│                            │
-    │◀── PRM metadata ──────────│                            │
+    │◀── PRM metadata ──────────│  (includes CIMD support)   │
     │                            │                            │
-    │── POST /oidc/register ────────────────────────────────▶│  (DCR)
-    │◀── client_id, secret ──────────────────────────────────│
+    │   (client_id is pre-configured via CIMD -- no runtime   │
+    │    registration needed)                                  │
     │                            │                            │
-    │── POST /oauth/token (resource=...) ──────────────────▶│  (Resource Indicator)
-    │◀── access_token ───────────────────────────────────────│
+    │── POST /oauth/token ──────────────────────────────────▶│  (Token Exchange)
+    │   grant_type=token-exchange                             │
+    │   subject_token=<user token>                            │
+    │   audience=https://mcp.example.com                      │
+    │◀── access_token (user identity + MCP audience) ────────│
     │                            │                            │
     │── POST /mcp/tools/call ───▶│                            │
     │   + Bearer token           │── Validate JWT ──────────▶│  (Token Validation)
-    │                            │── Check scope              │
+    │                            │── Check scope + user       │
     │◀── Tool result ───────────│                            │
 ```
 
@@ -146,4 +152,4 @@ MCP Client                   MCP Server                    Auth0
 
 ## Key Takeaway
 
-> MCP gives AI agents a standard way to use tools. Auth for MCP gives those tools a standard way to verify who's using them and what they're allowed to do — through discovery, registration, scoping, and validation.
+> MCP gives AI agents a standard way to use tools. Auth for MCP gives those tools a standard way to verify who's using them and what they're allowed to do -- through discovery, client identity, token exchange, and validation. User context flows end-to-end, so MCP servers always know both the client and the user behind every request.

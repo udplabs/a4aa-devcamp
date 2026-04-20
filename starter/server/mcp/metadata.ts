@@ -7,6 +7,7 @@
 // - authorization_servers
 // - scopes_supported
 // - bearer_methods_supported
+// - client_registration_types_supported (CIMD)
 // =============================================================
 
 import { Request, Response } from "express";

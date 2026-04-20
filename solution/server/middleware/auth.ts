@@ -6,9 +6,13 @@ export const validateAccessToken = auth({
 });
 
 export function extractUser(req: any) {
+  const authHeader = req.headers?.authorization || "";
+  const accessToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
   return {
     sub: req.auth?.payload?.sub as string,
     scope: (req.auth?.payload?.scope as string)?.split(" ") || [],
     email: req.auth?.payload?.email as string | undefined,
+    accessToken,
   };
 }

@@ -22,13 +22,16 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
     authorization_endpoint: `https://${process.env.AUTH0_DOMAIN}/authorize`,
     token_endpoint: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
     jwks_uri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
-    registration_endpoint: `https://${process.env.AUTH0_DOMAIN}/oidc/register`,
     scopes_supported: [
       "mcp:weather:read",
       "mcp:calendar:read",
       "mcp:email:send",
       "mcp:documents:read",
     ],
+    grant_types_supported: [
+      "urn:ietf:params:oauth:grant-type:token-exchange",
+    ],
+    client_registration_types_supported: ["metadata"],
   });
 });
 

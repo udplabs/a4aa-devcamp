@@ -65,7 +65,7 @@ export async function labStatusHandler(_req: Request, res: Response) {
   let mcpClientImplemented = false;
   try {
     const client = createMCPClient();
-    await client.callTool("test", {});
+    await client.callTool("test", {}, "");
     // If we get here without error, it's implemented (though the call itself may fail for other reasons)
     mcpClientImplemented = true;
   } catch (e: any) {

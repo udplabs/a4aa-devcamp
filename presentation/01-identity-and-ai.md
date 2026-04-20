@@ -39,7 +39,7 @@ Human User
 ┌─────────────────────┐
 │   External Services  │  ← Layer 3: MCP Auth
 │   (MCP Servers)      │     "Does this agent have valid, scoped credentials?"
-│   (Third-Party APIs) │     DCR, PRM, Resource Indicators, Token Validation
+│   (Third-Party APIs) │     CIMD, PRM, Token Exchange, Token Validation
 └─────────────────────┘
 ```
 
@@ -78,7 +78,7 @@ Every layer in this chain needs identity. Auth0 provides it.
 |---------|----------------|-----------------|
 | **Auth0 (Core)** | The human user | Login, MFA, session management |
 | **Auth0 AI for Agents** | The AI agent's actions | CIBA (async consent), FGA (per-object access), Token Vault (3P credentials) |
-| **Auth for MCP** | External tool servers | DCR, Protected Resource Metadata, Resource Indicators, Token Validation |
+| **Auth for MCP** | External tool servers | CIMD, Protected Resource Metadata, On-Behalf-Of Token Exchange, Token Validation |
 
 ---
 

@@ -36,7 +36,7 @@ Run through each of these scenarios to confirm everything works.
 **What's protecting this:**
 - Frontend → API: Auth0 access token (JWT)
 - Agent → Tool: Auto-approved (low risk, no consent required)
-- Agent → MCP: M2M client credentials token scoped to MCP server
+- Agent → MCP: On-behalf-of token exchange (user token exchanged for MCP-scoped token)
 
 ---
 
@@ -166,8 +166,8 @@ Both should return **401 Unauthorized**.
 | Third-party API without credentials | Token Vault managed tokens | Agent |
 | Direct MCP server access | OAuth 2.0 token validation | MCP |
 | MCP call without required scope | Per-tool scope enforcement | MCP |
-| Unknown MCP client | Dynamic Client Registration | MCP |
-| Token reuse across MCP servers | Resource indicators (RFC 8707) | MCP |
+| Unknown MCP client | Client ID Metadata (CIMD) | MCP |
+| Token reuse across MCP servers | On-behalf-of token exchange | MCP |
 
 ---
 
@@ -202,7 +202,7 @@ Both should return **401 Unauthorized**.
 │                          │                                    │   │
 │                          │  ┌──────────────────┐             │   │
 │                          │  │  MCP Client      │─────▶ MCP Server
-│                          │  │  (M2M + DCR)     │      • PRM (RFC 9728)
+│                          │  │  (CIMD + Exchange)│      • PRM (RFC 9728)
 │                          │  └──────────────────┘      • Token Validation
 │                          └──────────────────────────────────┘   │
 │                                                                  │

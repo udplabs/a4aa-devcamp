@@ -53,7 +53,7 @@ A **protected AI chat assistant** (Voyager — travel concierge) that:
                     │   (:3001)   │ ← Lab 5: Auth for MCP
                     ├─────────────┤
                     │ PRM (9728)  │
-                    │ DCR         │
+                    │ CIMD        │
                     │ Token Valid. │
                     │ Scope Check │
                     └─────────────┘
@@ -81,7 +81,7 @@ A **protected AI chat assistant** (Voyager — travel concierge) that:
 
 ### Lab 5: Auth for MCP
 **Start:** MCP server with no auth
-**End:** Full MCP auth: DCR, PRM, resource indicators, scope enforcement
+**End:** Full MCP auth: CIMD, PRM, on-behalf-of token exchange, scope enforcement
 
 ### Lab 6: End-to-End Test
 Run through all 8 test scenarios to verify every protection layer.

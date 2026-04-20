@@ -11,6 +11,7 @@ export interface AgentUser {
   sub: string;
   scope: string[];
   email?: string;
+  accessToken?: string;
 }
 
 export interface LLMResponse {
@@ -99,7 +100,7 @@ export async function processMessage(
 
     // Execute MCP tools via MCP client
     try {
-      const result = await executeTool(intent.toolName, intent.parameters);
+      const result = await executeTool(intent.toolName, intent.parameters, user.accessToken);
       return {
         message: formatToolResponse(intent.toolName, result),
         toolCalls: [{ tool: intent.toolName, result, status: "success" }],

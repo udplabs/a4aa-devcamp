@@ -6,7 +6,8 @@ interface MCPClientConfig {
   audience: string;
 }
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
+// Cache exchanged tokens per user (keyed by last 16 chars of user token)
+const cachedTokens = new Map<string, { token: string; expiresAt: number }>();
 
 export class MCPClient {
   private config: MCPClientConfig;
@@ -15,14 +16,16 @@ export class MCPClient {
     this.config = config;
   }
 
-  // Get an access token for the MCP server using client credentials
-  private async getToken(): Promise<string> {
-    // Return cached token if still valid
-    if (cachedToken && Date.now() < cachedToken.expiresAt) {
-      return cachedToken.token;
+  // Exchange the user's access token for one scoped to the MCP server
+  private async getToken(userAccessToken: string): Promise<string> {
+    const cacheKey = userAccessToken.slice(-16);
+    const cached = cachedTokens.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.token;
     }
+    if (cached) cachedTokens.delete(cacheKey);
 
-    console.log("[MCP Client] Requesting new M2M token from Auth0...");
+    console.log("[MCP Client] Exchanging user token for MCP-scoped token...");
 
     const response = await fetch(
       `https://${this.config.auth0Domain}/oauth/token`,
@@ -30,32 +33,34 @@ export class MCPClient {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          grant_type: "client_credentials",
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: userAccessToken,
+          subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          audience: this.config.audience,
           client_id: this.config.clientId,
           client_secret: this.config.clientSecret,
-          audience: this.config.audience,
         }),
       }
     );
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Failed to get MCP token: ${response.statusText} - ${error}`);
+      throw new Error(`Token exchange failed: ${response.statusText} - ${error}`);
     }
 
     const data = await response.json();
-    cachedToken = {
+    cachedTokens.set(cacheKey, {
       token: data.access_token,
       expiresAt: Date.now() + (data.expires_in - 60) * 1000,
-    };
+    });
 
-    console.log("[MCP Client] M2M token acquired successfully");
-    return cachedToken.token;
+    console.log("[MCP Client] Token exchange successful -- MCP token acquired");
+    return data.access_token;
   }
 
   // List available tools from the MCP server
-  async listTools(): Promise<any[]> {
-    const token = await this.getToken();
+  async listTools(userAccessToken: string): Promise<any[]> {
+    const token = await this.getToken(userAccessToken);
     const response = await fetch(`${this.config.serverUrl}/mcp/tools`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -69,8 +74,8 @@ export class MCPClient {
   }
 
   // Call a tool on the MCP server
-  async callTool(name: string, args: Record<string, any>): Promise<any> {
-    const token = await this.getToken();
+  async callTool(name: string, args: Record<string, any>, userAccessToken: string): Promise<any> {
+    const token = await this.getToken(userAccessToken);
 
     console.log(`[MCP Client] Calling tool: ${name}`);
 

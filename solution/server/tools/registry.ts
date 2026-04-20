@@ -83,12 +83,13 @@ const mcpClient = createMCPClient();
 
 export async function executeTool(
   toolName: string,
-  parameters: Record<string, any>
+  parameters: Record<string, any>,
+  userAccessToken?: string
 ): Promise<any> {
   console.log(`[Tools] Executing via MCP: ${toolName}`, parameters);
 
   try {
-    const result = await mcpClient.callTool(toolName, parameters);
+    const result = await mcpClient.callTool(toolName, parameters, userAccessToken || "");
     console.log(`[Tools] MCP result:`, result);
     return result;
   } catch (error: any) {

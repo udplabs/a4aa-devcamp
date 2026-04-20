@@ -9,7 +9,7 @@
 | Pillar | Labs | Focus |
 |--------|------|-------|
 | **Auth0 for AI Agents** | Labs 1–4 | User auth, async consent (CIBA), per-object access (FGA), third-party credentials (Token Vault) |
-| **Auth for MCP** | Lab 5 | API registration, Protected Resource Metadata (RFC 9728), DCR, Resource Indicators (RFC 8707), token validation |
+| **Auth for MCP** | Lab 5 | API registration, Protected Resource Metadata (RFC 9728), CIMD, On-Behalf-Of Token Exchange, token validation |
 
 Lab 6 is an end-to-end integration test that exercises all layers together.
 
@@ -22,9 +22,9 @@ Browser (React)  →  Express API  →  MCP Server (:3001)
    ↕                    ↕                ↕
   Auth0              Auth0            Auth0
   Login             JWT Verify      Token Validation
-                    CIBA             DCR
+                    CIBA             CIMD
                     FGA              Protected Resource Metadata
-                    Token Vault →    Resource Indicators
+                    Token Vault →    Token Exchange
                          ↓
                    Third-Party File
                    Storage API (:3002)
@@ -148,16 +148,16 @@ Browser (React)  →  Express API  →  MCP Server (:3001)
 **Objectives:**
 - **Part A — API Registration:** Register MCP server as an Auth0 API with per-tool scopes (`mcp:weather:read`, `mcp:calendar:read`, `mcp:email:send`, `mcp:documents:read`)
 - **Part B — Protected Resource Metadata (RFC 9728):** `GET /.well-known/oauth-protected-resource` advertising auth requirements
-- **Part C — Dynamic Client Registration:** MCP clients register themselves with Auth0 dynamically
-- **Part D — Resource Indicators (RFC 8707):** Token requests include a `resource` parameter; MCP server validates `aud` claim
+- **Part C — Client ID Metadata (CIMD):** MCP clients are pre-configured in Auth0 with metadata describing their identity and capabilities
+- **Part D — On-Behalf-Of Token Exchange:** Agent exchanges user's access token for one scoped to the MCP server; user identity flows through
 - **Part E — OAuth 2.0 Token Validation:** Every tool call validated with `express-oauth2-jwt-bearer` + per-tool scope enforcement
 
 **Key Files:**
 | Starter | What Changes |
 |---------|-------------|
 | `server/mcp/metadata.ts` | Protected Resource Metadata endpoint |
-| `server/mcp/dcr.ts` | Dynamic Client Registration logic (simulated) |
-| `server/mcp/client.ts` | `discoverAndRegister()`, token request with resource indicator |
+| `server/mcp/cimd.ts` | Client ID Metadata module |
+| `server/mcp/client.ts` | On-behalf-of token exchange, tool execution with user context |
 | `server/mcp/server.ts` | Full MCP server: PRM, OAuth metadata, token validation, scope enforcement |
 
 **Checkpoint:**
@@ -195,7 +195,7 @@ Browser (React)  →  Express API  →  MCP Server (:3001)
 | **00 — Title** | `presentation/00-title.md` | Workshop title, what you'll build, prerequisites, agenda table |
 | **01 — Why Identity Matters for AI** | `presentation/01-identity-and-ai.md` | New attack surface, three-layer trust chain, real-world scenarios (with/without CIBA & FGA), three Auth0 products overview |
 | **02 — Auth0 AI for Agents** | `presentation/02-auth0-ai-agents.md` | Four use cases: User Auth, CIBA, FGA, Token Vault — with code snippets and architecture diagram |
-| **03 — Auth for MCP** | `presentation/03-auth-for-mcp.md` | MCP overview, auth gap, five capabilities (API registration, PRM, DCR, resource indicators, token validation), combined flow diagram |
+| **03 — Auth for MCP** | `presentation/03-auth-for-mcp.md` | MCP overview, auth gap, five capabilities (API registration, PRM, CIMD, on-behalf-of token exchange, token validation), combined flow diagram |
 | **04 — Lab Overview** | `presentation/04-lab-overview.md` | Voyager app description, full architecture diagram, lab progression (Labs 1–6), simulated vs. real table |
 
 ---
