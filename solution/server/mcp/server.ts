@@ -1,6 +1,7 @@
 import express from "express";
 import { auth } from "express-oauth2-jwt-bearer";
 import { protectedResourceMetadata } from "./metadata";
+import { findAvailablePort } from "../utils/port";
 
 const app = express();
 app.use(express.json());
@@ -153,8 +154,9 @@ function executeToolLocally(name: string, args: any): any {
   }
 }
 
-export function startMCPServer() {
-  const port = parseInt(process.env.MCP_SERVER_PORT || "3001");
+export async function startMCPServer() {
+  const preferredPort = parseInt(process.env.MCP_SERVER_PORT || "3001");
+  const port = await findAvailablePort(preferredPort, "MCP Server");
   app.listen(port, () => {
     console.log(`[MCP Server] Running on http://localhost:${port}`);
     console.log(`[MCP Server] PRM: http://localhost:${port}/.well-known/oauth-protected-resource`);

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Chat } from "./components/Chat";
+import { LabGuide } from "./components/LabGuide";
 
 // =============================================================
 // LAB 1: Add authentication gate
@@ -9,16 +11,22 @@ import { Chat } from "./components/Chat";
 // =============================================================
 
 export default function App() {
+  const [showGuide, setShowGuide] = useState(false);
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>Voyager</h1>
         <div className="user-info">
+          <button className="guide-toggle" onClick={() => setShowGuide(true)}>
+            Lab Guide
+          </button>
           <span>Not logged in</span>
           {/* LAB 1: Add logout button here */}
         </div>
       </header>
       <Chat />
+      {showGuide && <LabGuide onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

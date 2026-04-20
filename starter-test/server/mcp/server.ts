@@ -15,6 +15,7 @@
 // =============================================================
 
 import express from "express";
+import { findAvailablePort } from "../utils/port";
 
 const app = express();
 app.use(express.json());
@@ -25,8 +26,9 @@ app.use(express.json());
 // TODO: Add GET /mcp/tools endpoint (protected)
 // TODO: Add POST /mcp/tools/call endpoint (protected + scope check)
 
-export function startMCPServer() {
-  const port = parseInt(process.env.MCP_SERVER_PORT || "3001");
+export async function startMCPServer() {
+  const preferredPort = parseInt(process.env.MCP_SERVER_PORT || "3001");
+  const port = await findAvailablePort(preferredPort, "MCP Server");
   app.listen(port, () => {
     console.log(`[MCP Server] Running on http://localhost:${port}`);
   });

@@ -86,10 +86,11 @@ app/
 
 The following components are fully implemented in the starter code and require no modification:
 
-- **Chat UI** — `Chat.tsx`, `Message.tsx`, `LoginScreen.tsx` (complete interface)
-- **Styles** — `index.css` (all styling)
-- **Basic Express server** — `/api/chat` endpoint (no auth)
-- **Simulated LLM** — Pattern-matching response logic in `simulator.ts`
+- **Chat UI** -- `Chat.tsx`, `Message.tsx`, `LoginScreen.tsx` (complete interface)
+- **Styles** -- `index.css` (all styling)
+- **Basic Express server** -- `/api/chat` endpoint (no auth)
+- **AI Responses** -- When `OPENAI_API_KEY` is set in your `.env`, the agent uses OpenAI for natural language responses with real tool calling. Without a key, it falls back to a pattern-matching simulator. Either way, the security layers you build are identical.
+- **Pattern-matching fallback** -- `simulator.ts` handles responses when no API key is configured
 
 ---
 

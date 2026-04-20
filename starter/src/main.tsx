@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles/index.css";
+import "./styles/lab-guide.css";
 
 // =============================================================
 // LAB 1: Wrap <App /> with Auth0Provider

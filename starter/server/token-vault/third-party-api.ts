@@ -13,6 +13,7 @@
 // =============================================================
 
 import express from "express";
+import { findAvailablePort } from "../utils/port";
 
 const app = express();
 app.use(express.json());
@@ -28,8 +29,9 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "File Storage API" });
 });
 
-export function startThirdPartyAPI() {
-  const port = parseInt(process.env.THIRD_PARTY_API_PORT || "3002");
+export async function startThirdPartyAPI() {
+  const preferredPort = parseInt(process.env.THIRD_PARTY_API_PORT || "3002");
+  const port = await findAvailablePort(preferredPort, "Third-Party API");
   app.listen(port, () => {
     console.log(
       `[Third-Party API] File Storage API running on http://localhost:${port}`

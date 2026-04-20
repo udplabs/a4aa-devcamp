@@ -1,8 +1,22 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { processMessage } from "./simulator";
+import { processMessage as simulatorProcessMessage } from "./simulator";
 import { labStatusHandler } from "./lab-status";
+import { findAvailablePort } from "./utils/port";
+import guideRouter from "./routes/guide";
+
+// Use OpenAI LLM when API key is available, otherwise fall back to pattern matching
+const useLLM = !!process.env.OPENAI_API_KEY;
+let processMessage = simulatorProcessMessage;
+
+if (useLLM) {
+  const llm = await import("./llm");
+  processMessage = llm.processMessage;
+  console.log("[Server] Using OpenAI LLM for chat responses");
+} else {
+  console.log("[Server] No OPENAI_API_KEY found, using pattern-matching simulator");
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +30,9 @@ app.use(express.json());
 //
 // import { validateAccessToken, extractUser } from "./middleware/auth";
 // =============================================================
+
+// Lab guide viewer
+app.use(guideRouter);
 
 // Lab progress detection (used by the in-app Lab Guide panel)
 app.get("/api/lab-status", labStatusHandler);
@@ -90,8 +107,9 @@ app.post("/api/chat", async (req, res) => {
 // startMCPServer();
 // =============================================================
 
-app.listen(PORT, () => {
-  console.log(`API Server running on http://localhost:${PORT}`);
+const actualPort = await findAvailablePort(Number(PORT), "API");
+app.listen(actualPort, () => {
+  console.log(`API Server running on http://localhost:${actualPort}`);
 });
 
 export default app;
