@@ -6,10 +6,11 @@ export function LoginScreen() {
   return (
     <div className="login-screen">
       <div className="login-card">
-        <h1>Voyager</h1>
-        <p>Sign in to plan your next adventure.</p>
+        <h1>RetailZero Z-Merchant</h1>
+        <p>Sign in to run wholesale quotes at deal-desk speed.</p>
         <p className="login-subtitle">
-          Your travel plans are secured by Auth0.
+          Authenticated by Auth0. Actions are gated by FGA, Token Vault,
+          CIBA, and an Auth0-secured MCP server.
         </p>
         <button
           className="login-button"

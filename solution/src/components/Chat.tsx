@@ -4,8 +4,13 @@ import { ToolApproval } from "./ToolApproval";
 import { useChat } from "../hooks/useChat";
 
 export function Chat() {
-  const { messages, sendMessage, isLoading, pendingApproval, handleApproval } =
-    useChat();
+  const {
+    messages,
+    sendMessage,
+    isLoading,
+    pendingCIBA,
+    handleCIBADecision,
+  } = useChat();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -27,30 +32,41 @@ export function Chat() {
       <div className="messages-container">
         {messages.length === 0 && (
           <div className="empty-state">
-            <h2>Welcome to Voyager</h2>
-            <p>Your AI travel concierge. Try asking about:</p>
+            <h2>Z-Merchant</h2>
+            <p>
+              RetailZero's wholesale quote agent. Draft, route, and commit
+              B2B deals end-to-end. Try:
+            </p>
             <div className="suggestions">
               <button
                 className="suggestion"
-                onClick={() =>
-                  sendMessage("What's the weather in Bali?")
-                }
+                onClick={() => sendMessage("Quote SKU-WX-42 for Acme")}
               >
-                Weather in Bali
+                Quote SKU-WX-42 for Acme
               </button>
               <button
                 className="suggestion"
-                onClick={() => sendMessage("Show my trip itinerary")}
+                onClick={() => sendMessage("Draft the Acme bulk quote")}
               >
-                My trip itinerary
+                Draft the Acme bulk quote
               </button>
               <button
                 className="suggestion"
                 onClick={() =>
-                  sendMessage("Send a booking confirmation to my email")
+                  sendMessage("Post the Acme quote to the deal-desk triage")
                 }
               >
-                Send booking confirmation
+                Post to deal-desk triage
+              </button>
+              <button
+                className="suggestion"
+                onClick={() =>
+                  sendMessage(
+                    "Commit the Acme quote at 25% discount, net-60"
+                  )
+                }
+              >
+                Commit at 25% discount (CIBA)
               </button>
             </div>
           </div>
@@ -77,14 +93,12 @@ export function Chat() {
           </div>
         )}
 
-        {pendingApproval && (
+        {pendingCIBA && (
           <ToolApproval
-            toolName={pendingApproval.toolName}
-            description={pendingApproval.description}
-            riskLevel={pendingApproval.riskLevel}
-            requiredScopes={pendingApproval.requiredScopes}
-            onApprove={() => handleApproval(pendingApproval.toolName, true)}
-            onDeny={() => handleApproval(pendingApproval.toolName, false)}
+            toolName={pendingCIBA.toolName}
+            bindingMessage={pendingCIBA.bindingMessage}
+            onApprove={() => handleCIBADecision(true)}
+            onDeny={() => handleCIBADecision(false)}
           />
         )}
 
@@ -96,7 +110,7 @@ export function Chat() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about destinations, itineraries, or bookings..."
+          placeholder="Ask me to quote, draft, triage, or commit a wholesale deal..."
           disabled={isLoading}
           className="message-input"
         />

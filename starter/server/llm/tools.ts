@@ -1,12 +1,12 @@
 // =============================================================
-// OpenAI Tool Definitions for the Voyager Agent
+// OpenAI Tool Definitions for Z-Merchant
 //
 // These define what tools the LLM can call. The actual execution
-// and authorization happen server-side -- the LLM only decides
+// and authorization happen server-side. The LLM only decides
 // WHICH tool to call and with what arguments.
 //
-// LAB 3: Add get_document and list_documents tools
-// LAB 4: Add get_external_files tool
+// Pre-built: the four Z-Merchant tools. Do not modify unless the
+// tool registry shape changes.
 // =============================================================
 
 import type { ChatCompletionTool } from "openai/resources/chat/completions";
@@ -16,94 +16,75 @@ export function getToolsForOpenAI(): ChatCompletionTool[] {
     {
       type: "function",
       function: {
-        name: "get_weather",
-        description: "Check destination weather and travel conditions for a city or location",
+        name: "get_catalog_and_buyer_tier",
+        description:
+          "Look up catalog pricing for a SKU and the buyer tier for a wholesale account.",
         parameters: {
           type: "object",
           properties: {
-            location: {
+            accountId: {
               type: "string",
-              description: "The city or location to check weather for (e.g., 'Bali', 'Tokyo', 'Paris')",
+              description: "Wholesale account id, e.g. 'acme', 'globex'",
+            },
+            sku: {
+              type: "string",
+              description: "Catalog SKU, e.g. 'SKU-WX-42'",
             },
           },
-          required: ["location"],
+          required: ["accountId", "sku"],
         },
       },
     },
     {
       type: "function",
       function: {
-        name: "get_calendar",
-        description: "View the user's trip itinerary and scheduled activities",
+        name: "create_google_doc",
+        description:
+          "Create a Google Doc (bulk quote draft) in the rep's Workspace.",
         parameters: {
           type: "object",
-          properties: {},
-          required: [],
+          properties: {
+            title: { type: "string", description: "Doc title" },
+            body: { type: "string", description: "Markdown-flavored body" },
+          },
+          required: ["title", "body"],
         },
       },
     },
     {
       type: "function",
       function: {
-        name: "send_email",
-        description: "Send a booking confirmation or travel update email",
+        name: "post_slack_triage",
+        description:
+          "Post a summary to #wholesale-quote-triage in Slack.",
         parameters: {
           type: "object",
           properties: {
-            to: {
-              type: "string",
-              description: "The recipient email address",
-            },
-            subject: {
-              type: "string",
-              description: "The email subject line",
-            },
-            body: {
-              type: "string",
-              description: "The email body content",
-            },
+            channel: { type: "string" },
+            summary: { type: "string" },
+            docUrl: { type: "string" },
           },
-          required: ["to", "subject", "body"],
+          required: ["summary"],
         },
       },
     },
-
-    // =============================================================
-    // LAB 3: Add these tool definitions for FGA-protected documents
-    //
-    // {
-    //   type: "function",
-    //   function: {
-    //     name: "get_document",
-    //     description: "Retrieve a specific document by ID",
-    //     parameters: {
-    //       type: "object",
-    //       properties: {
-    //         documentId: { type: "string", description: "The document ID to retrieve" },
-    //       },
-    //       required: ["documentId"],
-    //     },
-    //   },
-    // },
-    // {
-    //   type: "function",
-    //   function: {
-    //     name: "list_documents",
-    //     description: "List all documents the user has access to",
-    //     parameters: { type: "object", properties: {}, required: [] },
-    //   },
-    // },
-    //
-    // LAB 4: Add this tool definition for Token Vault files
-    //
-    // {
-    //   type: "function",
-    //   function: {
-    //     name: "get_external_files",
-    //     description: "Get files from the user's linked cloud storage service",
-    //     parameters: { type: "object", properties: {}, required: [] },
-    //   },
-    // },
-    // =============================================================
+    {
+      type: "function",
+      function: {
+        name: "commit_quote_terms",
+        description:
+          "Commit final quote terms to the order system. CIBA-gated when discount > 20% or payment terms deviate from net-30.",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string" },
+            quoteId: { type: "string" },
+            discountPercent: { type: "number" },
+            paymentTerms: { type: "string" },
+          },
+          required: ["accountId", "quoteId", "discountPercent"],
+        },
+      },
+    },
   ];
 }

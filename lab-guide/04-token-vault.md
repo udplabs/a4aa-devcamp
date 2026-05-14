@@ -1,525 +1,198 @@
-# Lab 4: Token Vault
-
-## Objectives
-
-- Understand the Token Vault pattern for agent-to-third-party access
-- Implement a token vault that stores third-party OAuth credentials per user
-- Build a simulated third-party API (File Storage API)
-- Create a tool that retrieves a user's vaulted token and calls the third-party API
-- Handle token refresh and expiration
-
----
+# Lab 04: Token Vault
 
 ## Premise
 
-The agent needs to call a third-party API (e.g., Google Drive, Dropbox, Slack) on behalf of the user. Token Vault securely stores and manages the user's third-party OAuth credentials so the agent can access external services without the user re-authenticating each time.
+Z-Merchant needs to drop a quote draft into the rep's own Google Workspace and post the finance-desk summary as the rep in Slack. The cheap, wrong way to do that is a shared bot token. That token is a single blast radius for every rep on the platform and has to be rotated manually when people leave.
 
-The agent never sees raw credentials — it requests a token from the vault for a specific user + provider.
+The right pattern is **Token Vault**: Auth0 stores each rep's federated credentials for Google and Slack. At tool-call time, Z-Merchant asks the vault for a short-lived, per-user access token scoped to the job at hand, calls the third party with that token, and discards it. The vault handles refresh. The rep's actual refresh token never leaves Auth0.
 
----
+## Objectives
 
-## Concept: Token Vault
+- Register Google and Slack as federated connections in Auth0.
+- Seed the vault with per-user access tokens for both providers.
+- Implement `getToken(userSub, provider)` with expiry + refresh.
+- Wire `create_google_doc` and `post_slack_triage` to call the third-party mock (port 3002) using vaulted tokens.
+- Stand up `/api/vault/link`, `/api/vault/unlink`, and `/api/vault/providers` endpoints.
+
+## Auth0 Dashboard Setup
+
+The lab simulates the vault in-process so you can run it without OAuth credentials for Google or Slack. To wire real federated connections:
+
+### Google Workspace
+
+- **Dashboard > Authentication > Social > Google** -- create OAuth client in Google Cloud, paste the Client ID + Secret.
+- Add scopes: `https://www.googleapis.com/auth/documents`, `https://www.googleapis.com/auth/drive.file`.
+- Enable **Store refresh tokens** under the connection settings.
+
+### Slack
+
+- **Dashboard > Authentication > Social > Slack** (custom connection if needed).
+- Scopes: `chat:write`, `channels:read`.
+
+### Expose vault operations
+
+The Auth0 Tokens API lets your backend retrieve stored tokens on behalf of the authenticated user. For this lab we simulate it; in production the call pattern is:
 
 ```
-User links account → Token stored in vault
-Agent needs access → Retrieves token from vault → Calls third-party API
-
-┌──────────┐     ┌─────────────┐     ┌──────────────────┐
-│  Agent   │────▶│ Token Vault │────▶│ Third-Party API  │
-│          │     │             │     │ (File Storage)   │
-│          │     │ user → {    │     │                  │
-│          │◀────│   token,    │◀────│  Returns files   │
-│          │     │   refresh,  │     │                  │
-│          │     │   expires   │     │                  │
-│          │     │ }           │     │                  │
-└──────────┘     └─────────────┘     └──────────────────┘
+GET /api/v2/users/{user_id}/tokens/{connection}
 ```
 
-Key principles:
-- Tokens are stored keyed by `(userId, provider)`
-- The vault handles refresh tokens and expiration
-- The agent requests "give me a token for user X and provider Y"
-- If the token is expired, the vault simulates a refresh
+with an M2M token that has `read:user_tokens`.
 
----
+## Code Steps
 
-## Step 1: Build the Token Vault
+### Step 1: implement the vault
 
-Create `server/token-vault/vault.ts`:
+`starter/server/token-vault/vault.ts`:
 
-```typescript
-interface VaultEntry {
+```ts
+export interface VaultEntry {
+  userId: string;
+  provider: "google" | "slack";
   accessToken: string;
-  refreshToken: string;
-  expiresAt: number;
-  provider: string;
+  refreshToken?: string;
   scopes: string[];
+  expiresAt: number;
 }
 
-// In-memory vault: (userId, provider) → tokens
 const vault = new Map<string, VaultEntry>();
+const key = (u: string, p: string) => `${u}::${p}`;
 
-function vaultKey(userId: string, provider: string): string {
-  return `${userId}:${provider}`;
+export async function storeToken(entry: VaultEntry) {
+  vault.set(key(entry.userId, entry.provider), entry);
 }
 
-/**
- * Store a third-party token in the vault.
- */
-export function storeToken(
-  userId: string,
-  provider: string,
-  accessToken: string,
-  refreshToken: string,
-  expiresIn: number,
-  scopes: string[]
-): void {
-  const key = vaultKey(userId, provider);
-  vault.set(key, {
-    accessToken,
-    refreshToken,
-    expiresAt: Date.now() + expiresIn * 1000,
-    provider,
-    scopes,
+export async function getToken(userId: string, provider: "google" | "slack") {
+  const entry = vault.get(key(userId, provider));
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt - 30_000) {
+    // pretend-refresh; in prod, call the provider's /token with refresh_token
+    entry.accessToken = `${entry.accessToken}-refreshed`;
+    entry.expiresAt = Date.now() + 3600_000;
+    console.log(`[Vault] refreshed ${provider} token for ${userId}`);
+  }
+  return entry;
+}
+
+export async function removeToken(userId: string, provider: "google" | "slack") {
+  return vault.delete(key(userId, provider));
+}
+
+export async function listLinkedProviders(userId: string) {
+  return Array.from(vault.values())
+    .filter((e) => e.userId === userId)
+    .map((e) => e.provider);
+}
+
+export async function seedVaultForUser(userId: string) {
+  await storeToken({
+    userId, provider: "google",
+    accessToken: `mock-google-${userId.slice(-6)}`,
+    scopes: ["https://www.googleapis.com/auth/documents"],
+    expiresAt: Date.now() + 3600_000,
   });
-  console.log(`[Token Vault] Stored token for ${userId} @ ${provider}`);
+  await storeToken({
+    userId, provider: "slack",
+    accessToken: `mock-slack-${userId.slice(-6)}`,
+    scopes: ["chat:write"],
+    expiresAt: Date.now() + 3600_000,
+  });
 }
+```
 
-/**
- * Retrieve a valid token from the vault.
- * If expired, simulates a token refresh.
- */
-export async function getToken(
-  userId: string,
-  provider: string
-): Promise<{ token: string; provider: string } | null> {
-  const key = vaultKey(userId, provider);
-  const entry = vault.get(key);
+### Step 2: stand up the third-party mock
 
-  if (!entry) {
-    console.log(`[Token Vault] No token found for ${userId} @ ${provider}`);
-    return null;
-  }
+`starter/server/token-vault/third-party-api.ts`:
 
-  // Check if token is expired
-  if (Date.now() >= entry.expiresAt) {
-    console.log(`[Token Vault] Token expired for ${userId} @ ${provider}, refreshing...`);
-
-    // Simulate token refresh
-    const newToken = `refreshed_${provider}_${Date.now()}`;
-    entry.accessToken = newToken;
-    entry.expiresAt = Date.now() + 3600 * 1000; // 1 hour
-    console.log(`[Token Vault] Token refreshed for ${userId} @ ${provider}`);
-  }
-
-  return {
-    token: entry.accessToken,
-    provider: entry.provider,
+```ts
+function validate(prefix: string) {
+  return (req, res, next) => {
+    const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
+    if (!token?.startsWith(prefix)) return res.status(401).json({ error: "invalid_token" });
+    next();
   };
 }
 
-/**
- * Remove a token from the vault (unlink account).
- */
-export function removeToken(userId: string, provider: string): boolean {
-  const key = vaultKey(userId, provider);
-  const existed = vault.has(key);
-  vault.delete(key);
-  if (existed) {
-    console.log(`[Token Vault] Removed token for ${userId} @ ${provider}`);
-  }
-  return existed;
-}
-
-/**
- * List all linked providers for a user.
- */
-export function listLinkedProviders(userId: string): Array<{
-  provider: string;
-  scopes: string[];
-  expiresAt: number;
-}> {
-  const results: Array<{ provider: string; scopes: string[]; expiresAt: number }> = [];
-
-  for (const [key, entry] of vault.entries()) {
-    if (key.startsWith(`${userId}:`)) {
-      results.push({
-        provider: entry.provider,
-        scopes: entry.scopes,
-        expiresAt: entry.expiresAt,
-      });
-    }
-  }
-
-  return results;
-}
-
-/**
- * Seed a simulated third-party connection for a user.
- * Call this when the user first authenticates.
- */
-export function seedVaultForUser(userId: string): void {
-  // Simulate that the user has already linked their "File Storage" account
-  storeToken(
-    userId,
-    "file-storage",
-    `fs_access_${userId}_${Date.now()}`,
-    `fs_refresh_${userId}`,
-    3600, // 1 hour
-    ["files:read", "files:list"]
-  );
-}
-```
-
----
-
-## Step 2: Build the Simulated Third-Party API
-
-Create `server/token-vault/third-party-api.ts`:
-
-```typescript
-import express from "express";
-
-const app = express();
-app.use(express.json());
-
-// Simulated file storage data
-const FILES: Record<string, Array<{ id: string; name: string; size: string; modified: string }>> = {
-  default: [
-    { id: "f1", name: "vacation-photos.zip", size: "245 MB", modified: "2025-01-15" },
-    { id: "f2", name: "trip-itinerary.pdf", size: "1.2 MB", modified: "2025-02-01" },
-    { id: "f3", name: "travel-receipts.xlsx", size: "340 KB", modified: "2025-02-20" },
-    { id: "f4", name: "passport-scan.pdf", size: "2.1 MB", modified: "2024-12-10" },
-  ],
-};
-
-/**
- * Validate the bearer token.
- * In a real third-party API, this would validate against their OAuth server.
- */
-function validateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Missing or invalid authorization header" });
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  // Accept any token that starts with "fs_access_" or "refreshed_file-storage_"
-  if (!token.startsWith("fs_access_") && !token.startsWith("refreshed_file-storage_")) {
-    return res.status(401).json({ error: "Invalid access token" });
-  }
-
-  console.log(`[Third-Party API] Valid token received`);
-  next();
-}
-
-// List files
-app.get("/api/files", validateToken, (_req, res) => {
-  console.log("[Third-Party API] Listing files");
-  res.json({ files: FILES.default });
+app.post("/google/docs", validate("mock-google-"), (req, res) => {
+  const id = `doc-${Date.now()}`;
+  res.json({ documentId: id, url: `https://docs.google.com/document/d/${id}/edit` });
 });
 
-// Get a specific file
-app.get("/api/files/:fileId", validateToken, (req, res) => {
-  const file = FILES.default.find((f) => f.id === req.params.fileId);
-  if (!file) {
-    return res.status(404).json({ error: "File not found" });
-  }
-  res.json({ file });
-});
-
-// Health check
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", service: "File Storage API" });
+app.post("/slack/chat.postMessage", validate("mock-slack-"), (req, res) => {
+  const ts = Date.now();
+  res.json({ ok: true, ts: String(ts), permalink: `https://retailzero.slack.com/archives/C0/p${ts}` });
 });
 
 export function startThirdPartyAPI() {
-  const port = parseInt(process.env.THIRD_PARTY_API_PORT || "3002");
-  app.listen(port, () => {
-    console.log(`[Third-Party API] File Storage API running on http://localhost:${port}`);
+  const port = Number(process.env.THIRD_PARTY_API_PORT || 3002);
+  app.listen(port, () => console.log(`[Third-party mock] :${port}`));
+}
+```
+
+### Step 3: call the vault from tool handlers
+
+On the MCP server (you will complete this in Lab 05):
+
+```ts
+case "create_google_doc": {
+  const entry = await getToken(userSub, "google");
+  if (!entry) throw new Error("Google not linked");
+  const r = await fetch(`http://localhost:${process.env.THIRD_PARTY_API_PORT || 3002}/google/docs`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${entry.accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
   });
+  return r.json();
 }
 
-export default app;
-```
-
----
-
-## Step 3: Create the External Files Tool
-
-Create `server/tools/external-files.ts`:
-
-```typescript
-import { getToken, seedVaultForUser, listLinkedProviders } from "../token-vault/vault";
-
-// Track seeded users
-const seededUsers = new Set<string>();
-
-function ensureSeeded(userId: string) {
-  if (!seededUsers.has(userId)) {
-    seedVaultForUser(userId);
-    seededUsers.add(userId);
-  }
-}
-
-/**
- * Get files from the external File Storage API using a vaulted token.
- */
-export async function getExternalFiles(userId: string): Promise<{
-  success: boolean;
-  files?: any[];
-  error?: string;
-}> {
-  ensureSeeded(userId);
-
-  // Retrieve the token from the vault
-  const tokenResult = await getToken(userId, "file-storage");
-
-  if (!tokenResult) {
-    return {
-      success: false,
-      error: "No File Storage account linked. Please link your account first.",
-    };
-  }
-
-  // Call the third-party API with the vaulted token
-  const apiPort = process.env.THIRD_PARTY_API_PORT || "3002";
-  try {
-    const response = await fetch(`http://localhost:${apiPort}/api/files`, {
-      headers: {
-        Authorization: `Bearer ${tokenResult.token}`,
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        return {
-          success: false,
-          error: "Token expired or invalid. Please re-link your File Storage account.",
-        };
-      }
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return {
-      success: true,
-      files: data.files,
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      error: `Failed to reach File Storage API: ${error.message}`,
-    };
-  }
-}
-
-/**
- * Get linked provider status for a user.
- */
-export function getLinkedProviders(userId: string): Array<{
-  provider: string;
-  scopes: string[];
-  connected: boolean;
-}> {
-  ensureSeeded(userId);
-
-  const providers = listLinkedProviders(userId);
-  return providers.map((p) => ({
-    provider: p.provider,
-    scopes: p.scopes,
-    connected: true,
-  }));
+case "post_slack_triage": {
+  const entry = await getToken(userSub, "slack");
+  if (!entry) throw new Error("Slack not linked");
+  const r = await fetch(`http://localhost:${process.env.THIRD_PARTY_API_PORT || 3002}/slack/chat.postMessage`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${entry.accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ channel: args.channel || "#wholesale-quote-triage", summary: args.summary, docUrl: args.docUrl }),
+  });
+  return r.json();
 }
 ```
 
----
+### Step 4: expose vault endpoints + seed on login
 
-## Step 4: Register the Tool and Update the Simulator
+`starter/server/index.ts`:
 
-Add to `server/tools/registry.ts`:
-
-```typescript
-get_external_files: {
-  name: "get_external_files",
-  description: "Get your files from the linked File Storage service",
-  parameters: {},
-  requiredScopes: ["tools:read"],
-  riskLevel: "medium",
-  requiresConsent: false,
-},
-```
-
-In `server/simulator.ts`, add intent detection:
-
-```typescript
-if (lower.includes("file") || lower.includes("storage") || lower.includes("external")) {
-  return { toolName: "get_external_files", parameters: {} };
-}
-```
-
-Add tool execution:
-
-```typescript
-import { getExternalFiles } from "./tools/external-files";
-
-// In the tool execution section:
-case "get_external_files":
-  return await getExternalFiles(user.sub);
-```
-
-Add response formatting:
-
-```typescript
-case "get_external_files":
-  if (!result.success) {
-    return `**File Storage Error:** ${result.error}`;
-  }
-  const fileList = result.files
-    .map((f: any) => `- **${f.name}** (${f.size}) — modified ${f.modified}`)
-    .join("\n");
-  return `Here are your files from File Storage:\n${fileList}`;
-```
-
----
-
-## Step 5: Start the Third-Party API
-
-Open `server/index.ts` and add:
-
-```typescript
+```ts
+import { seedVaultForUser, listLinkedProviders, storeToken, removeToken } from "./token-vault/vault";
 import { startThirdPartyAPI } from "./token-vault/third-party-api";
 
-// At the bottom, after starting the main server:
 startThirdPartyAPI();
-```
 
-Update `.env` to include:
-
-```
-# Token Vault (Lab 4)
-THIRD_PARTY_API_PORT=3002
-```
-
----
-
-## Step 6: Add Account Linking Endpoints
-
-Add to `server/index.ts`:
-
-```typescript
-import { storeToken, removeToken, listLinkedProviders } from "./token-vault/vault";
-
-// Link a third-party account
-app.post("/api/vault/link", validateAccessToken, (req, res) => {
+app.post("/api/vault/link", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
-  const { provider } = req.body;
-
-  // In production, this would initiate an OAuth flow with the third-party provider.
-  // For the lab, we simulate it by storing a token directly.
-  storeToken(
-    user.sub,
-    provider,
-    `fs_access_${user.sub}_${Date.now()}`,
-    `fs_refresh_${user.sub}`,
-    3600,
-    ["files:read", "files:list"]
-  );
-
-  res.json({ linked: true, provider });
+  await seedVaultForUser(user.sub);
+  res.json({ providers: await listLinkedProviders(user.sub) });
 });
 
-// Unlink a third-party account
-app.post("/api/vault/unlink", validateAccessToken, (req, res) => {
+app.post("/api/vault/unlink", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
-  const { provider } = req.body;
-  const removed = removeToken(user.sub, provider);
-  res.json({ unlinked: removed, provider });
+  await removeToken(user.sub, req.body.provider);
+  res.json({ providers: await listLinkedProviders(user.sub) });
 });
 
-// List linked providers
-app.get("/api/vault/providers", validateAccessToken, (req, res) => {
+app.get("/api/vault/providers", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
-  const providers = listLinkedProviders(user.sub);
-  res.json({ providers });
+  res.json({ providers: await listLinkedProviders(user.sub) });
 });
 ```
-
----
-
-## Step 7: Test the Token Vault
-
-### Test 1: Get External Files
-Send: **"Show my files from storage"**
-
-Expected: List of 4 files from the simulated File Storage API.
-
-### Test 2: Verify the Token Chain
-Check server logs — you should see:
-
-```
-[Token Vault] Stored token for auth0|abc123 @ file-storage
-[Token Vault] Retrieved token for auth0|abc123 @ file-storage
-[Third-Party API] Valid token received
-[Third-Party API] Listing files
-```
-
-### Test 3: Third-Party API Direct Access (Unauthorized)
-
-```bash
-curl http://localhost:3002/api/files
-```
-
-Should return `401` — the third-party API rejects requests without a valid token.
-
-### Test 4: Test with a Valid Token
-
-```bash
-# This should work if you know the token format
-curl -H "Authorization: Bearer fs_access_test_12345" http://localhost:3002/api/files
-```
-
----
-
-## Understanding the Token Vault Flow
-
-```
-User: "Show my files from storage"
-  │
-  ▼
-Agent: detectIntent() → get_external_files
-  │
-  ▼
-Agent: getExternalFiles(userId)
-  │
-  ├── Token Vault: getToken(userId, "file-storage")
-  │   │
-  │   ├── Token found and valid → return token
-  │   └── Token expired → refresh → return new token
-  │
-  ▼
-Agent: fetch("http://localhost:3002/api/files", { Authorization: Bearer <token> })
-  │
-  ▼
-Third-Party API: Validate token → Return files
-  │
-  ▼
-Agent: Format and return file list to user
-```
-
----
 
 ## Checkpoint
 
-At this point you have:
-- [x] Token vault storing third-party credentials per user
-- [x] Simulated File Storage third-party API
-- [x] Agent retrieves vaulted tokens to access external APIs
-- [x] Token refresh handled on expiration
-- [x] Account linking/unlinking endpoints
-- [x] Third-party API protected with bearer tokens
+1. Log in; the frontend calls `POST /api/vault/link` to seed google + slack entries.
+2. Prompt: *"Draft a Google Doc quote for Acme at tier-2."* -> Z-Merchant calls `create_google_doc` -> response includes a `documentId` and `url`.
+3. Prompt: *"Post a triage summary to #wholesale-quote-triage."* -> response includes a Slack `ts` and `permalink`.
+4. Age a token manually (set `expiresAt` in the past) -> next call silently refreshes.
+5. Call `/google/docs` with a bogus bearer -> 401.
 
----
+## What you learned
 
-**Next: [Lab 5 — Auth for MCP](./05-auth-for-mcp.md)**
+Token Vault is the pattern that lets an AI agent act as the user in third-party systems without the agent ever holding a long-lived credential. Each call is scoped to the job and to the rep, every audit event ties back to the rep's identity, and rotation is Auth0's problem instead of a manual ops ritual. In practical terms: onboarding a new rep means "add them to Auth0 and link their Workspace" instead of "provision a bot token and log it in a spreadsheet," and offboarding is flipping one switch. That is textbook opex reduction on credential management.

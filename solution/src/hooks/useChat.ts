@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 
 interface ChatMessage {
@@ -7,19 +7,28 @@ interface ChatMessage {
   toolCalls?: Array<{ tool: string; result: any; status: string }>;
 }
 
-interface PendingApproval {
+// CIBA approval payload surfaced by the backend when a high-risk
+// tool (e.g. commit_quote_terms) needs out-of-band rep approval.
+export interface PendingCIBA {
+  authReqId: string;
   toolName: string;
-  description: string;
-  riskLevel: string;
-  requiredScopes: string[];
+  bindingMessage: string;
+  expiresIn: number;
+  interval: number;
 }
 
 export function useChat() {
   const { getAccessTokenSilently } = useAuth0();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingApproval, setPendingApproval] =
-    useState<PendingApproval | null>(null);
+  const [pendingCIBA, setPendingCIBA] = useState<PendingCIBA | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+    };
+  }, []);
 
   const sendMessage = async (content: string) => {
     const userMessage: ChatMessage = { role: "user", content };
@@ -27,7 +36,6 @@ export function useChat() {
     setIsLoading(true);
 
     try {
-      // Get an access token for the API
       const token = await getAccessTokenSilently({
         authorizationParams: {
           audience: import.meta.env.VITE_AUTH0_AUDIENCE,
@@ -48,7 +56,7 @@ export function useChat() {
       });
 
       if (response.status === 401) {
-        throw new Error("Unauthorized - please log in again");
+        throw new Error("Unauthorized -- please log in again");
       }
 
       if (!response.ok) {
@@ -56,11 +64,6 @@ export function useChat() {
       }
 
       const data = await response.json();
-
-      // Check for pending approval from agent authorization
-      if (data.pendingApproval) {
-        setPendingApproval(data.pendingApproval);
-      }
 
       setMessages((prev) => [
         ...prev,
@@ -70,6 +73,14 @@ export function useChat() {
           toolCalls: data.toolCalls,
         },
       ]);
+
+      // High-risk tools return pendingCIBA instead of executing. We
+      // kick off status polling so we can resume the flow once the
+      // rep approves the prompt on their device.
+      if (data.pendingCIBA) {
+        setPendingCIBA(data.pendingCIBA);
+        startPolling(data.pendingCIBA);
+      }
     } catch (error: any) {
       setMessages((prev) => [
         ...prev,
@@ -80,42 +91,80 @@ export function useChat() {
     }
   };
 
-  const handleApproval = async (toolName: string, approved: boolean) => {
-    const token = await getAccessTokenSilently({
-      authorizationParams: {
-        audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-      },
-    });
+  const startPolling = (ciba: PendingCIBA) => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    const intervalMs = Math.max(ciba.interval * 1000, 2000);
 
-    const endpoint = approved ? "/api/consent/approve" : "/api/consent/deny";
+    pollRef.current = window.setInterval(async () => {
+      try {
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          },
+        });
+        const res = await fetch(`/api/ciba/status/${ciba.authReqId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await res.json();
 
-    await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ toolName }),
-    });
-
-    setPendingApproval(null);
-
-    if (approved) {
-      // Re-send the last user message now that consent is recorded
-      const lastUserMessage = messages.filter((m) => m.role === "user").pop();
-      if (lastUserMessage) {
-        await sendMessage(lastUserMessage.content);
+        if (payload.status === "approved") {
+          stopPolling();
+          setPendingCIBA(null);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `Approval received. Committing ${ciba.toolName}.`,
+            },
+          ]);
+          const lastUser = messages.filter((m) => m.role === "user").pop();
+          if (lastUser) await sendMessage(lastUser.content);
+        } else if (
+          payload.status === "denied" ||
+          payload.status === "expired"
+        ) {
+          stopPolling();
+          setPendingCIBA(null);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content:
+                payload.status === "denied"
+                  ? `Approval denied. ${ciba.toolName} was not executed.`
+                  : `Approval timed out. Re-send the request when you're ready.`,
+            },
+          ]);
+        }
+      } catch {
+        // swallow; next tick will retry
       }
-    } else {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `Action denied. I won't use the ${toolName} tool. Is there anything else I can help with?`,
-        },
-      ]);
+    }, intervalMs);
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
     }
   };
 
-  return { messages, sendMessage, isLoading, pendingApproval, handleApproval };
+  // Demo helper: approve or deny the CIBA request directly from
+  // the UI. In production the rep would approve via Auth0 Guardian
+  // on their device; this shortcut keeps the lab offline-runnable.
+  const handleCIBADecision = async (approved: boolean) => {
+    if (!pendingCIBA) return;
+    const endpoint = approved
+      ? `/api/ciba/approve/${pendingCIBA.authReqId}`
+      : `/api/ciba/deny/${pendingCIBA.authReqId}`;
+    await fetch(endpoint, { method: "POST" });
+  };
+
+  return {
+    messages,
+    sendMessage,
+    isLoading,
+    pendingCIBA,
+    handleCIBADecision,
+  };
 }

@@ -49,7 +49,14 @@ interface ToolCallResult {
   status: "success" | "error" | "pending_consent";
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// The OpenAI SDK speaks any OpenAI-compatible endpoint (LiteLLM proxy,
+// Azure OpenAI, local Ollama, etc.) via baseURL. Leave OPENAI_BASE_URL
+// unset to call OpenAI directly.
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
+});
+const LLM_MODEL = process.env.LLM_MODEL || "gpt-4o-mini";
 
 export async function processMessage(
   message: string,
@@ -71,7 +78,7 @@ export async function processMessage(
 
     // Call OpenAI with tool definitions
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: LLM_MODEL,
       max_tokens: 1024,
       messages,
       tools: getToolsForOpenAI(),
@@ -105,7 +112,7 @@ export async function processMessage(
 
     // Send tool result back to OpenAI for a natural response
     const followUp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: LLM_MODEL,
       max_tokens: 1024,
       messages: [
         ...messages,
@@ -135,38 +142,69 @@ export async function processMessage(
 // =============================================================
 function executeToolLocally(name: string, args: Record<string, any>): any {
   switch (name) {
-    case "get_weather":
-      return {
-        location: args.location,
-        temperature: `${Math.floor(Math.random() * 30 + 5)}\u00B0C`,
-        condition: ["Sunny", "Cloudy", "Rainy", "Partly Cloudy"][
-          Math.floor(Math.random() * 4)
-        ],
-        humidity: `${Math.floor(Math.random() * 60 + 30)}%`,
+    case "get_catalog_and_buyer_tier": {
+      const basePrices: Record<string, number> = {
+        "SKU-WX-42": 129.0,
+        "SKU-WX-10": 42.5,
+        "SKU-RT-88": 318.75,
       };
-
-    case "get_calendar":
-      return {
-        events: [
-          { time: "9:00 AM", title: "Airport Check-in (Terminal 2)" },
-          { time: "11:30 AM", title: "Flight to Bali (GA-412)" },
-          { time: "3:00 PM", title: "Hotel Check-in (The Mulia Resort)" },
-          { time: "7:00 PM", title: "Dinner Reservation (La Lucciola)" },
-        ],
+      const tierMultipliers: Record<string, number> = {
+        acme: 0.82,
+        globex: 0.82,
+        initech: 0.9,
+        stark: 0.74,
       };
+      const tierLabels: Record<string, string> = {
+        acme: "tier-2",
+        globex: "tier-2",
+        initech: "tier-1",
+        stark: "tier-3",
+      };
+      const sku = (args.sku || "SKU-WX-42").toUpperCase();
+      const accountId = (args.accountId || "acme").toLowerCase();
+      const listPrice = basePrices[sku] ?? 99.0;
+      const multiplier = tierMultipliers[accountId] ?? 1.0;
+      return {
+        accountId,
+        sku,
+        listPrice,
+        buyerTier: tierLabels[accountId] ?? "tier-0",
+        tierPrice: Number((listPrice * multiplier).toFixed(2)),
+      };
+    }
 
-    case "send_email":
+    case "create_google_doc":
       return {
         success: true,
-        to: args.to || "traveler@example.com",
-        subject: args.subject || "Booking Confirmation",
-        messageId: `msg-${Date.now()}`,
+        docId: `doc-${Date.now()}`,
+        title: args.title || "Bulk quote draft",
+        url: `https://docs.google.com/document/d/doc-${Date.now()}/edit`,
+        timestamp: new Date().toISOString(),
+      };
+
+    case "post_slack_triage":
+      return {
+        success: true,
+        channel: args.channel || "#wholesale-quote-triage",
+        summary: args.summary,
+        permalink: `https://retailzero.slack.com/archives/C0WQTRG/p${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      };
+
+    case "commit_quote_terms":
+      return {
+        success: true,
+        accountId: args.accountId,
+        quoteId: args.quoteId,
+        discountPercent: args.discountPercent,
+        paymentTerms: args.paymentTerms || "net-30",
+        orderRef: `ORD-${Date.now()}`,
         timestamp: new Date().toISOString(),
       };
 
     // =============================================================
-    // LAB 3: Add document tool execution here (FGA)
-    // LAB 4: Add external files tool execution here (Token Vault)
+    // LAB 3: Add account contract tool execution here (FGA)
+    // LAB 4: Add linked workspace docs tool execution here (Token Vault)
     // =============================================================
 
     default:

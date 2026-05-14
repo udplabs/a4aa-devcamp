@@ -1,15 +1,15 @@
 // =============================================================
-// LAB 4: Build the Simulated Third-Party API
-// See: lab-guide/04-token-vault.md - Step 2
+// LAB 04: Build the simulated Third-Party API
+// See: lab-guide/04-token-vault.md
 //
-// This is a separate Express server that simulates a third-party
-// File Storage API. It validates bearer tokens and returns files.
+// Mocks the Google Workspace + Slack endpoints the MCP server
+// calls after minting a short-lived token from Token Vault.
+// Kept local (port 3002) so the lab runs offline.
 //
-// Implement:
-// - Token validation middleware
-// - GET /api/files — list files (protected)
-// - GET /api/files/:fileId — get a specific file (protected)
-// - startThirdPartyAPI() — start the server
+// You will implement:
+//   - validateGoogleToken / validateSlackToken middlewares
+//   - POST /google/docs        -> returns { documentId, title, url }
+//   - POST /slack/chat.postMessage -> returns { ok, channel, ts, permalink }
 // =============================================================
 
 import express from "express";
@@ -18,15 +18,22 @@ import { findAvailablePort } from "../utils/port";
 const app = express();
 app.use(express.json());
 
-// TODO: Add token validation middleware
+// TODO(lab-04): implement Bearer-token middlewares that accept
+// tokens prefixed `google_access_` / `refreshed_google_` (for the
+// Google mock) and `slack_access_` / `refreshed_slack_` (for Slack).
 
-// TODO: Add GET /api/files endpoint (protected)
+// TODO(lab-04): POST /google/docs
+// - require validateGoogleToken
+// - body: { title: string; body?: string }
+// - respond: { documentId, title, url }
 
-// TODO: Add GET /api/files/:fileId endpoint (protected)
+// TODO(lab-04): POST /slack/chat.postMessage
+// - require validateSlackToken
+// - body: { channel: string; text: string }
+// - respond: { ok: true, channel, ts, permalink }
 
-// Health check
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", service: "File Storage API" });
+  res.json({ status: "ok", service: "Third-Party API (Google + Slack mocks)" });
 });
 
 export async function startThirdPartyAPI() {
@@ -34,7 +41,7 @@ export async function startThirdPartyAPI() {
   const port = await findAvailablePort(preferredPort, "Third-Party API");
   app.listen(port, () => {
     console.log(
-      `[Third-Party API] File Storage API running on http://localhost:${port}`
+      `[Third-Party API] Google + Slack mocks running on http://localhost:${port}`
     );
   });
 }

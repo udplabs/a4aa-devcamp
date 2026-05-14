@@ -1,8 +1,9 @@
 // =============================================================
-// LAB 1: Implement JWT validation middleware
-// See: lab-guide/01-user-authentication.md - Step 8
+// LAB 01: Implement JWT validation middleware for Z-Merchant
+// See: lab-guide/01-user-authentication.md
 //
-// Use express-oauth2-jwt-bearer to validate Auth0 JWTs:
+// Use express-oauth2-jwt-bearer to validate Auth0 JWTs issued for
+// the RetailZero wholesale API (audience = AUTH0_AUDIENCE).
 //
 // import { auth } from "express-oauth2-jwt-bearer";
 //
@@ -16,17 +17,19 @@
 //     sub: req.auth?.payload?.sub,
 //     scope: req.auth?.payload?.scope?.split(" ") || [],
 //     email: req.auth?.payload?.email,
+//     accessToken: req.headers.authorization?.replace(/^Bearer\s+/i, ""),
 //   };
 // }
 // =============================================================
 
-// Placeholder - remove this once you implement the real middleware
+// Placeholder -- replace once Lab 01 is wired up.
 export const validateAccessToken = (_req: any, _res: any, next: any) => next();
 
 export function extractUser(_req: any) {
   return {
     sub: "anonymous",
-    scope: ["chat:send", "tools:read", "tools:execute", "email:send"],
+    scope: ["mcp:quote:read", "mcp:docs:create", "mcp:slack:post", "mcp:quote:commit"],
     email: "anonymous@example.com",
+    accessToken: undefined as string | undefined,
   };
 }

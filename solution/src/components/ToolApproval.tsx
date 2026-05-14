@@ -1,69 +1,50 @@
 interface ToolApprovalProps {
   toolName: string;
-  description: string;
-  riskLevel: string;
-  requiredScopes: string[];
+  bindingMessage: string;
   onApprove: () => void;
   onDeny: () => void;
 }
 
+// Renders the CIBA approval prompt for high-risk tools. The binding
+// message is signed into the CIBA auth_req_id, so the text the rep
+// sees here is the same text Auth0 attaches to the out-of-band push.
 export function ToolApproval({
   toolName,
-  description,
-  riskLevel,
-  requiredScopes,
+  bindingMessage,
   onApprove,
   onDeny,
 }: ToolApprovalProps) {
-  const riskColors: Record<string, string> = {
-    low: "#4caf50",
-    medium: "#ff9800",
-    high: "#f44336",
-  };
-
   return (
     <div className="tool-approval">
       <div className="tool-approval-card">
         <div className="tool-approval-header">
           <span className="tool-approval-icon">&#9888;</span>
-          <h3>Authorization Required</h3>
+          <h3>Deal Desk Approval Required</h3>
         </div>
 
         <p>
-          The AI assistant wants to use a tool that requires your approval:
+          This quote exceeds standard discount or payment terms. Approve
+          the request to let Z-Merchant commit the terms.
         </p>
 
         <div className="tool-details">
           <div className="tool-detail-row">
+            <strong>Binding message:</strong>
+            <blockquote className="binding-message">
+              {bindingMessage}
+            </blockquote>
+          </div>
+          <div className="tool-detail-row">
             <strong>Tool:</strong> <code>{toolName}</code>
           </div>
           <div className="tool-detail-row">
-            <strong>Description:</strong> {description}
-          </div>
-          <div className="tool-detail-row">
-            <strong>Risk Level:</strong>{" "}
-            <span
-              className="risk-badge"
-              style={{ backgroundColor: riskColors[riskLevel] || "#999" }}
-            >
-              {riskLevel.toUpperCase()}
-            </span>
-          </div>
-          <div className="tool-detail-row">
-            <strong>Required Permissions:</strong>
-            <ul>
-              {requiredScopes.map((scope) => (
-                <li key={scope}>
-                  <code>{scope}</code>
-                </li>
-              ))}
-            </ul>
+            <strong>Channel:</strong> Auth0 CIBA (out-of-band)
           </div>
         </div>
 
         <div className="tool-approval-actions">
           <button className="approve-button" onClick={onApprove}>
-            Approve
+            Approve on device
           </button>
           <button className="deny-button" onClick={onDeny}>
             Deny

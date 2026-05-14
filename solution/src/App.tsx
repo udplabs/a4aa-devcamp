@@ -24,7 +24,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Voyager</h1>
+        <h1>RetailZero Z-Merchant</h1>
         <div className="user-info">
           <button className="guide-toggle" onClick={() => setShowGuide(true)}>
             Lab Guide

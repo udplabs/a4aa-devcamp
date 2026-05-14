@@ -1,82 +1,92 @@
 // =============================================================
-// LAB 3: Implement the FGA Client
-// See: lab-guide/03-fine-grained-authorization.md - Step 2
+// LAB 03: Implement the FGA client (simulated)
+// See: lab-guide/03-fine-grained-authorization.md
 //
-// This module handles:
-// 1. Writing relationship tuples
-// 2. Checking access (with computed relations)
-// 3. Seeding initial tuples for a user
-// 4. Listing accessible documents
-// 5. Getting a document with access check
+// This module owns the relationship-tuple store for the RetailZero
+// wholesale account graph. In production this is backed by the
+// Auth0 FGA service; here it is an in-memory array so the lab
+// runs offline.
 //
-// Implement the following:
-// - writeTuple(user, relation, object)
-// - checkAccess(userId, relation, object)
-// - seedTuplesForUser(userId)
-// - listAccessibleDocuments(userId)
-// - getDocumentWithAccessCheck(userId, documentId)
+// You will implement:
+//   - writeTuple(user, relation, object)
+//   - canReadAccount(userId, accountId)   -- owner OR team manager/member
+//   - canCommitQuote(userId, accountId)   -- owner OR team manager only
+//   - seedTuplesForUser(userId)           -- demo tuples for alice
 // =============================================================
 
-import { DOCUMENTS } from "./model";
+import { ACCOUNTS, CATALOG } from "./model";
 
-/**
- * Write a relationship tuple.
- * TODO: Implement
- */
-export function writeTuple(
-  user: string,
-  relation: string,
-  object: string
-): void {
-  // TODO: Store the tuple, avoiding duplicates
+interface FGATuple {
+  user: string;     // user:alice, team:team-west
+  relation: string; // owner, manager, member, owning_team, reader
+  object: string;   // account:acme, team:team-west, catalog:default
 }
 
-/**
- * Check if a user has a specific relation to an object.
- * TODO: Implement - handle computed relations (can_view, can_edit)
- */
-export function checkAccess(
-  userId: string,
-  relation: string,
-  object: string
-): boolean {
+const tupleStore: FGATuple[] = [];
+
+// TODO(lab-03): write (user, relation, object) to the store, avoiding duplicates.
+export function writeTuple(user: string, relation: string, object: string): void {
+  void user;
+  void relation;
+  void object;
+}
+
+// TODO(lab-03): return true when userId owns accountId OR is a manager/member
+// of any team that owns accountId. Log the decision for the audit trail.
+export function canReadAccount(userId: string, accountId: string): boolean {
+  void userId;
+  void accountId;
   return false;
 }
 
-/**
- * Seed initial authorization tuples for a user.
- * TODO: Implement - give the user access to some documents but not others
- */
-export function seedTuplesForUser(userId: string): void {
-  // TODO: Write tuples for the user
+// TODO(lab-03): return true when userId owns accountId OR manages a team
+// that owns accountId. Members-only (non-manager) cannot commit.
+export function canCommitQuote(userId: string, accountId: string): boolean {
+  void userId;
+  void accountId;
+  return false;
 }
 
-/**
- * List all documents the user can access.
- * TODO: Implement
- */
-export function listAccessibleDocuments(
-  userId: string
-): Array<{
+const seededUsers = new Set<string>();
+
+// TODO(lab-03): seed demo tuples the first time we see a user.
+// alice -> owns account:acme, account:globex
+// alice -> manages team:team-west
+// team:team-west -> owning_team account:initech
+// alice -> reader catalog:default
+// (account:stark is intentionally unassigned -> FGA deny case)
+export function seedTuplesForUser(userId: string): void {
+  if (seededUsers.has(userId)) return;
+  seededUsers.add(userId);
+}
+
+// Pre-built helpers (used by the MCP server after access checks).
+export function getAccount(accountId: string) {
+  return ACCOUNTS[accountId] || null;
+}
+
+export function getCatalogEntry(sku: string) {
+  return CATALOG[sku] || null;
+}
+
+export function listAccountsForUser(userId: string): Array<{
   id: string;
-  title: string;
-  classification: string;
+  name: string;
+  tier: string;
+  segment: string;
   relation: string;
 }> {
-  return [];
-}
-
-/**
- * Get a document's content if the user has access.
- * TODO: Implement
- */
-export function getDocumentWithAccessCheck(
-  userId: string,
-  documentId: string
-): {
-  authorized: boolean;
-  document?: (typeof DOCUMENTS)[string];
-  relation?: string;
-} {
-  return { authorized: false };
+  const result: Array<{ id: string; name: string; tier: string; segment: string; relation: string }> = [];
+  for (const [accountId, account] of Object.entries(ACCOUNTS)) {
+    if (canReadAccount(userId, accountId)) {
+      result.push({
+        id: accountId,
+        name: account.name,
+        tier: account.tier,
+        segment: account.segment,
+        relation: "via tuple",
+      });
+    }
+  }
+  return result;
 }

@@ -1,18 +1,25 @@
 // =============================================================
-// OpenAI LLM Integration (Pre-built)
+// OpenAI LLM Integration for Z-Merchant (Pre-built)
 //
-// This module replaces pattern matching with real OpenAI tool
-// calling when OPENAI_API_KEY is set. Falls back to simulator
-// if the API call fails.
+// This module is the single place that speaks to the model
+// provider. When OPENAI_API_KEY is set, it routes through real
+// OpenAI function calling. Otherwise it falls back to the
+// pattern-matching simulator in ./simulator.ts.
 //
 // The security layers you build in the labs (JWT, CIBA, FGA,
 // Token Vault, MCP) are enforced HERE -- between the LLM's
 // tool selection and the actual tool execution.
 //
-// LAB 2: Add authorization check before tool execution
-// LAB 3: Add document tool handling (FGA)
-// LAB 4: Add external files tool handling (Token Vault)
-// LAB 5: Route tool execution through MCP
+// FUTURE: Claude Agent SDK adapter
+// To swap the simulator / OpenAI path for Claude Agent SDK,
+// replace the body of processMessage() below. The tool registry
+// (./tools/registry.ts) and MCP layer are framework-agnostic
+// and do not require changes.
+//
+// LAB 02: Add CIBA gating for commit_quote_terms
+// LAB 03: Route get_catalog_and_buyer_tier through FGA check
+// LAB 04: Route create_google_doc / post_slack_triage through Token Vault
+// LAB 05: Route all tool execution through the MCP client (OBO)
 // =============================================================
 
 import OpenAI from "openai";
@@ -24,6 +31,7 @@ export interface AgentUser {
   sub: string;
   scope: string[];
   email?: string;
+  accessToken?: string;
 }
 
 export interface LLMResponse {
@@ -40,6 +48,7 @@ export interface LLMResponse {
     toolName: string;
     expiresIn: number;
     interval: number;
+    bindingMessage?: string;
   };
 }
 
@@ -49,7 +58,14 @@ interface ToolCallResult {
   status: "success" | "error" | "pending_consent";
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// The OpenAI SDK speaks any OpenAI-compatible endpoint (LiteLLM proxy,
+// Azure OpenAI, local Ollama, etc.) via baseURL. Leave OPENAI_BASE_URL
+// unset to call OpenAI directly.
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
+});
+const LLM_MODEL = process.env.LLM_MODEL || "gpt-4o-mini";
 
 export async function processMessage(
   message: string,
@@ -57,7 +73,6 @@ export async function processMessage(
   user: AgentUser
 ): Promise<LLMResponse> {
   try {
-    // Build message history for OpenAI
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
       ...conversationHistory.map(
@@ -69,9 +84,8 @@ export async function processMessage(
       { role: "user", content: message },
     ];
 
-    // Call OpenAI with tool definitions
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: LLM_MODEL,
       max_tokens: 1024,
       messages,
       tools: getToolsForOpenAI(),
@@ -80,12 +94,10 @@ export async function processMessage(
     const choice = response.choices[0];
     const assistantMessage = choice.message;
 
-    // No tool call -- return the text response
     if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
       return { message: assistantMessage.content || "" };
     }
 
-    // Extract the first tool call
     const toolCall = assistantMessage.tool_calls[0];
     const toolName = toolCall.function.name;
     const parameters = JSON.parse(toolCall.function.arguments);
@@ -93,19 +105,32 @@ export async function processMessage(
     console.log(`[LLM] Tool call: ${toolName}`, parameters);
 
     // =============================================================
-    // LAB 2: Add authorization check here BEFORE executing the tool
-    // For consent-required tools, initiate CIBA flow
+    // LAB 02: CIBA gate for commit_quote_terms when discount > 20%
+    // or payment terms deviate from net-30. Build the binding message
+    // from the quote params so the rep's device shows the exact
+    // terms they are approving.
     //
-    // const authResult = checkToolAuthorization(user.sub, user.scope, toolName);
-    // if (!authResult.authorized) { ... }
+    //   if (toolName === "commit_quote_terms" && isNonStandard(parameters)) {
+    //     const bindingMessage = buildQuoteCommitBindingMessage(parameters);
+    //     const ciba = await initiateCIBA(user.sub, user.email!, toolName,
+    //                                     "mcp:quote:commit", bindingMessage);
+    //     return { message: "...", pendingCIBA: { ...ciba, toolName } };
+    //   }
     // =============================================================
 
-    // Execute the tool directly (no auth check in starter)
+    // =============================================================
+    // LAB 05: Route execution through the MCP client using user.accessToken
+    // so that OBO token exchange preserves the rep's identity.
+    //
+    //   const mcpClient = createMCPClient();
+    //   const result = await mcpClient.callTool(toolName, parameters, user.accessToken!);
+    //
+    // Until Lab 05 is complete, this throws.
+    // =============================================================
     const result = executeToolLocally(toolName, parameters);
 
-    // Send tool result back to OpenAI for a natural response
     const followUp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: LLM_MODEL,
       max_tokens: 1024,
       messages: [
         ...messages,
@@ -131,45 +156,12 @@ export async function processMessage(
 }
 
 // =============================================================
-// LAB 5: Replace this with MCP client calls
+// LAB 05: Replace this with an MCP client call.
+// Until then, tool execution is unimplemented -- the starter
+// intentionally throws so the attendee sees the missing link.
 // =============================================================
-function executeToolLocally(name: string, args: Record<string, any>): any {
-  switch (name) {
-    case "get_weather":
-      return {
-        location: args.location,
-        temperature: `${Math.floor(Math.random() * 30 + 5)}\u00B0C`,
-        condition: ["Sunny", "Cloudy", "Rainy", "Partly Cloudy"][
-          Math.floor(Math.random() * 4)
-        ],
-        humidity: `${Math.floor(Math.random() * 60 + 30)}%`,
-      };
-
-    case "get_calendar":
-      return {
-        events: [
-          { time: "9:00 AM", title: "Airport Check-in (Terminal 2)" },
-          { time: "11:30 AM", title: "Flight to Bali (GA-412)" },
-          { time: "3:00 PM", title: "Hotel Check-in (The Mulia Resort)" },
-          { time: "7:00 PM", title: "Dinner Reservation (La Lucciola)" },
-        ],
-      };
-
-    case "send_email":
-      return {
-        success: true,
-        to: args.to || "traveler@example.com",
-        subject: args.subject || "Booking Confirmation",
-        messageId: `msg-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-      };
-
-    // =============================================================
-    // LAB 3: Add document tool execution here (FGA)
-    // LAB 4: Add external files tool execution here (Token Vault)
-    // =============================================================
-
-    default:
-      return { error: `Unknown tool: ${name}` };
-  }
+function executeToolLocally(name: string, _args: Record<string, any>): any {
+  throw new Error(
+    `Tool execution not implemented: ${name}. Route through MCP client (see Lab 05).`
+  );
 }

@@ -21,11 +21,12 @@ export interface ToolDefinition {
 
 // TODO: Fill in the tool registry with tool definitions
 export const toolRegistry: Record<string, ToolDefinition> = {
-  // TODO: Define get_weather (low risk, no consent)
-  // TODO: Define get_calendar (medium risk, no consent)
-  // TODO: Define send_email (high risk, requires consent → triggers CIBA)
-  // TODO (Lab 3): Define get_document, list_documents
-  // TODO (Lab 4): Define get_external_files
+  // TODO: Define get_catalog_and_buyer_tier (low risk, no consent)
+  // TODO: Define create_google_doc (medium risk, no consent -- Token Vault federates Google)
+  // TODO: Define post_slack_triage (medium risk, no consent -- Token Vault federates Slack)
+  // TODO: Define commit_quote_terms (high risk, requires consent → triggers CIBA for non-standard terms)
+  // TODO (Lab 3): Define get_account_contract, list_account_contracts (FGA-gated)
+  // TODO (Lab 4): Define get_linked_workspace_docs (Token Vault)
 };
 
 export function getToolsForDisplay(): Array<{

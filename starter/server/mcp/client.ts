@@ -1,14 +1,14 @@
 // =============================================================
-// LAB 5: Build the MCP Client
+// LAB 05: Build the MCP Client
 // See: lab-guide/05-auth-for-mcp.md
 //
 // This module connects the agent (Express API) to the MCP server.
-// It handles:
-// 1. PRM discovery (Part B)
-// 2. Client ID Metadata lookup (Part C)
-// 3. On-behalf-of token exchange (Part D)
-// 4. Listing available tools from the MCP server
-// 5. Calling tools with proper authorization
+// It performs:
+//   1. PRM discovery (optional, once during startup)
+//   2. CIMD (client identity comes from the pre-registered Auth0
+//      client ID + secret passed in via env)
+//   3. On-Behalf-Of token exchange with RFC 8707 resource indicator
+//   4. Listing tools and calling them with the exchanged token
 // =============================================================
 
 interface MCPClientConfig {
@@ -19,6 +19,10 @@ interface MCPClientConfig {
   audience: string;
 }
 
+// Cache exchanged tokens per user (keyed by the last 16 chars of
+// the user token so the exchange only runs once per rep session).
+const cachedTokens = new Map<string, { token: string; expiresAt: number }>();
+
 export class MCPClient {
   private config: MCPClientConfig;
 
@@ -26,20 +30,43 @@ export class MCPClient {
     this.config = config;
   }
 
-  // TODO (Part D): Implement getToken() - on-behalf-of token exchange
-  // Exchange the user's access token for one scoped to the MCP server
+  // TODO(lab-05, Part E): On-Behalf-Of token exchange.
+  //
+  // POST https://${AUTH0_DOMAIN}/oauth/token with body:
+  //   grant_type: urn:ietf:params:oauth:grant-type:token-exchange
+  //   subject_token: <user's access token>
+  //   subject_token_type: urn:ietf:params:oauth:token-type:access_token
+  //   audience: <MCP audience>
+  //   resource: <MCP audience>    // RFC 8707 resource indicator
+  //   client_id: <agent client id, pre-registered via CIMD>
+  //   client_secret: <agent client secret>
+  //
+  // Auth0 preserves the `sub` claim from the subject_token. That
+  // is how the MCP server knows which rep the agent is acting for.
   private async getToken(userAccessToken: string): Promise<string> {
-    throw new Error("MCPClient.getToken() not implemented - see Lab 5");
+    const cacheKey = userAccessToken.slice(-16);
+    const cached = cachedTokens.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.token;
+    }
+    void this.config;
+    throw new Error("MCPClient.getToken() not implemented - see Lab 05, Part E");
   }
 
-  // TODO: Implement listTools() - GET /mcp/tools with Bearer token
+  // TODO(lab-05): GET /mcp/tools with `Authorization: Bearer <exchanged token>`.
   async listTools(userAccessToken: string): Promise<any[]> {
-    throw new Error("MCPClient.listTools() not implemented - see Lab 5");
+    void userAccessToken;
+    throw new Error("MCPClient.listTools() not implemented - see Lab 05");
   }
 
-  // TODO: Implement callTool() - POST /mcp/tools/call with Bearer token
+  // TODO(lab-05): POST /mcp/tools/call with name + arguments.
+  // Handle 403 (insufficient scope) by surfacing the required scope
+  // name so the lab checkpoint can verify per-tool enforcement.
   async callTool(name: string, args: Record<string, any>, userAccessToken: string): Promise<any> {
-    throw new Error("MCPClient.callTool() not implemented - see Lab 5");
+    void name;
+    void args;
+    void userAccessToken;
+    throw new Error("MCPClient.callTool() not implemented - see Lab 05");
   }
 }
 

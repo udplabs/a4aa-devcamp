@@ -68,8 +68,14 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
 
 app.post("/api/ciba/initiate", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
-  const { toolName, scope } = req.body;
-  const result = await initiateCIBA(user.sub, user.email || "", toolName, scope);
+  const { toolName, scope, bindingMessage } = req.body;
+  const result = await initiateCIBA(
+    user.sub,
+    user.email || "",
+    toolName,
+    scope,
+    bindingMessage
+  );
   res.json(result);
 });
 
@@ -96,16 +102,24 @@ app.get("/api/ciba/pending", (req, res) => {
 
 app.post("/api/vault/link", validateAccessToken, (req, res) => {
   const user = extractUser(req);
-  const { provider } = req.body;
+  const { provider } = req.body as { provider: "google" | "slack" | string };
+  const scopeMap: Record<string, string[]> = {
+    google: [
+      "https://www.googleapis.com/auth/documents",
+      "https://www.googleapis.com/auth/drive.file",
+    ],
+    slack: ["chat:write", "channels:read"],
+  };
+  const scopes = scopeMap[provider] || ["openid"];
   storeToken(
     user.sub,
     provider,
-    `fs_access_${user.sub}_${Date.now()}`,
-    `fs_refresh_${user.sub}`,
+    `${provider}_access_${user.sub}_${Date.now()}`,
+    `${provider}_refresh_${user.sub}`,
     3600,
-    ["files:read", "files:list"]
+    scopes
   );
-  res.json({ linked: true, provider });
+  res.json({ linked: true, provider, scopes });
 });
 
 app.post("/api/vault/unlink", validateAccessToken, (req, res) => {

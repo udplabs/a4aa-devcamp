@@ -1,3 +1,16 @@
+// =============================================================
+// Token Vault (simulated) -- Lab 04
+//
+// Per-user federated connection store. Short-lived access tokens
+// are minted on demand and refreshed transparently when expired.
+// The MCP server calls getToken(userId, provider) to acquire a
+// scoped token right before calling the third-party API, so
+// credentials never sit in agent memory or in LLM prompts.
+//
+// In production this is backed by Auth0 Token Vault; here it is
+// an in-memory Map so the lab runs offline.
+// =============================================================
+
 interface VaultEntry {
   accessToken: string;
   refreshToken: string;
@@ -87,13 +100,28 @@ export function listLinkedProviders(userId: string): Array<{
   return results;
 }
 
+// Seed federated credentials for a demo user. In production these
+// come from a prior OAuth flow (rep links their Google + Slack
+// accounts once; the vault refreshes tokens on their behalf).
 export function seedVaultForUser(userId: string): void {
   storeToken(
     userId,
-    "file-storage",
-    `fs_access_${userId}_${Date.now()}`,
-    `fs_refresh_${userId}`,
+    "google",
+    `google_access_${userId}_${Date.now()}`,
+    `google_refresh_${userId}`,
     3600,
-    ["files:read", "files:list"]
+    [
+      "https://www.googleapis.com/auth/documents",
+      "https://www.googleapis.com/auth/drive.file",
+    ]
+  );
+
+  storeToken(
+    userId,
+    "slack",
+    `slack_access_${userId}_${Date.now()}`,
+    `slack_refresh_${userId}`,
+    3600,
+    ["chat:write", "channels:read"]
   );
 }

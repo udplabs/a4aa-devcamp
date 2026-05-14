@@ -1,11 +1,25 @@
+// =============================================================
+// Pattern-matching Simulator -- default agent runtime
+//
+// Runs when OPENAI_API_KEY is absent. Detects intent from simple
+// regex matches and routes to the MCP-backed tool registry.
+//
+// All tools route through the MCP client (see ../tools/registry.ts
+// -> executeTool -> ../mcp/client.ts). Authorization (scope, FGA,
+// Token Vault) happens at the MCP server boundary -- this file is
+// just the "what did the user ask for" layer.
+//
+// FUTURE: Swapping this module for the Claude Agent SDK only
+// requires rewriting processMessage(); the registry and MCP
+// layers stay identical. See ../llm.ts for the parallel comment.
+// =============================================================
+
 import {
   checkToolAuthorization,
   AuthorizationResult,
 } from "./middleware/agent-auth";
 import { executeTool } from "./tools/registry";
-import { initiateCIBA } from "./middleware/ciba";
-import { getDocument, listDocuments } from "./tools/documents";
-import { getExternalFiles } from "./tools/external-files";
+import { initiateCIBA, buildQuoteCommitBindingMessage } from "./middleware/ciba";
 
 export interface AgentUser {
   sub: string;
@@ -21,6 +35,7 @@ export interface LLMResponse {
   pendingCIBA?: {
     authReqId: string;
     toolName: string;
+    bindingMessage: string;
     expiresIn: number;
     interval: number;
   };
@@ -39,204 +54,201 @@ export async function processMessage(
 ): Promise<LLMResponse> {
   const intent = detectIntent(message);
 
-  if (intent.toolName) {
-    // Check authorization BEFORE executing the tool
-    const authResult = checkToolAuthorization(
-      user.sub,
-      user.scope,
-      intent.toolName
-    );
-
-    if (!authResult.authorized) {
-      if (authResult.requiresConsent) {
-        // Initiate CIBA for consent-required tools
-        const cibaResult = await initiateCIBA(
-          user.sub,
-          user.email || "",
-          intent.toolName,
-          authResult.tool!.requiredScopes.join(" ")
-        );
-
-        return {
-          message: `I need to use the **${intent.toolName}** tool on your behalf. This requires your approval via a secure out-of-band channel.\n\n**Waiting for approval...** Check your device or approve at the approval endpoint.`,
-          pendingCIBA: {
-            authReqId: cibaResult.authReqId,
-            toolName: intent.toolName,
-            expiresIn: cibaResult.expiresIn,
-            interval: cibaResult.interval,
-          },
-        };
-      }
-      return {
-        message: `I don't have permission to use the ${intent.toolName} tool. ${authResult.reason}`,
-      };
-    }
-
-    // Handle FGA-protected tools locally (they need user context)
-    if (intent.toolName === "get_document") {
-      const result = getDocument(user.sub, intent.parameters.documentId);
-      return {
-        message: formatToolResponse(intent.toolName, result),
-        toolCalls: [{ tool: intent.toolName, result, status: "success" }],
-      };
-    }
-
-    if (intent.toolName === "list_documents") {
-      const result = listDocuments(user.sub);
-      return {
-        message: formatToolResponse(intent.toolName, result),
-        toolCalls: [{ tool: intent.toolName, result, status: "success" }],
-      };
-    }
-
-    // Handle Token Vault tool locally
-    if (intent.toolName === "get_external_files") {
-      const result = await getExternalFiles(user.sub);
-      return {
-        message: formatToolResponse(intent.toolName, result),
-        toolCalls: [{ tool: intent.toolName, result, status: "success" }],
-      };
-    }
-
-    // Execute MCP tools via MCP client
-    try {
-      const result = await executeTool(intent.toolName, intent.parameters, user.accessToken);
-      return {
-        message: formatToolResponse(intent.toolName, result),
-        toolCalls: [{ tool: intent.toolName, result, status: "success" }],
-      };
-    } catch (error: any) {
-      return {
-        message: `Failed to execute ${intent.toolName}: ${error.message}`,
-        toolCalls: [
-          { tool: intent.toolName, result: null, status: "error" },
-        ],
-      };
-    }
+  if (!intent.toolName) {
+    return { message: generateResponse(message) };
   }
 
-  return { message: generateResponse(message) };
+  // Authorization gate: scopes + CIBA for high-risk tools.
+  const authResult = checkToolAuthorization(user.sub, user.scope, intent.toolName);
+
+  if (!authResult.authorized) {
+    if (authResult.requiresConsent) {
+      const bindingMessage =
+        intent.toolName === "commit_quote_terms"
+          ? buildQuoteCommitBindingMessage({
+              accountId: intent.parameters.accountId || "unknown account",
+              discountPercent: intent.parameters.discountPercent,
+              paymentTerms: intent.parameters.paymentTerms,
+            })
+          : `Approve use of ${intent.toolName}`;
+
+      const ciba = await initiateCIBA(
+        user.sub,
+        user.email || "",
+        intent.toolName,
+        authResult.tool!.requiredScopes.join(" "),
+        bindingMessage
+      );
+
+      return {
+        message: `I'm ready to commit these terms, but this requires your approval. A prompt has been sent to your device: *"${bindingMessage}"*`,
+        pendingCIBA: {
+          authReqId: ciba.authReqId,
+          toolName: intent.toolName,
+          bindingMessage: ciba.bindingMessage,
+          expiresIn: ciba.expiresIn,
+          interval: ciba.interval,
+        },
+      };
+    }
+    return {
+      message: `I don't have permission to use ${intent.toolName}. ${authResult.reason}`,
+    };
+  }
+
+  // Route through MCP (scope, audience, OBO enforced there).
+  try {
+    const result = await executeTool(
+      intent.toolName,
+      intent.parameters,
+      user.accessToken
+    );
+    return {
+      message: formatToolResponse(intent.toolName, result),
+      toolCalls: [{ tool: intent.toolName, result, status: "success" }],
+    };
+  } catch (error: any) {
+    return {
+      message: `Failed to execute ${intent.toolName}: ${error.message}`,
+      toolCalls: [{ tool: intent.toolName, result: null, status: "error" }],
+    };
+  }
 }
+
+// ---- Intent detection -------------------------------------------
 
 function detectIntent(
   message: string
 ): { toolName?: string; parameters: Record<string, any> } {
   const lower = message.toLowerCase();
 
-  if (lower.includes("weather")) {
-    const location = extractLocation(message) || "Bali";
-    return { toolName: "get_weather", parameters: { location } };
-  }
-
-  // Document tools (FGA)
+  // commit terms / final / approve / close -> commit_quote_terms
   if (
-    lower.includes("document") ||
-    lower.includes("roadmap") ||
-    lower.includes("budget") ||
-    lower.includes("report") ||
-    lower.includes("handbook")
-  ) {
-    if (lower.includes("roadmap") || lower.includes("project")) {
-      return { toolName: "get_document", parameters: { documentId: "project-roadmap" } };
-    }
-    if (lower.includes("budget")) {
-      return { toolName: "get_document", parameters: { documentId: "budget-2025" } };
-    }
-    if (lower.includes("classified") || lower.includes("security report")) {
-      return { toolName: "get_document", parameters: { documentId: "classified-report" } };
-    }
-    if (lower.includes("handbook")) {
-      return { toolName: "get_document", parameters: { documentId: "team-handbook" } };
-    }
-    return { toolName: "list_documents", parameters: {} };
-  }
-
-  // External files (Token Vault)
-  if (lower.includes("file") || lower.includes("storage") || lower.includes("external")) {
-    return { toolName: "get_external_files", parameters: {} };
-  }
-
-  if (
-    lower.includes("calendar") ||
-    lower.includes("schedule") ||
-    lower.includes("meeting") ||
-    lower.includes("itinerary") ||
-    lower.includes("trip")
-  ) {
-    return { toolName: "get_calendar", parameters: {} };
-  }
-
-  if (
-    (lower.includes("send") && lower.includes("email")) ||
-    (lower.includes("send") && lower.includes("mail")) ||
-    lower.includes("email") ||
-    lower.includes("booking") ||
-    lower.includes("confirmation")
+    lower.includes("commit") ||
+    lower.includes("finalize") ||
+    lower.includes("close the quote") ||
+    (lower.includes("approve") && lower.includes("discount"))
   ) {
     return {
-      toolName: "send_email",
-      parameters: extractEmailParams(message),
+      toolName: "commit_quote_terms",
+      parameters: {
+        accountId: extractAccount(message) || "acme",
+        quoteId: `q-${Date.now()}`,
+        discountPercent: extractDiscount(message),
+        paymentTerms: extractTerms(message),
+      },
+    };
+  }
+
+  // post to slack / notify deal desk -> post_slack_triage
+  if (
+    lower.includes("slack") ||
+    lower.includes("triage") ||
+    lower.includes("deal desk") ||
+    lower.includes("notify")
+  ) {
+    return {
+      toolName: "post_slack_triage",
+      parameters: {
+        channel: "#wholesale-quote-triage",
+        summary:
+          extractSummary(message) ||
+          "New quote draft ready for deal-desk review.",
+      },
+    };
+  }
+
+  // draft / create / write doc / mutual action plan -> create_google_doc
+  if (
+    lower.includes("draft") ||
+    lower.includes("create doc") ||
+    lower.includes("google doc") ||
+    lower.includes("generate quote doc")
+  ) {
+    return {
+      toolName: "create_google_doc",
+      parameters: {
+        title:
+          extractTitle(message) || "Bulk Quote Draft",
+        body:
+          extractSummary(message) ||
+          "Draft of wholesale quote generated by Z-Merchant.",
+      },
+    };
+  }
+
+  // quote / price / catalog / tier -> get_catalog_and_buyer_tier
+  if (
+    lower.includes("quote") ||
+    lower.includes("price") ||
+    lower.includes("catalog") ||
+    lower.includes("tier") ||
+    lower.includes("sku")
+  ) {
+    return {
+      toolName: "get_catalog_and_buyer_tier",
+      parameters: {
+        accountId: extractAccount(message) || "acme",
+        sku: extractSku(message) || "SKU-WX-42",
+      },
     };
   }
 
   return { parameters: {} };
 }
 
-function extractLocation(message: string): string | null {
-  const match = message.match(
-    /(?:weather\s+(?:in|for|at)\s+)(.+?)(?:\?|$|\.)/i
-  );
+// ---- Parameter extraction ---------------------------------------
+
+function extractAccount(message: string): string | null {
+  const named = message.match(/\b(acme|globex|initech|stark)\b/i);
+  if (named) return named[1].toLowerCase();
+  const explicit = message.match(/account[:\s]+([a-zA-Z0-9_-]+)/i);
+  return explicit ? explicit[1].toLowerCase() : null;
+}
+
+function extractSku(message: string): string | null {
+  const match = message.match(/SKU-[A-Z0-9-]+/i);
+  return match ? match[0].toUpperCase() : null;
+}
+
+function extractDiscount(message: string): number {
+  const match = message.match(/(\d{1,2})\s*%/);
+  return match ? parseInt(match[1], 10) : 15;
+}
+
+function extractTerms(message: string): string | undefined {
+  const match = message.match(/net[-\s]?(\d{2,3})/i);
+  return match ? `net-${match[1]}` : undefined;
+}
+
+function extractTitle(message: string): string | null {
+  const match = message.match(/titled?\s+["']?([^"'\n]+?)["']?(?:$|[,.])/i);
   return match ? match[1].trim() : null;
 }
 
-function extractEmailParams(message: string) {
-  const toMatch = message.match(/to\s+(\S+@\S+)/i);
-  return {
-    to: toMatch ? toMatch[1] : "traveler@example.com",
-    subject: "Booking Confirmation — Voyager Travel",
-    body: message,
-  };
+function extractSummary(message: string): string | null {
+  return message.length > 20 ? message.trim() : null;
 }
 
+// ---- Response formatting ----------------------------------------
+
 function formatToolResponse(toolName: string, result: any): string {
+  if (result && result.success === false) {
+    return `**Tool error:** ${result.error}`;
+  }
   switch (toolName) {
-    case "get_weather":
-      return `Here's the weather for **${result.location}**: ${result.condition}, ${result.temperature}. Humidity: ${result.humidity}.`;
-
-    case "get_calendar": {
-      const events = result.events
-        .map((e: any) => `- **${e.time}** — ${e.title}`)
-        .join("\n");
-      return `Here's your trip itinerary:\n${events}`;
+    case "get_catalog_and_buyer_tier": {
+      const { account, sku } = result;
+      return `**${account.name}** (${account.tier}, ${account.segment}) — **${sku.name}** list $${sku.listPrice}, tier price **$${sku.tierPrice}**.`;
     }
-
-    case "send_email":
-      return `Booking confirmation sent to **${result.to}** — "${result.subject}". Confirmation ID: \`${result.messageId}\``;
-
-    case "get_document":
-      if (!result.success) {
-        return `**Access Denied:** ${result.error}`;
-      }
-      return `**${result.document.title}** (${result.document.classification})\nYour access: *${result.document.yourAccess}*\n\n${result.document.content}`;
-
-    case "list_documents":
-      if (result.documents.length === 0) {
-        return "You don't have access to any documents.";
-      }
-      const docList = result.documents
-        .map((d: any) => `- **${d.title}** (${d.classification}) — ${d.relation}`)
-        .join("\n");
-      return `You have access to ${result.documents.length} of ${result.totalDocuments} documents:\n${docList}`;
-
-    case "get_external_files":
-      if (!result.success) {
-        return `**File Storage Error:** ${result.error}`;
-      }
-      const fileList = result.files
-        .map((f: any) => `- **${f.name}** (${f.size}) — modified ${f.modified}`)
-        .join("\n");
-      return `Here are your files from File Storage:\n${fileList}`;
-
+    case "create_google_doc":
+      return `Drafted **${result.title}** in Google Docs. [Open doc](${result.url})`;
+    case "post_slack_triage":
+      return `Posted to **${result.channel}**. [Open in Slack](${result.permalink})`;
+    case "commit_quote_terms": {
+      const c = result.committed;
+      return `Committed quote **${c.quoteId}** for **${c.accountId}** — ${c.discountPercent}% discount, ${c.paymentTerms}.`;
+    }
     default:
       return JSON.stringify(result);
   }
@@ -244,22 +256,14 @@ function formatToolResponse(toolName: string, result: any): string {
 
 function generateResponse(message: string): string {
   const lower = message.toLowerCase();
-
-  if (
-    lower.includes("hello") ||
-    lower.includes("hi") ||
-    lower.includes("hey")
-  ) {
-    return "Hello! I'm Voyager, your AI travel concierge. I can help you with:\n\n- **Destination Weather** — check conditions anywhere in the world\n- **Trip Itinerary** — view your flights, hotels, and activities\n- **Booking Confirmations** — send travel updates and confirmations\n- **Documents** — access your project documents (FGA-protected)\n- **External Files** — access your linked file storage\n\nWhat can I help you with?";
+  if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
+    return "Hello! I'm Z-Merchant, RetailZero's wholesale quote agent. I can help you:\n\n- Look up **catalog pricing and buyer tiers** for a wholesale account\n- **Draft a quote doc** in Google Docs\n- **Post a quote summary** to the deal-desk triage channel\n- **Commit final terms** (with approval for non-standard discounts)\n\nTry: *\"Quote SKU-WX-42 for Acme\"* or *\"Draft the Acme bulk quote\"*.";
   }
-
   if (lower.includes("help") || lower.includes("what can you")) {
-    return "I can help with these tools:\n\n1. **Destination Weather** — Check conditions for any city\n2. **Trip Itinerary** — View your scheduled flights, stays, and activities\n3. **Booking Confirmations** — Send confirmations (requires CIBA approval)\n4. **Documents** — Access project docs (FGA access control)\n5. **External Files** — Access linked file storage (Token Vault)\n\nJust ask naturally!";
+    return "I handle wholesale quote prep end-to-end:\n\n1. **Lookup** — catalog price + buyer tier (FGA-gated by account ownership)\n2. **Draft** — Google Doc in your Workspace (Token Vault)\n3. **Triage** — post to #wholesale-quote-triage (Token Vault)\n4. **Commit** — final terms to the order system (CIBA-gated for non-standard discounts)\n\nAsk me naturally.";
   }
-
   if (lower.includes("thank")) {
-    return "You're welcome! Let me know if there's anything else I can help with.";
+    return "You're welcome. Ping me on the next deal.";
   }
-
-  return `I understand you said: "${message}". Try asking about destination weather, your trip itinerary, documents, external files, or sending a booking confirmation.`;
+  return `I heard: "${message}". Try asking me to look up a quote, draft the doc, notify the deal desk, or commit terms.`;
 }

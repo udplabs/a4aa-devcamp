@@ -1,25 +1,33 @@
 // =============================================================
-// LAB 4: Implement the Token Vault
-// See: lab-guide/04-token-vault.md - Step 1
+// LAB 04: Implement the Token Vault (simulated)
+// See: lab-guide/04-token-vault.md
 //
-// This module handles:
-// 1. Storing third-party OAuth tokens keyed by (userId, provider)
-// 2. Retrieving tokens (with automatic refresh on expiry)
-// 3. Removing tokens (unlinking accounts)
-// 4. Listing linked providers
+// Per-user federated connection store for Google Workspace and
+// Slack. Short-lived access tokens are minted on demand and
+// refreshed transparently when expired. The MCP server calls
+// getToken(userId, provider) right before calling the third-party
+// API so credentials never sit in agent memory or prompts.
 //
-// Implement:
-// - storeToken(userId, provider, accessToken, refreshToken, expiresIn, scopes)
-// - getToken(userId, provider) — returns token or null, refreshes if expired
-// - removeToken(userId, provider)
-// - listLinkedProviders(userId)
-// - seedVaultForUser(userId)
+// In production this is backed by Auth0 Token Vault; here it is
+// an in-memory Map so the lab runs offline.
 // =============================================================
 
-/**
- * Store a third-party token in the vault.
- * TODO: Implement
- */
+interface VaultEntry {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  provider: string;
+  scopes: string[];
+}
+
+const vault = new Map<string, VaultEntry>();
+
+function vaultKey(userId: string, provider: string): string {
+  return `${userId}:${provider}`;
+}
+
+// TODO(lab-04): store a vault entry keyed by (userId, provider).
+// Compute expiresAt from expiresIn (seconds).
 export function storeToken(
   userId: string,
   provider: string,
@@ -28,43 +36,49 @@ export function storeToken(
   expiresIn: number,
   scopes: string[]
 ): void {
-  // TODO: Store in the in-memory vault
+  void userId;
+  void provider;
+  void accessToken;
+  void refreshToken;
+  void expiresIn;
+  void scopes;
 }
 
-/**
- * Retrieve a valid token from the vault.
- * If expired, simulate a token refresh.
- * TODO: Implement
- */
+// TODO(lab-04): return the active token for (userId, provider).
+// If expired, simulate a refresh by swapping in a new token prefixed
+// with `refreshed_${provider}_` and extending expiresAt.
+// Return null when no entry exists.
 export async function getToken(
   userId: string,
   provider: string
 ): Promise<{ token: string; provider: string } | null> {
+  void userId;
+  void provider;
   return null;
 }
 
-/**
- * Remove a token from the vault (unlink account).
- * TODO: Implement
- */
+// TODO(lab-04): remove a vault entry. Return true if something was removed.
 export function removeToken(userId: string, provider: string): boolean {
+  void userId;
+  void provider;
   return false;
 }
 
-/**
- * List all linked providers for a user.
- * TODO: Implement
- */
-export function listLinkedProviders(
-  userId: string
-): Array<{ provider: string; scopes: string[]; expiresAt: number }> {
+// TODO(lab-04): list every linked provider for userId.
+export function listLinkedProviders(userId: string): Array<{
+  provider: string;
+  scopes: string[];
+  expiresAt: number;
+}> {
+  void userId;
   return [];
 }
 
-/**
- * Seed a simulated third-party connection for a user.
- * TODO: Implement
- */
+// TODO(lab-04): seed demo google + slack tokens for userId.
+// google scopes: documents + drive.file
+// slack scopes: chat:write + channels:read
+// Without this seeding the create_google_doc and post_slack_triage
+// tools have no credentials to mint.
 export function seedVaultForUser(userId: string): void {
-  // TODO: Store a simulated "file-storage" token for the user
+  void userId;
 }

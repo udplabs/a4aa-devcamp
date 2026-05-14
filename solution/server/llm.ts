@@ -1,17 +1,25 @@
 // =============================================================
-// OpenAI LLM Integration (Complete Solution)
+// OpenAI LLM Integration -- Z-Merchant
 //
-// This module replaces pattern matching with real OpenAI tool
-// calling when OPENAI_API_KEY is set. Falls back to simulator
-// if the API call fails.
+// Replaces the pattern-matching simulator with real tool calling
+// when OPENAI_API_KEY is set. Falls back to the simulator if the
+// API call fails.
 //
-// All security layers are enforced between the LLM's tool
-// selection and actual execution:
-// - JWT scopes (Lab 1)
-// - CIBA consent for high-risk tools (Lab 2)
-// - FGA document access checks (Lab 3)
-// - Token Vault for third-party APIs (Lab 4)
-// - MCP routing for tool execution (Lab 5)
+// All security layers are enforced between the LLM's tool choice
+// and the actual MCP call:
+//   - JWT scopes         (Lab 01)
+//   - CIBA consent gate  (Lab 02) -- for commit_quote_terms
+//   - FGA access check   (Lab 03) -- enforced at the MCP server
+//   - Token Vault mint   (Lab 04) -- enforced at the MCP server
+//   - MCP routing        (Lab 05) -- audience + OBO + scope
+//
+// FUTURE: Claude Agent SDK adapter.
+// To swap this file for the Claude Agent SDK, rewrite the body
+// of processMessage() to drive a Claude tool-use loop. The tool
+// registry (./tools/registry.ts), MCP layer, Token Vault, FGA,
+// and CIBA middleware are framework-agnostic and do not need to
+// change. Keep the LLMResponse shape stable so the frontend and
+// the /api/chat handler in ./index.ts keep working.
 // =============================================================
 
 import OpenAI from "openai";
@@ -23,9 +31,7 @@ import {
   AuthorizationResult,
 } from "./middleware/agent-auth";
 import { executeTool } from "./tools/registry";
-import { initiateCIBA } from "./middleware/ciba";
-import { getDocument, listDocuments } from "./tools/documents";
-import { getExternalFiles } from "./tools/external-files";
+import { initiateCIBA, buildQuoteCommitBindingMessage } from "./middleware/ciba";
 
 export interface AgentUser {
   sub: string;
@@ -41,6 +47,7 @@ export interface LLMResponse {
   pendingCIBA?: {
     authReqId: string;
     toolName: string;
+    bindingMessage: string;
     expiresIn: number;
     interval: number;
   };
@@ -52,7 +59,14 @@ interface ToolCallResult {
   status: "success" | "error" | "pending_consent";
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// The OpenAI SDK speaks any OpenAI-compatible endpoint (LiteLLM proxy,
+// Azure OpenAI, local Ollama, etc.) via baseURL. Leave OPENAI_BASE_URL
+// unset to call OpenAI directly.
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
+});
+const LLM_MODEL = process.env.LLM_MODEL || "gpt-4o-mini";
 
 export async function processMessage(
   message: string,
@@ -60,7 +74,6 @@ export async function processMessage(
   user: AgentUser
 ): Promise<LLMResponse> {
   try {
-    // Build message history for OpenAI
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT_FULL },
       ...conversationHistory.map(
@@ -72,9 +85,8 @@ export async function processMessage(
       { role: "user", content: message },
     ];
 
-    // Call OpenAI with tool definitions
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: LLM_MODEL,
       max_tokens: 1024,
       messages,
       tools: getToolsForOpenAI(),
@@ -83,78 +95,70 @@ export async function processMessage(
     const choice = response.choices[0];
     const assistantMessage = choice.message;
 
-    // No tool call -- return the text response
     if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
       return { message: assistantMessage.content || "" };
     }
 
-    // Extract the first tool call
     const toolCall = assistantMessage.tool_calls[0];
     const toolName = toolCall.function.name;
     const parameters = JSON.parse(toolCall.function.arguments);
 
     console.log(`[LLM] Tool call: ${toolName}`, parameters);
 
-    // Check authorization BEFORE executing the tool
-    const authResult = checkToolAuthorization(
-      user.sub,
-      user.scope,
-      toolName
-    );
+    const authResult = checkToolAuthorization(user.sub, user.scope, toolName);
 
     if (!authResult.authorized) {
       if (authResult.requiresConsent) {
-        // Initiate CIBA for consent-required tools
-        const cibaResult = await initiateCIBA(
+        const bindingMessage =
+          toolName === "commit_quote_terms"
+            ? buildQuoteCommitBindingMessage({
+                accountId: parameters.accountId || "unknown account",
+                discountPercent: parameters.discountPercent,
+                paymentTerms: parameters.paymentTerms,
+              })
+            : `Approve use of ${toolName}`;
+
+        const ciba = await initiateCIBA(
           user.sub,
           user.email || "",
           toolName,
-          authResult.tool!.requiredScopes.join(" ")
+          authResult.tool!.requiredScopes.join(" "),
+          bindingMessage
         );
 
         return {
           message:
             assistantMessage.content ||
-            `I need to use the **${toolName}** tool on your behalf. This requires your approval via a secure out-of-band channel.\n\n**Waiting for approval...** Check your device or approve at the approval endpoint.`,
+            `I'm ready to commit these terms, but this requires your approval. A prompt has been sent to your device: *"${bindingMessage}"*`,
           pendingCIBA: {
-            authReqId: cibaResult.authReqId,
+            authReqId: ciba.authReqId,
             toolName,
-            expiresIn: cibaResult.expiresIn,
-            interval: cibaResult.interval,
+            bindingMessage: ciba.bindingMessage,
+            expiresIn: ciba.expiresIn,
+            interval: ciba.interval,
           },
         };
       }
       return {
-        message: `I don't have permission to use the ${toolName} tool. ${authResult.reason}`,
+        message: `I don't have permission to use ${toolName}. ${authResult.reason}`,
       };
     }
 
-    // Execute the tool (route based on type)
+    // All tools route through MCP (audience, OBO, per-tool scope
+    // enforced by the MCP server). FGA and Token Vault checks also
+    // live there, so this call path is identical for every tool.
     let result: any;
-
-    // FGA-protected tools run locally (they need user context)
-    if (toolName === "get_document") {
-      result = getDocument(user.sub, parameters.documentId);
-    } else if (toolName === "list_documents") {
-      result = listDocuments(user.sub);
-    } else if (toolName === "get_external_files") {
-      // Token Vault tool runs locally
-      result = await getExternalFiles(user.sub);
-    } else {
-      // MCP tools route through MCP client
-      try {
-        result = await executeTool(toolName, parameters, user.accessToken);
-      } catch (error: any) {
-        return {
-          message: `Failed to execute ${toolName}: ${error.message}`,
-          toolCalls: [{ tool: toolName, result: null, status: "error" }],
-        };
-      }
+    try {
+      result = await executeTool(toolName, parameters, user.accessToken);
+    } catch (error: any) {
+      return {
+        message: `Failed to execute ${toolName}: ${error.message}`,
+        toolCalls: [{ tool: toolName, result: null, status: "error" }],
+      };
     }
 
-    // Send tool result back to OpenAI for a natural response
     const followUp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: LLM_MODEL,
       max_tokens: 1024,
       messages: [
         ...messages,

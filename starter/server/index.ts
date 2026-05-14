@@ -26,8 +26,8 @@ app.use(cors());
 app.use(express.json());
 
 // =============================================================
-// LAB 1: Import and apply JWT validation middleware
-// See: lab-guide/01-user-authentication.md - Step 9
+// LAB 01: Import and apply JWT validation middleware
+// See: lab-guide/01-user-authentication.md
 //
 // import { validateAccessToken, extractUser } from "./middleware/auth";
 // =============================================================
@@ -41,18 +41,19 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Chat endpoint
-// LAB 1: Add validateAccessToken middleware to this route
+// LAB 01: Add validateAccessToken middleware to this route
 app.post("/api/chat", async (req, res) => {
   try {
-    // LAB 1: Extract authenticated user from token
+    // LAB 01: Extract the authenticated user from the validated access token.
     // const user = extractUser(req);
-    // console.log(`Authenticated request from user: ${user.sub}`);
+    // const accessToken = req.headers.authorization?.replace(/^Bearer\s+/i, "");
 
-    // For now, use a mock user
+    // Mock user until Lab 01 wires up JWT validation.
     const user = {
       sub: "anonymous",
-      scope: ["chat:send", "tools:read", "tools:execute", "email:send"],
+      scope: ["mcp:quote:read", "mcp:docs:create", "mcp:slack:post", "mcp:quote:commit"],
       email: "anonymous@example.com",
+      accessToken: undefined as string | undefined,
     };
 
     const { message, conversationHistory } = req.body;
@@ -70,39 +71,39 @@ app.post("/api/chat", async (req, res) => {
 });
 
 // =============================================================
-// LAB 2: Add CIBA endpoints
-// See: lab-guide/02-async-authorization-ciba.md - Step 4
+// LAB 02: Add CIBA endpoints. The commit_quote_terms tool triggers
+// a backchannel approval when discount > 20% or terms are non-standard.
+// Build the binding message in /api/ciba/initiate from the quote
+// parameters so the rep's device displays the exact terms.
 //
 // POST /api/ciba/initiate
 // GET  /api/ciba/status/:authReqId
 // POST /api/ciba/approve/:authReqId
 // POST /api/ciba/deny/:authReqId
 // GET  /api/ciba/pending
+//
+// See: lab-guide/02-async-authorization-ciba.md
 // =============================================================
 
 // =============================================================
-// LAB 4: Add Token Vault endpoints
-// See: lab-guide/04-token-vault.md - Step 6
-//
-// POST /api/vault/link
-// POST /api/vault/unlink
-// GET  /api/vault/providers
+// LAB 04: Token Vault endpoints
+//   POST /api/vault/link    body: { provider: "google" | "slack" }
+//   POST /api/vault/unlink  body: { provider }
+//   GET  /api/vault/providers
+// See: lab-guide/04-token-vault.md
 // =============================================================
 
 // =============================================================
-// LAB 4: Start the third-party API server
-// See: lab-guide/04-token-vault.md - Step 5
-//
-// import { startThirdPartyAPI } from "./token-vault/third-party-api";
-// startThirdPartyAPI();
+// LAB 04: Start the third-party mock API (Google + Slack)
+//   import { startThirdPartyAPI } from "./token-vault/third-party-api";
+//   startThirdPartyAPI();
 // =============================================================
 
 // =============================================================
-// LAB 5: Start the MCP server
-// See: lab-guide/05-auth-for-mcp.md - Part E
-//
-// import { startMCPServer } from "./mcp/server";
-// startMCPServer();
+// LAB 05: Start the Auth0-secured MCP server
+//   import { startMCPServer } from "./mcp/server";
+//   startMCPServer();
+// See: lab-guide/05-auth-for-mcp.md
 // =============================================================
 
 app.listen(PORT, () => {

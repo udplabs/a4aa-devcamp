@@ -27,6 +27,13 @@ export class MCPClient {
 
     console.log("[MCP Client] Exchanging user token for MCP-scoped token...");
 
+    // Lab 05 -- On-Behalf-Of token exchange.
+    // The `audience` and `resource` parameters both name the MCP
+    // server's resource indicator so the issued token's aud claim
+    // locks it to that MCP server and nothing else. The `sub`
+    // claim (rep's user id) is preserved from the subject_token
+    // by Auth0, giving the MCP server end-to-end user attribution
+    // without the agent ever forging identity.
     const response = await fetch(
       `https://${this.config.auth0Domain}/oauth/token`,
       {
@@ -37,6 +44,7 @@ export class MCPClient {
           subject_token: userAccessToken,
           subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
           audience: this.config.audience,
+          resource: this.config.audience,
           client_id: this.config.clientId,
           client_secret: this.config.clientSecret,
         }),

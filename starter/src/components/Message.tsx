@@ -4,13 +4,26 @@ interface MessageProps {
   toolCalls?: Array<{ tool: string; result: any; status: string }>;
 }
 
+// =============================================================
+// LAB 06: Attribute each tool call with an A4AA pillar badge so
+// the rep can see which security control fired. Example:
+//
+//   const TOOL_BADGES: Record<string, string> = {
+//     get_catalog_and_buyer_tier: "FGA + MCP (OBO)",
+//     create_google_doc: "Token Vault -> Google + MCP (OBO)",
+//     post_slack_triage: "Token Vault -> Slack + MCP (OBO)",
+//     commit_quote_terms: "CIBA + MCP (OBO)",
+//   };
+//
+// Render TOOL_BADGES[tc.tool] under the tool name.
+// =============================================================
+
 export function Message({ role, content, toolCalls }: MessageProps) {
   return (
     <div className={`message ${role}`}>
       <div className={`message-bubble ${role}`}>
         <div className="message-content">
           {content.split("\n").map((line, i) => {
-            // Simple markdown-like rendering for bold text
             const parts = line.split(/(\*\*.*?\*\*)/g);
             return (
               <p key={i}>
@@ -41,6 +54,7 @@ export function Message({ role, content, toolCalls }: MessageProps) {
                 </span>
                 <span className="tool-call-name">{tc.tool}</span>
                 <span className="tool-call-status">{tc.status}</span>
+                {/* LAB 06: render TOOL_BADGES[tc.tool] here */}
               </div>
             ))}
           </div>

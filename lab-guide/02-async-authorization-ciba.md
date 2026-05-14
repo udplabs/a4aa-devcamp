@@ -1,517 +1,199 @@
-# Lab 2: Async Authorization via CIBA
-
-## Objectives
-
-- Understand CIBA (Client-Initiated Backchannel Authentication) and why it matters for agents
-- Configure CIBA grant type in Auth0
-- Implement a CIBA authorization request from the agent backend
-- Build the polling loop that waits for user approval
-- Handle approval/denial responses
-- Execute the tool only after CIBA approval
-
----
+# Lab 02: Async Authorization (CIBA)
 
 ## Premise
 
-The agent can now chat with authenticated users. But when it tries to do something sensitive (like send an email), it needs explicit user consent obtained **asynchronously** via CIBA — not a simple in-app dialog.
+A rep drafts a quote for Acme at 25% discount with net-60 payment terms. Both of those are outside RetailZero's standard playbook. Z-Merchant should not commit that deal without the rep actively saying yes on their device.
 
-CIBA separates the "consumption device" (the agent) from the "authentication device" (the user's phone or browser). The agent initiates an authorization request, and the user approves on a different channel.
+CIBA (Client-Initiated Backchannel Authentication) is the flow for that. The agent backend initiates an authorization request with a human-readable binding message, the rep's device surfaces a push notification, the rep approves, and only then does the commit land.
 
----
+## Objectives
 
-## Concept: Why CIBA?
+- Configure the CIBA grant type in Auth0.
+- Detect non-standard quote terms on the backend (`discount > 20%` or `paymentTerms != net-30`).
+- Build a binding message from the quote parameters so the rep sees what they are approving.
+- Initiate a CIBA request, poll for approval, and gate the commit on the result.
+- Wire the frontend to show the pending approval state with the binding message.
 
-In a traditional consent flow, the user clicks "Approve" in the same app. But with AI agents:
+## Auth0 Dashboard Setup
 
-- The agent may act autonomously or in a background process
-- The user might not be looking at the agent's UI
-- A push notification or separate approval is more appropriate
+### 1. Enable CIBA on the tenant
 
-CIBA enables this:
+- **Dashboard > Settings > Advanced > OAuth** -- enable **CIBA Grant Type** if it is not already on.
 
-```
-Agent Backend                          Auth0                         User's Device
-     │                                   │                                │
-     │── POST /bc-authorize ────────────▶│                                │
-     │   (login_hint + scope)            │── Push notification ─────────▶│
-     │◀── { auth_req_id, interval } ─────│                                │
-     │                                   │                                │
-     │── Poll /oauth/token ─────────────▶│                                │
-     │◀── { error: "authorization_pending" }                              │
-     │                                   │                   User approves│
-     │── Poll /oauth/token ─────────────▶│◀──────────────────────────────│
-     │◀── { access_token } ──────────────│                                │
-     │                                   │                                │
-     ▼ Execute tool with token
-```
+### 2. Enable CIBA on the Z-Merchant M2M application
 
----
+This is the app the agent backend uses to talk to Auth0 directly (separate from the SPA). You will create it in Lab 05 and reuse it here. For Lab 02 the simulator handles approval, so you can keep the Auth0-side wiring minimal:
 
-## Step 1: Configure CIBA in Auth0
+- **Dashboard > Applications > <Z-Merchant Agent (M2M)> > Advanced Settings > Grant Types**: check **CIBA**.
 
-1. In the Auth0 Dashboard, go to **Applications > Applications > Create Application**
-2. Choose **Machine to Machine** and name it `DevCamp CIBA Agent`
-3. Authorize it for the `DevCamp AI API` with the `email:send` scope
-4. In the application **Settings**, go to **Advanced Settings > Grant Types**
-5. Enable **Client-Initiated Backchannel Authentication (CIBA)**
-6. Note the **Client ID** and **Client Secret**
+## Code Steps
 
-> **Note:** CIBA requires an Auth0 Enterprise plan in production. For this lab, we simulate the approval endpoint.
+The starter ships a simulator for CIBA so you can run the full flow offline. The state machine mirrors Auth0's: `pending` -> `approved | denied`, 300-second expiry.
 
----
+### Step 1: implement the CIBA middleware
 
-## Step 2: Update Environment Variables
+`starter/server/middleware/ciba.ts` -- fill in each stub:
 
-Add the CIBA configuration to your `.env`:
+```ts
+import { randomBytes } from "crypto";
 
-```
-# Existing vars...
-
-# CIBA (Lab 2)
-AUTH0_CIBA_CLIENT_ID=your-ciba-client-id
-AUTH0_CIBA_CLIENT_SECRET=your-ciba-client-secret
-```
-
----
-
-## Step 3: Implement the CIBA Middleware
-
-Create `server/middleware/ciba.ts`:
-
-```typescript
-// In-memory store for CIBA requests (simulated)
-const cibaRequests = new Map<string, {
-  userId: string;
-  toolName: string;
-  status: "pending" | "approved" | "denied";
+interface CIBARequest {
   authReqId: string;
+  userId: string;
+  userEmail: string;
+  toolName: string;
+  scope: string;
+  bindingMessage: string;
+  status: "pending" | "approved" | "denied";
   createdAt: number;
-}>();
-
-// Generate a unique auth request ID
-function generateAuthReqId(): string {
-  return `ciba_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+  expiresAt: number;
 }
 
-/**
- * Initiate a CIBA authorization request.
- *
- * In production, this would POST to Auth0's /bc-authorize endpoint.
- * For the lab, we simulate it with an in-memory store and a manual
- * approval endpoint.
- */
-export async function initiateCIBA(
-  userId: string,
-  userEmail: string,
-  toolName: string,
-  scope: string
-): Promise<{ authReqId: string; expiresIn: number; interval: number }> {
-  const authReqId = generateAuthReqId();
+const requests = new Map<string, CIBARequest>();
 
-  // Store the pending request
-  cibaRequests.set(authReqId, {
-    userId,
-    toolName,
+export async function initiateCIBA(userId, userEmail, toolName, scope, bindingMessage = "") {
+  const authReqId = randomBytes(16).toString("hex");
+  const now = Date.now();
+  requests.set(authReqId, {
+    authReqId, userId, userEmail, toolName, scope, bindingMessage,
     status: "pending",
-    authReqId,
-    createdAt: Date.now(),
+    createdAt: now,
+    expiresAt: now + 300_000,
   });
+  console.log(`[CIBA] initiated ${authReqId} for ${userId} :: ${bindingMessage}`);
+  return { authReqId, expiresIn: 300, interval: 2, bindingMessage };
+}
 
-  console.log(`[CIBA] Authorization request initiated:`);
-  console.log(`  auth_req_id: ${authReqId}`);
-  console.log(`  user: ${userEmail} (${userId})`);
-  console.log(`  tool: ${toolName}`);
-  console.log(`  scope: ${scope}`);
-  console.log(`  Approve at: POST /api/ciba/approve/${authReqId}`);
-
-  // In production, Auth0 would send a push notification to the user.
-  // Here we return the auth_req_id so the approval can be done manually.
+export function checkCIBAStatus(authReqId) {
+  const req = requests.get(authReqId);
+  if (!req) return { status: "denied" };
+  if (Date.now() > req.expiresAt) return { status: "denied" };
   return {
-    authReqId,
-    expiresIn: 300, // 5 minutes
-    interval: 5,    // poll every 5 seconds
+    status: req.status,
+    bindingMessage: req.bindingMessage,
+    token: req.status === "approved" ? `mock-ciba-${authReqId}` : undefined,
   };
 }
 
-/**
- * Check the status of a CIBA request (polling).
- *
- * In production, this would POST to Auth0's /oauth/token endpoint
- * with grant_type=urn:openid:params:grant-type:ciba.
- */
-export function checkCIBAStatus(
-  authReqId: string
-): { status: "pending" | "approved" | "denied"; token?: string } {
-  const request = cibaRequests.get(authReqId);
-
-  if (!request) {
-    return { status: "denied" };
-  }
-
-  // Check expiry (5 minutes)
-  if (Date.now() - request.createdAt > 300_000) {
-    cibaRequests.delete(authReqId);
-    return { status: "denied" };
-  }
-
-  if (request.status === "approved") {
-    // In production, Auth0 returns a real access token here.
-    // We return a simulated scoped token.
-    cibaRequests.delete(authReqId);
-    return {
-      status: "approved",
-      token: `ciba_token_${request.userId}_${request.toolName}_${Date.now()}`,
-    };
-  }
-
-  if (request.status === "denied") {
-    cibaRequests.delete(authReqId);
-    return { status: "denied" };
-  }
-
-  return { status: "pending" };
-}
-
-/**
- * Approve a CIBA request (simulates user action on their device).
- */
-export function approveCIBA(authReqId: string): boolean {
-  const request = cibaRequests.get(authReqId);
-  if (!request || request.status !== "pending") {
-    return false;
-  }
-  request.status = "approved";
-  console.log(`[CIBA] Request ${authReqId} APPROVED`);
+export function approveCIBA(authReqId) {
+  const req = requests.get(authReqId);
+  if (!req) return false;
+  req.status = "approved";
   return true;
 }
 
-/**
- * Deny a CIBA request (simulates user action on their device).
- */
-export function denyCIBA(authReqId: string): boolean {
-  const request = cibaRequests.get(authReqId);
-  if (!request || request.status !== "pending") {
-    return false;
-  }
-  request.status = "denied";
-  console.log(`[CIBA] Request ${authReqId} DENIED`);
+export function denyCIBA(authReqId) {
+  const req = requests.get(authReqId);
+  if (!req) return false;
+  req.status = "denied";
   return true;
 }
 
-/**
- * List all pending CIBA requests (for the approval UI).
- */
-export function listPendingCIBA(): Array<{
-  authReqId: string;
-  userId: string;
-  toolName: string;
-  createdAt: number;
-}> {
-  return Array.from(cibaRequests.values())
+export function listPendingCIBA() {
+  return Array.from(requests.values())
     .filter((r) => r.status === "pending")
-    .map(({ authReqId, userId, toolName, createdAt }) => ({
-      authReqId,
-      userId,
-      toolName,
-      createdAt,
+    .map(({ authReqId, userId, toolName, bindingMessage, createdAt }) => ({
+      authReqId, userId, toolName, bindingMessage, createdAt,
     }));
 }
 ```
 
----
+### Step 2: build the binding message
 
-## Step 4: Add CIBA Endpoints to the Server
+Same file, `buildQuoteCommitBindingMessage`:
 
-Open `server/index.ts` and add the CIBA routes:
+```ts
+export function buildQuoteCommitBindingMessage(params) {
+  const { accountId, discountPercent, paymentTerms } = params;
+  const parts = [];
+  if (typeof discountPercent === "number" && discountPercent > 20) {
+    parts.push(`${discountPercent}% discount`);
+  }
+  if (paymentTerms && paymentTerms !== "net-30") {
+    parts.push(paymentTerms);
+  }
+  const terms = parts.length ? parts.join(", ") : "non-standard terms";
+  return `Approve ${terms} on quote for ${accountId}?`;
+}
+```
 
-```typescript
+### Step 3: gate the commit in the LLM path
+
+`starter/server/llm.ts` -- before calling the tool:
+
+```ts
+import { initiateCIBA, buildQuoteCommitBindingMessage } from "./middleware/ciba";
+
+if (toolName === "commit_quote_terms") {
+  const nonStandard =
+    (parameters.discountPercent ?? 0) > 20 ||
+    (parameters.paymentTerms && parameters.paymentTerms !== "net-30");
+
+  if (nonStandard) {
+    const bindingMessage = buildQuoteCommitBindingMessage(parameters);
+    const ciba = await initiateCIBA(user.sub, user.email!, toolName, "mcp:quote:commit", bindingMessage);
+    return {
+      message: `This quote is outside standard terms. Check your device for an approval prompt: "${bindingMessage}"`,
+      pendingCIBA: { ...ciba, toolName },
+    };
+  }
+}
+```
+
+Do the same in `starter/server/simulator.ts` so the simulator fallback also gates the commit.
+
+### Step 4: add the CIBA endpoints
+
+`starter/server/index.ts`:
+
+```ts
 import {
-  initiateCIBA,
-  checkCIBAStatus,
-  approveCIBA,
-  denyCIBA,
-  listPendingCIBA,
+  initiateCIBA, checkCIBAStatus, approveCIBA, denyCIBA,
+  listPendingCIBA, buildQuoteCommitBindingMessage,
 } from "./middleware/ciba";
 
-// Initiate a CIBA authorization request
 app.post("/api/ciba/initiate", validateAccessToken, async (req, res) => {
+  const { toolName, scope, parameters } = req.body;
   const user = extractUser(req);
-  const { toolName, scope } = req.body;
-
-  const result = await initiateCIBA(user.sub, user.email || "", toolName, scope);
+  const bindingMessage =
+    toolName === "commit_quote_terms"
+      ? buildQuoteCommitBindingMessage(parameters || {})
+      : `Approve ${toolName}?`;
+  const result = await initiateCIBA(user.sub, user.email, toolName, scope, bindingMessage);
   res.json(result);
 });
 
-// Poll for CIBA status
-app.get("/api/ciba/status/:authReqId", validateAccessToken, (req, res) => {
-  const result = checkCIBAStatus(req.params.authReqId);
-  res.json(result);
+app.get("/api/ciba/status/:authReqId", (req, res) => {
+  res.json(checkCIBAStatus(req.params.authReqId));
 });
 
-// Simulated approval endpoint (user approves on their "device")
-// In production, this would be handled by Auth0's push notification flow.
 app.post("/api/ciba/approve/:authReqId", (req, res) => {
-  const success = approveCIBA(req.params.authReqId);
-  res.json({ approved: success });
+  res.json({ ok: approveCIBA(req.params.authReqId) });
 });
 
-// Simulated denial endpoint
 app.post("/api/ciba/deny/:authReqId", (req, res) => {
-  const success = denyCIBA(req.params.authReqId);
-  res.json({ denied: success });
+  res.json({ ok: denyCIBA(req.params.authReqId) });
 });
 
-// List pending requests (for the approval page)
-app.get("/api/ciba/pending", (req, res) => {
-  res.json(listPendingCIBA());
+app.get("/api/ciba/pending", (_req, res) => {
+  res.json({ pending: listPendingCIBA() });
 });
 ```
 
----
+### Step 5: poll from the frontend
 
-## Step 5: Update the Simulator to Use CIBA
-
-Open `server/simulator.ts`. For tools that require consent (like `send_email`), trigger the CIBA flow instead of simple in-app consent.
-
-Update the section where consent-required tools are handled:
-
-```typescript
-if (authResult.requiresConsent) {
-  // Initiate CIBA instead of returning a simple consent dialog
-  const cibaResult = await initiateCIBA(
-    user.sub,
-    user.email || "",
-    intent.toolName,
-    tool.requiredScopes.join(" ")
-  );
-
-  return {
-    message: `I need to send an email on your behalf. This requires your approval via a secure out-of-band channel.\n\n**Waiting for approval...** Check your device or approve at the approval endpoint.`,
-    pendingCIBA: {
-      authReqId: cibaResult.authReqId,
-      toolName: intent.toolName,
-      expiresIn: cibaResult.expiresIn,
-      interval: cibaResult.interval,
-    },
-  };
-}
-```
-
-Add `initiateCIBA` to the imports:
-
-```typescript
-import { initiateCIBA } from "./middleware/ciba";
-```
-
-And update the `LLMResponse` interface to include:
-
-```typescript
-pendingCIBA?: {
-  authReqId: string;
-  toolName: string;
-  expiresIn: number;
-  interval: number;
-};
-```
-
----
-
-## Step 6: Update the Frontend to Handle CIBA
-
-Open `src/hooks/useChat.ts` and add CIBA polling support:
-
-```typescript
-const [pendingCIBA, setPendingCIBA] = useState<{
-  authReqId: string;
-  toolName: string;
-} | null>(null);
-```
-
-In the `sendMessage` function, after receiving the response data:
-
-```typescript
-if (data.pendingCIBA) {
-  setPendingCIBA({
-    authReqId: data.pendingCIBA.authReqId,
-    toolName: data.pendingCIBA.toolName,
-  });
-
-  // Start polling for CIBA approval
-  pollCIBAStatus(data.pendingCIBA.authReqId, data.pendingCIBA.toolName, content);
-}
-```
-
-Add the polling function:
-
-```typescript
-const pollCIBAStatus = async (
-  authReqId: string,
-  toolName: string,
-  originalMessage: string
-) => {
-  const token = await getAccessTokenSilently({
-    authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE },
-  });
-
-  const poll = setInterval(async () => {
-    try {
-      const response = await fetch(`/api/ciba/status/${authReqId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-
-      if (data.status === "approved") {
-        clearInterval(poll);
-        setPendingCIBA(null);
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: `Approval received. Executing ${toolName}...` },
-        ]);
-        // Re-send the original message — CIBA token is now available
-        await sendMessage(originalMessage);
-      } else if (data.status === "denied") {
-        clearInterval(poll);
-        setPendingCIBA(null);
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: `Authorization was denied. The ${toolName} action has been cancelled.` },
-        ]);
-      }
-      // If "pending", keep polling
-    } catch {
-      clearInterval(poll);
-      setPendingCIBA(null);
-    }
-  }, 5000); // poll every 5 seconds
-};
-```
-
-Return `pendingCIBA` from the hook:
-
-```typescript
-return { messages, sendMessage, isLoading, pendingApproval, handleApproval, pendingCIBA };
-```
-
----
-
-## Step 7: Update the ToolApproval Component
-
-Open `src/components/ToolApproval.tsx`. When a CIBA flow is active, show a "Waiting for approval on your device..." state instead of Approve/Deny buttons.
-
-In `Chat.tsx`, add after the existing `pendingApproval` block:
-
-```tsx
-{pendingCIBA && (
-  <div className="tool-approval">
-    <div className="tool-approval-card">
-      <div className="tool-approval-header">
-        <span className="tool-approval-icon">&#128274;</span>
-        <h3>Out-of-Band Approval Required</h3>
-      </div>
-      <p>
-        The agent needs approval to execute <code>{pendingCIBA.toolName}</code>.
-        A notification has been sent to your device.
-      </p>
-      <div className="tool-details">
-        <div className="tool-detail-row">
-          <strong>Request ID:</strong> <code>{pendingCIBA.authReqId}</code>
-        </div>
-        <div className="tool-detail-row">
-          <strong>Status:</strong> Waiting for approval...
-        </div>
-      </div>
-      <div className="typing-indicator" style={{ justifyContent: "center", padding: "8px 0" }}>
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-    </div>
-  </div>
-)}
-```
-
----
-
-## Step 8: Test the CIBA Flow
-
-### Test 1: Trigger CIBA
-
-1. Log in and send: **"Send a booking confirmation to my email"**
-2. The agent should show the "Out-of-Band Approval Required" state
-3. The server logs should show the `auth_req_id`
-
-### Test 2: Approve via Simulated Device
-
-In a separate terminal, approve the request:
-
-```bash
-# Get the auth_req_id from the server logs or the UI
-curl -X POST http://localhost:3000/api/ciba/approve/<auth_req_id>
-```
-
-Or open a new browser tab and navigate to view pending requests:
-
-```bash
-curl http://localhost:3000/api/ciba/pending
-```
-
-### Test 3: Verify Execution
-
-After approval:
-1. The polling detects the approval
-2. The agent executes the email tool
-3. A confirmation message appears in the chat
-
-### Test 4: Test Denial
-
-1. Send another email request
-2. Deny it:
-
-```bash
-curl -X POST http://localhost:3000/api/ciba/deny/<auth_req_id>
-```
-
-3. The chat should show "Authorization was denied"
-
----
-
-## Understanding the CIBA Flow
-
-```
-User: "Send a booking confirmation"
-  │
-  ▼
-Agent: detectIntent() → send_email
-  │
-  ▼
-Agent: checkToolAuthorization() → requires consent
-  │
-  ▼
-Agent: initiateCIBA() → returns auth_req_id
-  │
-  ├──▶ Frontend: Shows "Waiting for approval..."
-  │    Starts polling /api/ciba/status/{auth_req_id} every 5s
-  │
-  ├──▶ User: Approves on "device" (POST /api/ciba/approve/{auth_req_id})
-  │
-  ▼
-Polling detects "approved"
-  │
-  ▼
-Agent re-executes → Tool runs → Result returned
-```
-
----
+`starter/src/hooks/useChat.ts` -- fill in `pollCIBAStatus` and call it when `data.pendingCIBA` comes back. Show the binding message in the pending card (already wired in `Chat.tsx`).
 
 ## Checkpoint
 
-At this point you have:
-- [x] CIBA authorization flow configured
-- [x] Agent initiates backchannel auth requests for sensitive tools
-- [x] Polling loop in the frontend waits for approval
-- [x] Simulated out-of-band approval endpoint
-- [x] Tool executes only after CIBA approval
+1. Prompt Z-Merchant: *"Commit the Acme Q3 quote at 25% discount net-60."*
+2. The response should include a **Device Approval Required** card showing `Approve 25% discount, net-60 on quote for acme?`.
+3. `curl http://localhost:3000/api/ciba/pending` shows the pending request.
+4. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
+5. The UI flips; the commit proceeds.
 
----
+Negative test: do nothing for 300 seconds, the request auto-expires and the commit aborts.
 
-**Next: [Lab 3 — Fine Grained Authorization](./03-fine-grained-authorization.md)**
+## What you learned
+
+Tool-level approvals tied to the rep's device turn "agent took an action nobody signed off on" into "rep explicitly approved this margin concession, timestamped, with the exact terms in the approval record." That audit artifact is what lets RetailZero let Z-Merchant commit quotes autonomously at all. Without CIBA, every non-standard quote would still need the manual deal-desk cycle -- which is the exact operational expense we are cutting.

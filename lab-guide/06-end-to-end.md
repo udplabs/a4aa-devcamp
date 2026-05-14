@@ -1,232 +1,112 @@
-# Lab 6: End-to-End Integration Test
+# Lab 06: End-to-End
+
+## Premise
+
+Five labs, five pillars. This one runs the full wholesale-quote workflow and confirms every control fires in one deal.
 
 ## Objectives
 
-- Verify the complete authentication and authorization chain across all layers
-- Test each protection mechanism independently
-- Understand the full security model from user to agent to tool
+- Drive Z-Merchant through a happy-path quote for Acme.
+- Drive a second deal that trips CIBA (25% discount, net-60).
+- Run each negative test to confirm the guardrails hold.
+- Read the logs and map each line to the pillar that produced it.
 
----
+## Prerequisites
 
-## The Complete Flow
+- Labs 01 through 05 complete in `starter/`.
+- `.env` populated with the RetailZero API audience, MCP audience, SPA client, and M2M client.
+- `cd starter && npm run dev` up -- frontend :5173, API :3000, MCP :3001, third-party mock :3002.
+- Demo users: `alice@retailzero.demo` (owns acme + globex), `bob@retailzero.demo` (manages team-west -> initech).
 
-Run through each of these scenarios to confirm everything works.
+## Happy path: Acme Q3 tier-2 quote
 
----
-
-### Scenario 1: Unauthenticated User (User Auth)
-
-1. Open the app in an incognito window
-2. You should see the **Login Screen** — not the chat
-3. The API is inaccessible without authentication
-
-**What's protecting this:** Auth0 Universal Login + `useAuth0()` hook + auth gate in `App.tsx`
-
----
-
-### Scenario 2: Low-Risk Tool via MCP (User Auth + MCP)
-
-1. Log in
-2. Send: **"What's the weather in Berlin?"**
+1. Log in as Alice.
+2. Prompt: *"Generate Q3 bulk quote for Acme Corp, 500 units SKU-WX-42 at tier-2 pricing."*
 3. Expected:
-   - No approval dialog
-   - Weather response appears immediately
-   - Server logs show JWT validation + MCP token exchange
+   - Tool call `get_catalog_and_buyer_tier` -- success with `account.tier=2` and the tier-2 price.
+   - Badges on the tool card: **FGA + MCP (OBO)**.
+4. Prompt: *"Draft the quote as a Google Doc."*
+5. Expected:
+   - Tool call `create_google_doc` -- returns `documentId` and `url`.
+   - Badges: **Token Vault -> Google + MCP (OBO)**.
+6. Prompt: *"Post a triage summary to #wholesale-quote-triage."*
+7. Expected:
+   - Tool call `post_slack_triage` -- returns Slack `ts` and `permalink`.
+   - Badges: **Token Vault -> Slack + MCP (OBO)**.
+8. Prompt: *"Commit the Acme Q3 quote at 15% discount net-30."*
+9. Expected: commit lands directly (standard terms -- no CIBA).
 
-**What's protecting this:**
-- Frontend → API: Auth0 access token (JWT)
-- Agent → Tool: Auto-approved (low risk, no consent required)
-- Agent → MCP: On-behalf-of token exchange (user token exchanged for MCP-scoped token)
+## CIBA path: non-standard terms
 
----
-
-### Scenario 3: High-Risk Tool via CIBA (CIBA)
-
-1. Send: **"Send an email to team@company.com about the project update"**
-2. Expected: Out-of-band approval required message appears
-3. In a separate terminal, approve the CIBA request:
-
-```bash
-# Get the auth_req_id from the server logs
-curl -X POST http://localhost:3000/api/ciba/approve/<auth_req_id>
-```
-
-4. Expected:
-   - Polling detects the approval
-   - Agent executes the email tool
-   - Confirmation message appears
-
-**What's protecting this:**
-- CIBA backchannel authorization — user must approve on a separate device/channel
-- Agent cannot execute the tool until CIBA approval is received
-
----
-
-### Scenario 4: Document Retrieval with FGA (FGA)
-
-1. Send: **"What documents do I have access to?"**
-2. Expected: List of 3 documents (project-roadmap, budget-2025, team-handbook)
-
-3. Send: **"Show me the project roadmap"**
-4. Expected: Document content displayed with access level "viewer"
-
-5. Send: **"Show me the classified report"**
-6. Expected: "Access denied" — FGA check fails
-
-**What's protecting this:**
-- FGA relationship-based access control
-- Per-document authorization tuples
-- `checkAccess()` before returning any document data
-
----
-
-### Scenario 5: Third-Party API via Token Vault (Token Vault)
-
-1. Send: **"Show my files from storage"**
-2. Expected: List of files from the simulated File Storage API
-
-**What's protecting this:**
-- Token Vault retrieves stored third-party OAuth token
-- Third-party API validates the bearer token
-- Agent never sees raw credentials
-
----
-
-### Scenario 6: MCP Discovery (Auth for MCP)
-
-Test the MCP metadata endpoints:
-
-```bash
-# Protected Resource Metadata (RFC 9728)
-curl http://localhost:3001/.well-known/oauth-protected-resource | jq .
-
-# OAuth Authorization Server Metadata
-curl http://localhost:3001/.well-known/oauth-authorization-server | jq .
-```
-
-Both should return metadata that tells MCP clients how to authenticate.
-
----
-
-### Scenario 7: Direct MCP Attack (Token Validation)
-
-```bash
-# No token — should return 401
-curl http://localhost:3001/mcp/tools
-
-# Fake token — should return 401
-curl -H "Authorization: Bearer fake.token.here" http://localhost:3001/mcp/tools
-
-# Direct tool call without token — should return 401
-curl -X POST http://localhost:3001/mcp/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{"name":"send_email","arguments":{"to":"victim@example.com","subject":"spam","body":"hacked"}}'
-```
-
-All should return **401 Unauthorized**.
-
----
-
-### Scenario 8: Direct API Attack
-
-Open the browser console and try:
-
-```javascript
-// No token
-fetch("/api/chat", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message: "Send an email" })
-}).then(r => console.log("No token:", r.status));
-
-// Fake token
-fetch("/api/chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer fake.token.here"
-  },
-  body: JSON.stringify({ message: "Send an email" })
-}).then(r => console.log("Fake token:", r.status));
-```
-
-Both should return **401 Unauthorized**.
-
----
-
-## Security Summary
-
-| Attack Vector | Protection | Layer |
-|---------------|-----------|-------|
-| Unauthenticated chat access | Auth0 Universal Login | Frontend |
-| Unauthenticated API call | JWT validation (`express-oauth2-jwt-bearer`) | API |
-| Forged/expired token | RS256 signature + JWKS validation | API |
-| Sensitive tool without consent | CIBA backchannel authorization | Agent |
-| Unauthorized document access | FGA relationship-based checks | Agent |
-| Third-party API without credentials | Token Vault managed tokens | Agent |
-| Direct MCP server access | OAuth 2.0 token validation | MCP |
-| MCP call without required scope | Per-tool scope enforcement | MCP |
-| Unknown MCP client | Client ID Metadata (CIMD) | MCP |
-| Token reuse across MCP servers | On-behalf-of token exchange | MCP |
-
----
-
-## What You Built
+10. Prompt: *"Commit the same quote at 25% discount net-60."*
+11. Expected: Device Approval card shows `Approve 25% discount, net-60 on quote for acme?`.
+12. Approve out-of-band:
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        YOUR APPLICATION                          │
-│                                                                  │
-│  ┌─────────────────┐     ┌──────────────────────────────────┐   │
-│  │   React Chat    │────▶│         Express API               │   │
-│  │   Interface     │     │                                    │   │
-│  │                 │     │  ┌──────────────────┐             │   │
-│  │  • Auth0 Login  │     │  │  JWT Validation  │             │   │
-│  │  • Chat UI      │     │  └──────────────────┘             │   │
-│  │  • CIBA Status  │     │                                    │   │
-│  └─────────────────┘     │  ┌──────────────────┐             │   │
-│                          │  │  LLM Simulator   │             │   │
-│                          │  └──────────────────┘             │   │
-│                          │                                    │   │
-│                          │  ┌──────────────────┐             │   │
-│                          │  │  CIBA Auth       │             │   │
-│                          │  └──────────────────┘             │   │
-│                          │                                    │   │
-│                          │  ┌──────────────────┐             │   │
-│                          │  │  FGA Checks      │             │   │
-│                          │  └──────────────────┘             │   │
-│                          │                                    │   │
-│                          │  ┌──────────────────┐             │   │
-│                          │  │  Token Vault     │─────▶ Third-Party API
-│                          │  └──────────────────┘      (File Storage)
-│                          │                                    │   │
-│                          │  ┌──────────────────┐             │   │
-│                          │  │  MCP Client      │─────▶ MCP Server
-│                          │  │  (CIMD + Exchange)│      • PRM (RFC 9728)
-│                          │  └──────────────────┘      • Token Validation
-│                          └──────────────────────────────────┘   │
-│                                                                  │
-│                          ┌─────────────────┐                    │
-│                          │   Auth0 Tenant  │                    │
-│                          │                 │                    │
-│                          │ • Users         │                    │
-│                          │ • APIs          │                    │
-│                          │ • M2M Apps      │                    │
-│                          │ • FGA Model     │                    │
-│                          │ • CIBA Config   │                    │
-│                          │ • Scopes        │                    │
-│                          └─────────────────┘                    │
-└──────────────────────────────────────────────────────────────────┘
+curl -X POST http://localhost:3000/api/ciba/pending
+# copy the authReqId
+curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>
 ```
 
----
+13. The UI flips; commit completes with `committedAt` timestamp.
 
-## Cleanup
+## Negative tests
 
-If you want to clean up your Auth0 tenant:
-1. Delete the `DevCamp AI Chat` SPA application
-2. Delete the `DevCamp CIBA Agent` M2M application
-3. Delete the `DevCamp MCP Client` M2M application
-4. Delete the `DevCamp AI API` API
-5. Delete the `DevCamp MCP Server` API
-6. Delete any test users you created
+### FGA deny
+
+- Prompt: *"Look up pricing for SKU-WX-42 on Initech."*
+- Expected: `FGA deny: user:... cannot read account:initech`. Initech belongs to team-west; Alice is not a member.
+
+### CIBA timeout
+
+- Start a non-standard commit. Do not approve.
+- After 300 seconds, `/api/ciba/status/:id` returns `denied`. Commit aborts.
+
+### Missing scope
+
+- Open `.env`, remove `mcp:docs:create` from the M2M app's authorized scopes via the Auth0 dashboard.
+- Restart the backend.
+- Prompt: *"Draft a Google Doc."*
+- Expected: `MCP denied create_google_doc -- insufficient scope (need mcp:docs:create)`.
+
+### Vault unlinked
+
+- Call `POST /api/vault/unlink` with `{ "provider": "slack" }`.
+- Prompt: *"Post a triage summary."*
+- Expected: `slack not linked`. Relink via `POST /api/vault/link`.
+
+### Cross-rep spoofing
+
+- Log in as Bob.
+- Prompt: *"Commit the Acme quote."*
+- Expected: `FGA deny: commit account:acme`. Bob can read Initech through team-west but cannot commit on Acme.
+
+## Reading the logs
+
+For a single end-to-end prompt, the trace looks roughly like:
+
+```
+[Auth]  validated JWT: sub=auth0|alice aud=https://devcamp-retailzero-api
+[LLM]   tool call: get_catalog_and_buyer_tier { accountId: "acme", sku: "SKU-WX-42" }
+[MCP client] OBO exchange -> audience=https://devcamp-mcp-server resource=https://devcamp-mcp-server
+[MCP srv] validated JWT: sub=auth0|alice aud=https://devcamp-mcp-server
+[MCP srv] scope check mcp:quote:read OK
+[FGA]   check can_read user:auth0|alice account:acme -> allow
+[MCP srv] -> { account: acme (tier 2), sku: WX-42 @ 42.50 }
+```
+
+The same rep `sub` flows through every hop, which gives you one audit key for every downstream decision.
+
+## What you learned
+
+Five controls -- Authentication, CIBA, FGA, Token Vault, MCP with CIMD + OBO + PRM -- stacked behind one agent. Each one is a lever on a specific risk:
+
+- JWT validation kills unauthenticated use.
+- CIBA kills unilateral commits on non-standard terms.
+- FGA kills cross-customer data access.
+- Token Vault kills shared-credential sprawl.
+- MCP kills agent-framework lock-in on your authorization code.
+
+The commercial shape of that: a wholesale quote agent that closes deals faster than the manual desk (GTM acceleration), reviews cleanly with the security team (shorter procurement cycle), and does not re-buy identity work every time the agent runtime changes (lower opex on the platform team).
+
+That is the full RetailZero Z-Merchant workshop. The starter code you just finished is the reference implementation for the pattern; the solution/ tree mirrors it one-to-one for comparison.

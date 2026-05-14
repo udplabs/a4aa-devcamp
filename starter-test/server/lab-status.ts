@@ -12,7 +12,7 @@ export async function labStatusHandler(_req: Request, res: Response) {
   // would reject a request with no scopes for a tool that requires them
   let agentAuthImplemented = false;
   try {
-    const result = checkToolAuthorization("test-user", [], "get_weather");
+    const result = checkToolAuthorization("test-user", [], "get_catalog_and_buyer_tier");
     // If toolRegistry is empty, this might return authorized:true by default.
     // If populated and auth is implemented, empty scopes should be rejected.
     agentAuthImplemented = toolRegistryPopulated && !result.authorized;

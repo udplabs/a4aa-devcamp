@@ -1,11 +1,12 @@
 import { useState } from "react";
 
 // =============================================================
-// LAB 1: Add access token to fetch requests
-// See: lab-guide/01-user-authentication.md - Step 10
+// LAB 01: Attach the rep's access token to every /api/* call
+//         (getAccessTokenSilently from @auth0/auth0-react).
 //
-// LAB 2: Add pendingCIBA state and polling
-// See: lab-guide/02-async-authorization-ciba.md - Step 6
+// LAB 02: When the backend returns pendingCIBA, poll
+//         /api/ciba/status/:authReqId until the rep approves
+//         on their device. Surface the binding message in the UI.
 // =============================================================
 
 interface ChatMessage {
@@ -21,18 +22,20 @@ interface PendingApproval {
   requiredScopes: string[];
 }
 
+interface PendingCIBA {
+  authReqId: string;
+  toolName: string;
+  bindingMessage?: string;
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingApproval, setPendingApproval] =
     useState<PendingApproval | null>(null);
-  const [pendingCIBA, setPendingCIBA] = useState<{
-    authReqId: string;
-    toolName: string;
-  } | null>(null);
+  const [pendingCIBA, setPendingCIBA] = useState<PendingCIBA | null>(null);
 
-  // LAB 1: Uncomment and use this for authenticated requests
-  // const { getAccessTokenSilently } = useAuth0();
+  // LAB 01: const { getAccessTokenSilently } = useAuth0();
 
   const sendMessage = async (content: string) => {
     const userMessage: ChatMessage = { role: "user", content };
@@ -41,11 +44,11 @@ export function useChat() {
 
     try {
       // =============================================================
-      // LAB 1: Add Authorization header with access token
+      // LAB 01: Add Authorization header with access token
       // const token = await getAccessTokenSilently({
       //   authorizationParams: {
       //     audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-      //     scope: "chat:send",
+      //     scope: "mcp:quote:read mcp:docs:create mcp:slack:post mcp:quote:commit",
       //   },
       // });
       // =============================================================
@@ -54,8 +57,7 @@ export function useChat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // LAB 1: Add this header:
-          // Authorization: `Bearer ${token}`,
+          // LAB 01: Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           message: content,
@@ -64,7 +66,7 @@ export function useChat() {
       });
 
       if (response.status === 401) {
-        throw new Error("Unauthorized - please log in again");
+        throw new Error("Unauthorized -- please log in again");
       }
 
       if (!response.ok) {
@@ -73,14 +75,19 @@ export function useChat() {
 
       const data = await response.json();
 
-      // Check for pending approval (consent-required tools)
       if (data.pendingApproval) {
         setPendingApproval(data.pendingApproval);
       }
 
       // =============================================================
-      // LAB 2: Check for pendingCIBA and start polling
-      // if (data.pendingCIBA) { ... }
+      // LAB 02: if (data.pendingCIBA) {
+      //   setPendingCIBA({
+      //     authReqId: data.pendingCIBA.authReqId,
+      //     toolName: data.pendingCIBA.toolName,
+      //     bindingMessage: data.pendingCIBA.bindingMessage,
+      //   });
+      //   pollCIBAStatus(data.pendingCIBA.authReqId, data.pendingCIBA.toolName);
+      // }
       // =============================================================
 
       setMessages((prev) => [
@@ -102,11 +109,6 @@ export function useChat() {
   };
 
   const handleApproval = async (toolName: string, approved: boolean) => {
-    // =============================================================
-    // LAB 2: Implement CIBA-based approval flow
-    // See: lab-guide/02-async-authorization-ciba.md
-    // =============================================================
-
     setPendingApproval(null);
 
     if (!approved) {
@@ -114,11 +116,34 @@ export function useChat() {
         ...prev,
         {
           role: "assistant",
-          content: `Action denied. I won't use the ${toolName} tool. Is there anything else I can help with?`,
+          content: `Approval denied. I will not run ${toolName}. Anything else I can help with?`,
         },
       ]);
     }
   };
+
+  // =============================================================
+  // LAB 02: Implement this polling loop.
+  //
+  // const pollCIBAStatus = (authReqId: string, toolName: string) => {
+  //   const interval = setInterval(async () => {
+  //     const res = await fetch(`/api/ciba/status/${authReqId}`);
+  //     const { status } = await res.json();
+  //     if (status === "approved") {
+  //       clearInterval(interval);
+  //       setPendingCIBA(null);
+  //       // re-dispatch the tool call; or let the backend resume.
+  //     } else if (status === "denied" || status === "expired") {
+  //       clearInterval(interval);
+  //       setPendingCIBA(null);
+  //       setMessages(prev => [...prev, {
+  //         role: "assistant",
+  //         content: `Approval ${status} for ${toolName}.`,
+  //       }]);
+  //     }
+  //   }, 2000);
+  // };
+  // =============================================================
 
   return {
     messages,

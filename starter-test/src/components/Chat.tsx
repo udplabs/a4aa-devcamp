@@ -33,40 +33,42 @@ export function Chat() {
       <div className="messages-container">
         {messages.length === 0 && (
           <div className="empty-state">
-            <h2>Welcome to Voyager</h2>
-            <p>Your AI travel concierge. Try asking about:</p>
+            <h2>Welcome to Z-Merchant</h2>
+            <p>RetailZero's wholesale quote agent. Try one of these:</p>
             <div className="suggestions">
               <button
                 className="suggestion"
-                onClick={() => sendMessage("What's the weather in Bali?")}
+                onClick={() =>
+                  sendMessage(
+                    "Generate Q3 bulk quote for Acme Corp, 500 units SKU-WX-42 at tier-2 pricing."
+                  )
+                }
               >
-                Weather in Bali
-              </button>
-              <button
-                className="suggestion"
-                onClick={() => sendMessage("Show my trip itinerary")}
-              >
-                My trip itinerary
+                Acme tier-2 quote
               </button>
               <button
                 className="suggestion"
                 onClick={() =>
-                  sendMessage("Send a booking confirmation to my email")
+                  sendMessage("Draft a Google Doc quote for globex at tier-2.")
                 }
               >
-                Send booking confirmation
+                Draft quote doc
               </button>
               <button
                 className="suggestion"
-                onClick={() => sendMessage("What documents do I have access to?")}
+                onClick={() =>
+                  sendMessage("Post a triage summary to #wholesale-quote-triage.")
+                }
               >
-                My documents
+                Slack triage
               </button>
               <button
                 className="suggestion"
-                onClick={() => sendMessage("Show my files from storage")}
+                onClick={() =>
+                  sendMessage("Commit the acme Q3 quote at 25% discount net-60.")
+                }
               >
-                External files
+                Commit non-standard terms
               </button>
             </div>
           </div>
@@ -145,7 +147,7 @@ export function Chat() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about destinations, itineraries, or bookings..."
+          placeholder="Describe the deal, or ask Z-Merchant to draft or commit a quote..."
           disabled={isLoading}
           className="message-input"
         />

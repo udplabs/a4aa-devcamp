@@ -1,12 +1,38 @@
+// =============================================================
+// MCP Server (Auth0-secured) -- Lab 05
+//
+// Every tool the Z-Merchant agent invokes passes through here.
+// Auth0 secures the MCP server via:
+//   - JWT validation (audience = MCP_AUTH0_AUDIENCE)
+//   - Per-tool scope enforcement
+//   - Protected Resource Metadata (RFC 9728) at /.well-known
+//   - Authorization Server Metadata at /.well-known
+//
+// User identity is preserved via OBO token exchange (see
+// ../mcp/client.ts). The sub claim in the incoming MCP token is
+// the rep's user id, which is what the tool logic below uses for
+// FGA checks and Token Vault lookups.
+// =============================================================
+
 import express from "express";
 import { auth } from "express-oauth2-jwt-bearer";
 import { protectedResourceMetadata } from "./metadata";
 import { findAvailablePort } from "../utils/port";
+import {
+  canReadAccount,
+  canCommitQuote,
+  getAccount,
+  getCatalogEntry,
+  seedTuplesForUser,
+} from "../fga/client";
+import { getToken, seedVaultForUser } from "../token-vault/vault";
 
 const app = express();
 app.use(express.json());
 
-// OAuth 2.0 token validation
+// OAuth 2.0 token validation -- audience enforcement means only
+// tokens minted via OBO with resource=MCP_AUTH0_AUDIENCE are
+// accepted (see ../mcp/client.ts).
 const validateMCPToken = auth({
   issuerBaseURL: `https://${process.env.AUTH0_DOMAIN}`,
   audience: process.env.MCP_AUTH0_AUDIENCE,
@@ -23,10 +49,10 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
     token_endpoint: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
     jwks_uri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
     scopes_supported: [
-      "mcp:weather:read",
-      "mcp:calendar:read",
-      "mcp:email:send",
-      "mcp:documents:read",
+      "mcp:quote:read",
+      "mcp:docs:create",
+      "mcp:slack:post",
+      "mcp:quote:commit",
     ],
     grant_types_supported: [
       "urn:ietf:params:oauth:grant-type:token-exchange",
@@ -35,123 +61,213 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
   });
 });
 
+// ---- Tool catalog -------------------------------------------------
+
+const TOOLS = [
+  {
+    name: "get_catalog_and_buyer_tier",
+    description:
+      "Look up catalog pricing for a SKU and the buyer tier for a wholesale account. FGA-gated by account ownership.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accountId: { type: "string", description: "Wholesale account id, e.g. acme" },
+        sku: { type: "string", description: "Catalog SKU, e.g. SKU-WX-42" },
+      },
+      required: ["accountId", "sku"],
+    },
+    requiredScope: "mcp:quote:read",
+  },
+  {
+    name: "create_google_doc",
+    description:
+      "Create a Google Doc in the rep's Workspace. Uses Token Vault to mint a short-lived Google access token.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        body: { type: "string" },
+      },
+      required: ["title", "body"],
+    },
+    requiredScope: "mcp:docs:create",
+  },
+  {
+    name: "post_slack_triage",
+    description:
+      "Post a summary to #wholesale-quote-triage in Slack. Uses Token Vault to mint a short-lived Slack token.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel: { type: "string" },
+        summary: { type: "string" },
+        docUrl: { type: "string" },
+      },
+      required: ["summary"],
+    },
+    requiredScope: "mcp:slack:post",
+  },
+  {
+    name: "commit_quote_terms",
+    description:
+      "Commit final quote terms to the order system. CIBA-gated at the agent backend when discount > 20% or terms are non-standard.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accountId: { type: "string" },
+        quoteId: { type: "string" },
+        discountPercent: { type: "number" },
+        paymentTerms: { type: "string" },
+      },
+      required: ["accountId", "quoteId", "discountPercent"],
+    },
+    requiredScope: "mcp:quote:commit",
+  },
+];
+
 // List available tools (MCP tools/list)
 app.get("/mcp/tools", validateMCPToken, (_req, res) => {
   console.log("[MCP Server] Tools list requested");
-  res.json({
-    tools: [
-      {
-        name: "get_weather",
-        description: "Check destination weather and travel conditions",
-        inputSchema: {
-          type: "object",
-          properties: { location: { type: "string", description: "Destination city" } },
-          required: ["location"],
-        },
-        requiredScope: "mcp:weather:read",
-      },
-      {
-        name: "get_calendar",
-        description: "View your trip itinerary and scheduled activities",
-        inputSchema: {
-          type: "object",
-          properties: { date: { type: "string", description: "Date (YYYY-MM-DD)" } },
-        },
-        requiredScope: "mcp:calendar:read",
-      },
-      {
-        name: "send_email",
-        description: "Send a booking confirmation or travel update email",
-        inputSchema: {
-          type: "object",
-          properties: {
-            to: { type: "string" },
-            subject: { type: "string" },
-            body: { type: "string" },
-          },
-          required: ["to", "subject", "body"],
-        },
-        requiredScope: "mcp:email:send",
-      },
-      {
-        name: "get_document",
-        description: "Retrieve a document by ID",
-        inputSchema: {
-          type: "object",
-          properties: { documentId: { type: "string" } },
-          required: ["documentId"],
-        },
-        requiredScope: "mcp:documents:read",
-      },
-    ],
-  });
+  res.json({ tools: TOOLS });
 });
 
-// Execute a tool (MCP tools/call) — protected + scope enforcement
-app.post("/mcp/tools/call", validateMCPToken, (req, res) => {
+// Execute a tool (MCP tools/call) -- protected + scope enforcement
+app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
   const { name, arguments: args } = req.body;
-  const tokenScopes = (req as any).auth?.payload?.scope?.split(" ") || [];
+  const payload = (req as any).auth?.payload || {};
+  const userSub: string = payload.sub;
+  const tokenScopes: string[] = (payload.scope || "").split(" ").filter(Boolean);
 
-  console.log(`[MCP Server] Tool call: ${name}, scopes: ${tokenScopes}`);
+  console.log(
+    `[MCP Server] Tool call: ${name}, sub=${userSub}, scopes=${tokenScopes.join(",")}`
+  );
 
-  const scopeMap: Record<string, string> = {
-    get_weather: "mcp:weather:read",
-    get_calendar: "mcp:calendar:read",
-    send_email: "mcp:email:send",
-    get_document: "mcp:documents:read",
-  };
-
-  const requiredScope = scopeMap[name];
-  if (!requiredScope) {
+  const tool = TOOLS.find((t) => t.name === name);
+  if (!tool) {
     return res.status(404).json({ error: `Unknown tool: ${name}` });
   }
 
-  if (!tokenScopes.includes(requiredScope)) {
-    console.log(`[MCP Server] DENIED — Required: ${requiredScope}, have: ${tokenScopes}`);
+  if (!tokenScopes.includes(tool.requiredScope)) {
+    console.log(
+      `[MCP Server] DENIED -- required=${tool.requiredScope}, have=${tokenScopes.join(",")}`
+    );
     return res.status(403).json({
       error: "Insufficient scope",
-      required: requiredScope,
+      required: tool.requiredScope,
       provided: tokenScopes,
     });
   }
 
-  const result = executeToolLocally(name, args);
-  console.log(`[MCP Server] Tool ${name} executed successfully`);
-  res.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
+  try {
+    // Seed demo FGA tuples + vault entries on first call per user.
+    seedTuplesForUser(userSub);
+    seedVaultForUser(userSub);
+
+    const result = await executeToolLogic(name, args, userSub);
+    console.log(`[MCP Server] Tool ${name} executed`);
+    res.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
+  } catch (err: any) {
+    console.error(`[MCP Server] Tool ${name} failed: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-function executeToolLocally(name: string, args: any): any {
+async function executeToolLogic(name: string, args: any, userSub: string): Promise<any> {
   switch (name) {
-    case "get_weather":
-      return {
-        location: args.location,
-        temperature: `${Math.floor(Math.random() * 30 + 5)}\u00B0C`,
-        condition: ["Sunny", "Cloudy", "Rainy", "Partly Cloudy"][Math.floor(Math.random() * 4)],
-        humidity: `${Math.floor(Math.random() * 60 + 30)}%`,
-      };
-    case "get_calendar":
-      return {
-        events: [
-          { time: "9:00 AM", title: "Airport Check-in (Terminal 2)" },
-          { time: "11:30 AM", title: "Flight to Bali (GA-412)" },
-          { time: "3:00 PM", title: "Hotel Check-in (The Mulia Resort)" },
-          { time: "7:00 PM", title: "Dinner Reservation (La Lucciola)" },
-        ],
-      };
-    case "send_email":
+    case "get_catalog_and_buyer_tier": {
+      const { accountId, sku } = args;
+      if (!canReadAccount(userSub, accountId)) {
+        return {
+          success: false,
+          error: `Access denied: you do not own or manage account:${accountId}.`,
+        };
+      }
+      const account = getAccount(accountId);
+      const catalog = getCatalogEntry(sku);
+      if (!account) return { success: false, error: `Account ${accountId} not found.` };
+      if (!catalog) return { success: false, error: `SKU ${sku} not found.` };
       return {
         success: true,
-        to: args.to,
-        subject: args.subject,
-        messageId: `msg-${Date.now()}`,
-        timestamp: new Date().toISOString(),
+        account: { id: accountId, ...account },
+        sku: {
+          id: sku,
+          name: catalog.name,
+          listPrice: catalog.listPrice,
+          tierPrice: catalog.tierPrice[account.tier],
+        },
       };
-    case "get_document":
+    }
+
+    case "create_google_doc": {
+      const { title, body } = args;
+      const tokenResult = await getToken(userSub, "google");
+      if (!tokenResult) {
+        return {
+          success: false,
+          error: "No Google Workspace account linked for this rep.",
+        };
+      }
+      const apiPort = process.env.THIRD_PARTY_API_PORT || "3002";
+      const response = await fetch(`http://localhost:${apiPort}/google/docs`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenResult.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title, body }),
+      });
+      if (!response.ok) {
+        return { success: false, error: `Google Docs API error: ${response.statusText}` };
+      }
+      const data = await response.json();
+      return { success: true, ...data };
+    }
+
+    case "post_slack_triage": {
+      const channel = args.channel || "#wholesale-quote-triage";
+      const { summary, docUrl } = args;
+      const tokenResult = await getToken(userSub, "slack");
+      if (!tokenResult) {
+        return { success: false, error: "No Slack workspace linked for this rep." };
+      }
+      const text = docUrl ? `${summary}\n\nDoc: ${docUrl}` : summary;
+      const apiPort = process.env.THIRD_PARTY_API_PORT || "3002";
+      const response = await fetch(`http://localhost:${apiPort}/slack/chat.postMessage`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenResult.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ channel, text }),
+      });
+      if (!response.ok) {
+        return { success: false, error: `Slack API error: ${response.statusText}` };
+      }
+      const data = await response.json();
+      return { success: true, ...data };
+    }
+
+    case "commit_quote_terms": {
+      const { accountId, quoteId, discountPercent, paymentTerms } = args;
+      if (!canCommitQuote(userSub, accountId)) {
+        return {
+          success: false,
+          error: `Access denied: you cannot commit quotes for account:${accountId}.`,
+        };
+      }
       return {
-        documentId: args.documentId,
-        title: `Document: ${args.documentId}`,
-        content: "Document content retrieved via MCP.",
+        success: true,
+        committed: {
+          accountId,
+          quoteId,
+          discountPercent,
+          paymentTerms: paymentTerms || "net-30",
+          committedAt: new Date().toISOString(),
+          committedBy: userSub,
+        },
       };
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
