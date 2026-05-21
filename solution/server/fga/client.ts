@@ -96,27 +96,31 @@ function logDecision(
 
 const seededUsers = new Set<string>();
 
-// Seed demo tuples. Alice = rep owning acme + globex. Bob = manager
-// of team-west which owns initech. Stark is unassigned (good deny
-// case). Every authenticated user also gets catalog:read so catalog
-// lookups succeed without bespoke per-user seeding.
-export function seedTuplesForUser(userId: string): void {
+// Seed demo tuples branched by email so the FGA differentiation is visible:
+//   alice@... -> direct owner of acme + globex (read + commit both)
+//   bob@...   -> member (not manager) of team-west which owns initech
+//                (read initech via team membership; cannot commit)
+//   any other authenticated rep -> owner of acme + globex (default for demo)
+// Every authenticated rep also gets reader catalog:default.
+// account:stark is intentionally never seeded -> good FGA deny case.
+export function seedTuplesForUser(userId: string, email?: string): void {
   if (seededUsers.has(userId)) return;
-  console.log(`[FGA] Seeding tuples for user: ${userId}`);
+  console.log(`[FGA] Seeding tuples for user: ${userId} (email=${email || "n/a"})`);
 
   // Every authenticated rep can read the catalog.
   writeTuple(`user:${userId}`, "reader", "catalog:default");
 
-  // First-seen user becomes owner of acme + globex by default so
-  // demo prompts "Generate quote for Acme" resolve without extra setup.
-  writeTuple(`user:${userId}`, "owner", "account:acme");
-  writeTuple(`user:${userId}`, "owner", "account:globex");
+  if (email?.startsWith("alice")) {
+    writeTuple(`user:${userId}`, "owner", "account:acme");
+    writeTuple(`user:${userId}`, "owner", "account:globex");
+  } else if (email?.startsWith("bob")) {
+    writeTuple(`user:${userId}`, "member", "team:team-west");
+    writeTuple("team:team-west", "owning_team", "account:initech");
+  } else {
+    writeTuple(`user:${userId}`, "owner", "account:acme");
+    writeTuple(`user:${userId}`, "owner", "account:globex");
+  }
 
-  // Demo team structure -- manager sees team-owned accounts.
-  writeTuple(`user:${userId}`, "manager", "team:team-west");
-  writeTuple("team:team-west", "owning_team", "account:initech");
-
-  // account:stark is intentionally unassigned -> deny case.
   seededUsers.add(userId);
 }
 

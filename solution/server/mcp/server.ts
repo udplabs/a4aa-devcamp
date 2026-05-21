@@ -136,6 +136,7 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
   const { name, arguments: args } = req.body;
   const payload = (req as any).auth?.payload || {};
   const userSub: string = payload.sub;
+  const userEmail: string | undefined = payload.email;
   const tokenScopes: string[] = (payload.scope || "").split(" ").filter(Boolean);
 
   console.log(
@@ -160,7 +161,7 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
 
   try {
     // Seed demo FGA tuples + vault entries on first call per user.
-    seedTuplesForUser(userSub);
+    seedTuplesForUser(userSub, userEmail);
     seedVaultForUser(userSub);
 
     const result = await executeToolLogic(name, args, userSub);

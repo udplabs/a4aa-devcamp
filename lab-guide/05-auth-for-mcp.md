@@ -153,8 +153,8 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
     });
   }
 
-  await seedTuplesForUser(userSub, userEmail);
-  await seedVaultForUser(userSub);
+  seedTuplesForUser(userSub, userEmail);
+  seedVaultForUser(userSub);
 
   try {
     const result = await executeToolLogic(name, args, userSub);
@@ -173,11 +173,11 @@ Same file:
 async function executeToolLogic(name, args, userSub) {
   switch (name) {
     case "get_catalog_and_buyer_tier": {
-      if (!(await canReadAccount(userSub, args.accountId))) {
+      if (!canReadAccount(userSub, args.accountId)) {
         throw new Error(`FGA deny: account:${args.accountId}`);
       }
       const account = getAccount(args.accountId);
-      const sku = getCatalogEntry(args.sku, account.tier);
+      const sku = getCatalogEntry(args.sku);
       return { account, sku, tier: account.tier };
     }
     case "create_google_doc": {
@@ -201,7 +201,7 @@ async function executeToolLogic(name, args, userSub) {
       return r.json();
     }
     case "commit_quote_terms": {
-      if (!(await canCommitQuote(userSub, args.accountId))) {
+      if (!canCommitQuote(userSub, args.accountId)) {
         throw new Error(`FGA deny: commit account:${args.accountId}`);
       }
       return { committed: { accountId: args.accountId, quoteId: args.quoteId, discountPercent: args.discountPercent, paymentTerms: args.paymentTerms || "net-30", committedAt: new Date().toISOString() } };

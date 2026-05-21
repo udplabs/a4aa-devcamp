@@ -4,19 +4,19 @@
 
 .guide-toggle {
   padding: 6px 14px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 6px;
   background: transparent;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .guide-toggle:hover {
-  background: #1E2A45;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #3A2856;
+  border-color: #9921FE;
+  color: #FBFBFA;
 }
 
 /* --- Full-screen overlay --- */
@@ -25,7 +25,7 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: #0B1121;
+  background: #14091E;
   display: flex;
 }
 
@@ -40,8 +40,8 @@
 .guide-sidebar {
   width: 280px;
   min-width: 280px;
-  background: #131B2E;
-  border-right: 1px solid #1E2A45;
+  background: #241733;
+  border-right: 1px solid #3A2856;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -52,13 +52,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #1E2A45;
+  border-bottom: 1px solid #3A2856;
 }
 
 .guide-sidebar-header h2 {
   font-size: 16px;
   font-weight: 700;
-  background: linear-gradient(135deg, #FF6B35, #FFA62B);
+  background: linear-gradient(135deg, #9921FE, #BC6DFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -67,9 +67,9 @@
 
 .guide-close {
   background: none;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 6px;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 18px;
   width: 32px;
   height: 32px;
@@ -81,9 +81,9 @@
 }
 
 .guide-close:hover {
-  background: #1E2A45;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #3A2856;
+  border-color: #9921FE;
+  color: #FBFBFA;
 }
 
 .guide-nav {
@@ -103,7 +103,7 @@
   padding: 10px 20px;
   border: none;
   background: none;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -111,14 +111,14 @@
 }
 
 .guide-nav-item:hover {
-  background: #1A2540;
-  color: #E8ECF4;
+  background: #2D1D40;
+  color: #FBFBFA;
 }
 
 .guide-nav-item.active {
-  background: #1A2540;
-  color: #FF6B35;
-  border-left: 3px solid #FF6B35;
+  background: #2D1D40;
+  color: #9921FE;
+  border-left: 3px solid #9921FE;
   font-weight: 600;
 }
 
@@ -132,7 +132,7 @@
 }
 
 .guide-loading {
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 14px;
   padding: 40px;
 }
@@ -142,36 +142,36 @@
 .guide-markdown {
   font-size: 14px;
   line-height: 1.7;
-  color: #C8D0DE;
+  color: #ECEBE4;
 }
 
 .guide-markdown h1 {
   font-size: 28px;
   font-weight: 700;
-  color: #E8ECF4;
+  color: #FBFBFA;
   margin: 0 0 16px 0;
   padding-bottom: 12px;
-  border-bottom: 1px solid #1E2A45;
+  border-bottom: 1px solid #3A2856;
 }
 
 .guide-markdown h2 {
   font-size: 20px;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #FBFBFA;
   margin: 32px 0 12px 0;
 }
 
 .guide-markdown h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #FBFBFA;
   margin: 24px 0 8px 0;
 }
 
 .guide-markdown h4 {
   font-size: 14px;
   font-weight: 600;
-  color: #C8D0DE;
+  color: #ECEBE4;
   margin: 20px 0 8px 0;
 }
 
@@ -181,22 +181,22 @@
 
 .guide-markdown hr {
   border: none;
-  border-top: 1px solid #1E2A45;
+  border-top: 1px solid #3A2856;
   margin: 24px 0;
 }
 
 .guide-markdown code {
-  background: #1A2540;
+  background: #2D1D40;
   padding: 2px 6px;
   border-radius: 4px;
   font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
   font-size: 13px;
-  color: #FFA62B;
+  color: #BC6DFF;
 }
 
 .guide-markdown pre {
-  background: #0D1525;
-  border: 1px solid #1E2A45;
+  background: #1A0F26;
+  border: 1px solid #3A2856;
   border-radius: 8px;
   padding: 16px 20px;
   overflow-x: auto;
@@ -206,7 +206,7 @@
 .guide-markdown pre code {
   background: none;
   padding: 0;
-  color: #C8D0DE;
+  color: #ECEBE4;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -222,12 +222,12 @@
 }
 
 .guide-markdown strong {
-  color: #E8ECF4;
+  color: #FBFBFA;
   font-weight: 600;
 }
 
 .guide-markdown em {
-  color: #A0AAC0;
+  color: #E0DAD2;
 }
 
 .guide-markdown table {
@@ -239,13 +239,13 @@
 
 .guide-markdown table td {
   padding: 8px 12px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
 }
 
 .guide-markdown table tr:first-child td {
-  background: #1A2540;
+  background: #2D1D40;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #FBFBFA;
 }
 
 /* --- Pagination --- */
@@ -255,15 +255,15 @@
   justify-content: space-between;
   padding: 24px 0;
   margin-top: 32px;
-  border-top: 1px solid #1E2A45;
+  border-top: 1px solid #3A2856;
 }
 
 .guide-page-btn {
   padding: 8px 16px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 8px;
-  background: #131B2E;
-  color: #7B8BA6;
+  background: #241733;
+  color: #BFA9D6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -272,7 +272,7 @@
 }
 
 .guide-page-btn:hover {
-  background: #1A2540;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #2D1D40;
+  border-color: #9921FE;
+  color: #FBFBFA;
 }

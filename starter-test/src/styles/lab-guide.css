@@ -11,10 +11,10 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #131B2E;
-  border: 1px solid #1E2A45;
+  background: #241733;
+  border: 1px solid #3A2856;
   border-radius: 20px;
-  color: #ccc;
+  color: #E0DAD2;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -23,14 +23,14 @@
 }
 
 .lab-guide-pill:hover {
-  background: #252525;
-  border-color: #FF6B35;
+  background: #241733;
+  border-color: #9921FE;
   color: #fff;
 }
 
 .lab-guide-pill .pill-progress {
   font-size: 11px;
-  color: #888;
+  color: #BFA9D6;
   font-weight: 400;
 }
 
@@ -52,8 +52,8 @@
   z-index: 1000;
   width: 340px;
   max-height: 480px;
-  background: #131B2E;
-  border: 1px solid #1E2A45;
+  background: #241733;
+  border: 1px solid #3A2856;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -66,13 +66,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #1A2540;
-  border-bottom: 1px solid #1E2A45;
+  background: #2D1D40;
+  border-bottom: 1px solid #3A2856;
   cursor: pointer;
 }
 
 .lab-guide-header:hover {
-  background: #252525;
+  background: #241733;
 }
 
 .lab-guide-header h3 {
@@ -90,13 +90,13 @@
 
 .lab-guide-header .progress-text {
   font-size: 11px;
-  color: #888;
+  color: #BFA9D6;
 }
 
 .lab-guide-header .collapse-btn {
   background: none;
   border: none;
-  color: #888;
+  color: #BFA9D6;
   font-size: 10px;
   cursor: pointer;
   padding: 2px;
@@ -111,7 +111,7 @@
 /* --- Lab Sections --- */
 
 .lab-section {
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid #1F132C;
 }
 
 .lab-section:last-child {
@@ -128,7 +128,7 @@
 }
 
 .lab-section-header:hover {
-  background: #222;
+  background: #1F132C;
 }
 
 .lab-section-header .lab-number {
@@ -149,25 +149,25 @@
 }
 
 .lab-number.in-progress {
-  background: #FF6B35;
+  background: #9921FE;
   color: #fff;
 }
 
 .lab-number.pending {
-  background: #333;
-  color: #888;
+  background: #241733;
+  color: #BFA9D6;
 }
 
 .lab-section-header .lab-title {
   font-size: 13px;
   font-weight: 500;
-  color: #ddd;
+  color: #ECEBE4;
   flex: 1;
 }
 
 .lab-section-header .section-arrow {
   font-size: 10px;
-  color: #666;
+  color: #7E6A9A;
   transition: transform 0.2s;
 }
 
@@ -209,22 +209,22 @@
 }
 
 .step-icon.pending {
-  color: #555;
+  color: #6E5A8A;
 }
 
 .step-icon.unknown {
-  color: #666;
+  color: #7E6A9A;
 }
 
 .step-title {
   font-size: 12px;
-  color: #aaa;
+  color: #E0DAD2;
   transition: color 0.15s;
   line-height: 1.4;
 }
 
 .step-title.done {
-  color: #6b6b6b;
+  color: #BFA9D6;
   text-decoration: line-through;
 }
 
@@ -233,22 +233,22 @@
 .step-hint {
   margin: 4px 0 4px 24px;
   padding: 8px 10px;
-  background: #151515;
-  border: 1px solid #2a2a2a;
-  border-left: 3px solid #FF6B35;
+  background: #0F0815;
+  border: 1px solid #241733;
+  border-left: 3px solid #9921FE;
   border-radius: 4px;
   font-size: 11px;
-  color: #bbb;
+  color: #E0DAD2;
   line-height: 1.5;
 }
 
 .step-hint code {
-  background: #2a2a2a;
+  background: #241733;
   padding: 1px 5px;
   border-radius: 3px;
   font-family: "SF Mono", "Fira Code", monospace;
   font-size: 11px;
-  color: #e0e0e0;
+  color: #ECEBE4;
 }
 
 /* --- All Complete State --- */
@@ -265,7 +265,7 @@
 
 .lab-guide-complete p {
   font-size: 13px;
-  color: #999;
+  color: #BFA9D6;
 }
 
 .lab-guide-complete strong {
@@ -283,29 +283,29 @@
 }
 
 .lab-guide-body::-webkit-scrollbar-thumb {
-  background: #333;
+  background: #241733;
   border-radius: 2px;
 }
 
 /* --- Stub Banner (shown inside stub components) --- */
 
 .lab-stub-banner {
-  background: #131B2E;
-  border: 1px solid #FF6B3544;
+  background: #241733;
+  border: 1px solid #9921FE44;
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 16px;
   font-size: 12px;
-  color: #a0a0cc;
+  color: #E0DAD2;
   line-height: 1.5;
 }
 
 .lab-stub-banner strong {
-  color: #FF6B35;
+  color: #9921FE;
 }
 
 .lab-stub-banner code {
-  background: #1E2A45;
+  background: #3A2856;
   padding: 1px 5px;
   border-radius: 3px;
   font-family: "SF Mono", "Fira Code", monospace;
@@ -318,26 +318,26 @@
 
 .guide-toggle {
   padding: 6px 14px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 6px;
   background: transparent;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .guide-toggle:hover {
-  background: #1E2A45;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #3A2856;
+  border-color: #9921FE;
+  color: #FBFBFA;
 }
 
 .guide-overlay {
   position: fixed;
   inset: 0;
   z-index: 1001;
-  background: #0B1121;
+  background: #14091E;
   display: flex;
 }
 
@@ -350,8 +350,8 @@
 .guide-sidebar {
   width: 280px;
   min-width: 280px;
-  background: #131B2E;
-  border-right: 1px solid #1E2A45;
+  background: #241733;
+  border-right: 1px solid #3A2856;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -362,13 +362,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #1E2A45;
+  border-bottom: 1px solid #3A2856;
 }
 
 .guide-sidebar-header h2 {
   font-size: 16px;
   font-weight: 700;
-  background: linear-gradient(135deg, #FF6B35, #FFA62B);
+  background: linear-gradient(135deg, #9921FE, #BC6DFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -377,9 +377,9 @@
 
 .guide-close {
   background: none;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 6px;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 18px;
   width: 32px;
   height: 32px;
@@ -391,9 +391,9 @@
 }
 
 .guide-close:hover {
-  background: #1E2A45;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #3A2856;
+  border-color: #9921FE;
+  color: #FBFBFA;
 }
 
 .guide-nav {
@@ -411,7 +411,7 @@
   padding: 10px 20px;
   border: none;
   background: none;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -419,14 +419,14 @@
 }
 
 .guide-nav-item:hover {
-  background: #1A2540;
-  color: #E8ECF4;
+  background: #2D1D40;
+  color: #FBFBFA;
 }
 
 .guide-nav-item.active {
-  background: #1A2540;
-  color: #FF6B35;
-  border-left: 3px solid #FF6B35;
+  background: #2D1D40;
+  color: #9921FE;
+  border-left: 3px solid #9921FE;
   font-weight: 600;
 }
 
@@ -438,7 +438,7 @@
 }
 
 .guide-loading {
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 14px;
   padding: 40px;
 }
@@ -446,36 +446,36 @@
 .guide-markdown {
   font-size: 14px;
   line-height: 1.7;
-  color: #C8D0DE;
+  color: #ECEBE4;
 }
 
 .guide-markdown h1 {
   font-size: 28px;
   font-weight: 700;
-  color: #E8ECF4;
+  color: #FBFBFA;
   margin: 0 0 16px 0;
   padding-bottom: 12px;
-  border-bottom: 1px solid #1E2A45;
+  border-bottom: 1px solid #3A2856;
 }
 
 .guide-markdown h2 {
   font-size: 20px;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #FBFBFA;
   margin: 32px 0 12px 0;
 }
 
 .guide-markdown h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #FBFBFA;
   margin: 24px 0 8px 0;
 }
 
 .guide-markdown h4 {
   font-size: 14px;
   font-weight: 600;
-  color: #C8D0DE;
+  color: #ECEBE4;
   margin: 20px 0 8px 0;
 }
 
@@ -483,22 +483,22 @@
 
 .guide-markdown hr {
   border: none;
-  border-top: 1px solid #1E2A45;
+  border-top: 1px solid #3A2856;
   margin: 24px 0;
 }
 
 .guide-markdown code {
-  background: #1A2540;
+  background: #2D1D40;
   padding: 2px 6px;
   border-radius: 4px;
   font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
   font-size: 13px;
-  color: #FFA62B;
+  color: #BC6DFF;
 }
 
 .guide-markdown pre {
-  background: #0D1525;
-  border: 1px solid #1E2A45;
+  background: #1A0F26;
+  border: 1px solid #3A2856;
   border-radius: 8px;
   padding: 16px 20px;
   overflow-x: auto;
@@ -508,7 +508,7 @@
 .guide-markdown pre code {
   background: none;
   padding: 0;
-  color: #C8D0DE;
+  color: #ECEBE4;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -521,8 +521,8 @@
 
 .guide-markdown li { margin: 4px 0; }
 
-.guide-markdown strong { color: #E8ECF4; font-weight: 600; }
-.guide-markdown em { color: #A0AAC0; }
+.guide-markdown strong { color: #FBFBFA; font-weight: 600; }
+.guide-markdown em { color: #E0DAD2; }
 
 .guide-markdown table {
   width: 100%;
@@ -533,13 +533,13 @@
 
 .guide-markdown table td {
   padding: 8px 12px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
 }
 
 .guide-markdown table tr:first-child td {
-  background: #1A2540;
+  background: #2D1D40;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #FBFBFA;
 }
 
 .guide-pagination {
@@ -547,15 +547,15 @@
   justify-content: space-between;
   padding: 24px 0;
   margin-top: 32px;
-  border-top: 1px solid #1E2A45;
+  border-top: 1px solid #3A2856;
 }
 
 .guide-page-btn {
   padding: 8px 16px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 8px;
-  background: #131B2E;
-  color: #7B8BA6;
+  background: #241733;
+  color: #BFA9D6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -564,7 +564,7 @@
 }
 
 .guide-page-btn:hover {
-  background: #1A2540;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #2D1D40;
+  border-color: #9921FE;
+  color: #FBFBFA;
 }

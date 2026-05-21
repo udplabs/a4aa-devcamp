@@ -75,45 +75,71 @@ export const FGA_MODEL = {
 interface Tuple { user: string; relation: string; object: string; }
 const tuples: Tuple[] = [];
 
-export async function writeTuple(user, relation, object) {
-  tuples.push({ user, relation, object });
-}
-
-async function check(user: string, relation: string, object: string): Promise<boolean> {
-  if (tuples.some(t => t.user === user && t.relation === relation && t.object === object)) return true;
-  if (relation === "can_read") {
-    // direct owner?
-    if (tuples.some(t => t.user === user && t.relation === "owner" && t.object === object)) return true;
-    // team-owner -> member of that team?
-    const teamOwners = tuples.filter(t => t.relation === "owner" && t.object === object && t.user.startsWith("team:"));
-    for (const t of teamOwners) {
-      if (tuples.some(x => x.user === user && x.relation === "member" && x.object === t.user)) return true;
-    }
-    return false;
+export function writeTuple(user: string, relation: string, object: string): void {
+  if (!tuples.some(t => t.user === user && t.relation === relation && t.object === object)) {
+    tuples.push({ user, relation, object });
   }
-  if (relation === "can_commit") {
-    return tuples.some(t => t.user === user && t.relation === "owner" && t.object === object);
-  }
-  return false;
 }
 
-export async function canReadAccount(userSub: string, accountId: string) {
-  return check(`user:${userSub}`, "can_read", `account:${accountId}`);
+// can_read: direct owner OR manager/member of a team that owns the account.
+export function canReadAccount(userId: string, accountId: string): boolean {
+  const userKey = `user:${userId}`;
+  const objectKey = `account:${accountId}`;
+
+  if (tuples.some(t => t.user === userKey && t.relation === "owner" && t.object === objectKey)) return true;
+
+  const owningTeams = tuples
+    .filter(t => t.relation === "owning_team" && t.object === objectKey)
+    .map(t => t.user);
+
+  return owningTeams.some(team =>
+    tuples.some(t =>
+      t.user === userKey &&
+      (t.relation === "manager" || t.relation === "member") &&
+      t.object === team
+    )
+  );
 }
 
-export async function canCommitQuote(userSub: string, accountId: string) {
-  return check(`user:${userSub}`, "can_commit", `account:${accountId}`);
+// can_commit: direct owner OR manager (NOT member) of a team that owns the account.
+export function canCommitQuote(userId: string, accountId: string): boolean {
+  const userKey = `user:${userId}`;
+  const objectKey = `account:${accountId}`;
+
+  if (tuples.some(t => t.user === userKey && t.relation === "owner" && t.object === objectKey)) return true;
+
+  const owningTeams = tuples
+    .filter(t => t.relation === "owning_team" && t.object === objectKey)
+    .map(t => t.user);
+
+  return owningTeams.some(team =>
+    tuples.some(t => t.user === userKey && t.relation === "manager" && t.object === team)
+  );
 }
 
-export async function seedTuplesForUser(userSub: string, email?: string) {
+const seededUsers = new Set<string>();
+
+export function seedTuplesForUser(userId: string, email?: string): void {
+  if (seededUsers.has(userId)) return;
+  seededUsers.add(userId);
+
+  // Every authenticated rep can read the catalog.
+  writeTuple(`user:${userId}`, "reader", "catalog:default");
+
   if (email?.startsWith("alice")) {
-    await writeTuple(`user:${userSub}`, "owner", "account:acme");
-    await writeTuple(`user:${userSub}`, "owner", "account:globex");
+    // Alice is a rep who directly owns acme + globex.
+    writeTuple(`user:${userId}`, "owner", "account:acme");
+    writeTuple(`user:${userId}`, "owner", "account:globex");
+  } else if (email?.startsWith("bob")) {
+    // Bob is a non-manager team member -- can read team-west accounts but cannot commit.
+    writeTuple(`user:${userId}`, "member", "team:team-west");
+    writeTuple("team:team-west", "owning_team", "account:initech");
+  } else {
+    // Default for any other authenticated rep -- own acme + globex so demo prompts work.
+    writeTuple(`user:${userId}`, "owner", "account:acme");
+    writeTuple(`user:${userId}`, "owner", "account:globex");
   }
-  if (email?.startsWith("bob")) {
-    await writeTuple(`user:${userSub}`, "member", "team:team-west");
-    await writeTuple("team:team-west", "owner", "account:initech");
-  }
+  // account:stark is intentionally never seeded -> good FGA deny case.
 }
 ```
 
@@ -123,14 +149,14 @@ You will wire the MCP server in Lab 05. Preview the integration:
 
 ```ts
 case "get_catalog_and_buyer_tier": {
-  if (!(await canReadAccount(userSub, args.accountId))) {
+  if (!canReadAccount(userSub, args.accountId)) {
     throw new Error(`FGA deny: ${userSub} cannot read account:${args.accountId}`);
   }
-  return { account: getAccount(args.accountId), sku: getCatalogEntry(args.sku, tier) };
+  return { account: getAccount(args.accountId), sku: getCatalogEntry(args.sku) };
 }
 
 case "commit_quote_terms": {
-  if (!(await canCommitQuote(userSub, args.accountId))) {
+  if (!canCommitQuote(userSub, args.accountId)) {
     throw new Error(`FGA deny: ${userSub} cannot commit on account:${args.accountId}`);
   }
   return { committed: { ... } };

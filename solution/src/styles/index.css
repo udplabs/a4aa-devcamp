@@ -10,8 +10,8 @@
 
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0B1121;
-  color: #E8ECF4;
+  background: #14091E;
+  color: #FBFBFA;
   height: 100vh;
   overflow: hidden;
 }
@@ -35,14 +35,14 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: #131B2E;
-  border-bottom: 1px solid #1E2A45;
+  background: #241733;
+  border-bottom: 1px solid #3A2856;
 }
 
 .app-header h1 {
   font-size: 18px;
   font-weight: 700;
-  background: linear-gradient(135deg, #FF6B35, #FFA62B);
+  background: linear-gradient(135deg, #9921FE, #BC6DFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -53,24 +53,24 @@ body {
   align-items: center;
   gap: 12px;
   font-size: 14px;
-  color: #7B8BA6;
+  color: #BFA9D6;
 }
 
 .logout-button {
   padding: 6px 12px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 6px;
   background: transparent;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .logout-button:hover {
-  background: #1E2A45;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #3A2856;
+  border-color: #9921FE;
+  color: #FBFBFA;
 }
 
 /* --- Login Screen --- */
@@ -80,7 +80,7 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #0B1121;
+  background: #14091E;
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(255, 107, 53, 0.08) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(255, 166, 43, 0.06) 0%, transparent 50%),
@@ -90,8 +90,8 @@ body {
 .login-card {
   text-align: center;
   padding: 48px;
-  background: #131B2E;
-  border: 1px solid #1E2A45;
+  background: #241733;
+  border: 1px solid #3A2856;
   border-radius: 20px;
   max-width: 440px;
   width: 100%;
@@ -107,13 +107,13 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #FF6B35, #FFA62B);
+  background: linear-gradient(90deg, #9921FE, #BC6DFF);
 }
 
 .login-card h1 {
   font-size: 32px;
   font-weight: 700;
-  background: linear-gradient(135deg, #FF6B35, #FFA62B);
+  background: linear-gradient(135deg, #9921FE, #BC6DFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -122,13 +122,13 @@ body {
 
 .login-card p {
   font-size: 15px;
-  color: #7B8BA6;
+  color: #BFA9D6;
   margin-bottom: 8px;
 }
 
 .login-subtitle {
   font-size: 13px !important;
-  color: #4E5D78 !important;
+  color: #6E5A8A !important;
   margin-bottom: 32px !important;
 }
 
@@ -136,7 +136,7 @@ body {
   padding: 12px 32px;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(135deg, #FF6B35, #FFA62B);
+  background: linear-gradient(135deg, #9921FE, #BC6DFF);
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -166,15 +166,15 @@ body {
   align-items: center;
   height: 100vh;
   gap: 16px;
-  color: #7B8BA6;
-  background: #0B1121;
+  color: #BFA9D6;
+  background: #14091E;
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #1E2A45;
-  border-top-color: #FF6B35;
+  border: 3px solid #3A2856;
+  border-top-color: #9921FE;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -216,7 +216,7 @@ body {
 .empty-state h2 {
   font-size: 24px;
   font-weight: 700;
-  background: linear-gradient(135deg, #FF6B35, #FFA62B);
+  background: linear-gradient(135deg, #9921FE, #BC6DFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -224,7 +224,7 @@ body {
 
 .empty-state p {
   font-size: 14px;
-  color: #7B8BA6;
+  color: #BFA9D6;
 }
 
 .suggestions {
@@ -237,19 +237,19 @@ body {
 
 .suggestion {
   padding: 10px 18px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 24px;
-  background: #131B2E;
-  color: #A0B0C8;
+  background: #241733;
+  color: #E0DAD2;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .suggestion:hover {
-  background: #1A2540;
-  border-color: #FF6B35;
-  color: #E8ECF4;
+  background: #2D1D40;
+  border-color: #9921FE;
+  color: #FBFBFA;
   box-shadow: 0 2px 12px rgba(255, 107, 53, 0.15);
 }
 
@@ -276,16 +276,16 @@ body {
 }
 
 .message-bubble.user {
-  background: linear-gradient(135deg, #FF6B35, #E85D2A);
+  background: linear-gradient(135deg, #9921FE, #7C18CC);
   color: #fff;
   border-bottom-right-radius: 4px;
   box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
 }
 
 .message-bubble.assistant {
-  background: #131B2E;
-  color: #E8ECF4;
-  border: 1px solid #1E2A45;
+  background: #241733;
+  color: #FBFBFA;
+  border: 1px solid #3A2856;
   border-bottom-left-radius: 4px;
 }
 
@@ -308,7 +308,7 @@ body {
 }
 
 .message-content code {
-  background: #1E2A45;
+  background: #3A2856;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -320,7 +320,7 @@ body {
 .tool-calls {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid #1E2A45;
+  border-top: 1px solid #3A2856;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -333,7 +333,7 @@ body {
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 6px;
-  background: #0E1726;
+  background: #1F132C;
 }
 
 .tool-call.success {
@@ -345,7 +345,7 @@ body {
 }
 
 .tool-call.pending_consent {
-  border-left: 3px solid #FFA62B;
+  border-left: 3px solid #BC6DFF;
 }
 
 .tool-call-icon {
@@ -354,12 +354,12 @@ body {
 
 .tool-call-name {
   font-family: "SF Mono", "Fira Code", monospace;
-  color: #A0B0C8;
+  color: #E0DAD2;
 }
 
 .tool-call-status {
   margin-left: auto;
-  color: #4E5D78;
+  color: #6E5A8A;
   font-size: 11px;
   text-transform: uppercase;
 }
@@ -373,8 +373,8 @@ body {
 }
 
 .tool-approval-card {
-  background: #131B2E;
-  border: 2px solid #FFA62B;
+  background: #241733;
+  border: 2px solid #BC6DFF;
   border-radius: 14px;
   padding: 20px;
   max-width: 480px;
@@ -391,24 +391,24 @@ body {
 
 .tool-approval-icon {
   font-size: 20px;
-  color: #FFA62B;
+  color: #BC6DFF;
 }
 
 .tool-approval-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #FBFBFA;
 }
 
 .tool-approval-card > p {
   font-size: 13px;
-  color: #7B8BA6;
+  color: #BFA9D6;
   margin-bottom: 16px;
 }
 
 .tool-details {
-  background: #0B1121;
-  border: 1px solid #1E2A45;
+  background: #14091E;
+  border: 1px solid #3A2856;
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 16px;
@@ -417,7 +417,7 @@ body {
 .tool-detail-row {
   font-size: 13px;
   margin-bottom: 8px;
-  color: #A0B0C8;
+  color: #E0DAD2;
 }
 
 .tool-detail-row:last-child {
@@ -425,16 +425,16 @@ body {
 }
 
 .tool-detail-row strong {
-  color: #E8ECF4;
+  color: #FBFBFA;
 }
 
 .tool-detail-row code {
-  background: #1E2A45;
+  background: #3A2856;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
   font-family: "SF Mono", "Fira Code", monospace;
-  color: #E8ECF4;
+  color: #FBFBFA;
 }
 
 .tool-detail-row ul {
@@ -482,10 +482,10 @@ body {
 .deny-button {
   flex: 1;
   padding: 10px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 10px;
   background: transparent;
-  color: #7B8BA6;
+  color: #BFA9D6;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -493,7 +493,7 @@ body {
 }
 
 .deny-button:hover {
-  background: #1E2A45;
+  background: #3A2856;
   border-color: #F87171;
   color: #F87171;
 }
@@ -504,17 +504,17 @@ body {
   display: flex;
   gap: 8px;
   padding: 16px 24px;
-  background: #131B2E;
-  border-top: 1px solid #1E2A45;
+  background: #241733;
+  border-top: 1px solid #3A2856;
 }
 
 .message-input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #1E2A45;
+  border: 1px solid #3A2856;
   border-radius: 12px;
-  background: #0B1121;
-  color: #E8ECF4;
+  background: #14091E;
+  color: #FBFBFA;
   font-size: 14px;
   font-family: "Inter", sans-serif;
   outline: none;
@@ -522,12 +522,12 @@ body {
 }
 
 .message-input:focus {
-  border-color: #FF6B35;
+  border-color: #9921FE;
   box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
 }
 
 .message-input::placeholder {
-  color: #4E5D78;
+  color: #6E5A8A;
 }
 
 .message-input:disabled {
@@ -538,7 +538,7 @@ body {
   padding: 12px 24px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #FF6B35, #FFA62B);
+  background: linear-gradient(135deg, #9921FE, #BC6DFF);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -570,7 +570,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #FF6B35;
+  background: #9921FE;
   animation: typing 1.4s ease-in-out infinite;
 }
 
@@ -598,10 +598,10 @@ body {
 }
 
 .messages-container::-webkit-scrollbar-thumb {
-  background: #1E2A45;
+  background: #3A2856;
   border-radius: 3px;
 }
 
 .messages-container::-webkit-scrollbar-thumb:hover {
-  background: #2A3A5C;
+  background: #4D3A6B;
 }

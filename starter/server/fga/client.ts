@@ -11,7 +11,7 @@
 //   - writeTuple(user, relation, object)
 //   - canReadAccount(userId, accountId)   -- owner OR team manager/member
 //   - canCommitQuote(userId, accountId)   -- owner OR team manager only
-//   - seedTuplesForUser(userId)           -- demo tuples for alice
+//   - seedTuplesForUser(userId, email?)   -- demo tuples branched by email
 // =============================================================
 
 import { ACCOUNTS, CATALOG } from "./model";
@@ -50,14 +50,16 @@ export function canCommitQuote(userId: string, accountId: string): boolean {
 const seededUsers = new Set<string>();
 
 // TODO(lab-03): seed demo tuples the first time we see a user.
-// alice -> owns account:acme, account:globex
-// alice -> manages team:team-west
-// team:team-west -> owning_team account:initech
-// alice -> reader catalog:default
-// (account:stark is intentionally unassigned -> FGA deny case)
-export function seedTuplesForUser(userId: string): void {
+// Branch by email so attendees can demonstrate the FGA differentiation:
+//   email starts with "alice" -> owner of account:acme, account:globex
+//   email starts with "bob"   -> member of team:team-west; team-west owning_team account:initech
+//   any other email           -> default to owner of acme + globex so demo prompts work
+// Every authenticated rep also gets reader catalog:default.
+// (account:stark is intentionally never seeded -> FGA deny case)
+export function seedTuplesForUser(userId: string, email?: string): void {
   if (seededUsers.has(userId)) return;
   seededUsers.add(userId);
+  void email;
 }
 
 // Pre-built helpers (used by the MCP server after access checks).

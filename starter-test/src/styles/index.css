@@ -35,27 +35,27 @@
 
 :root {
   /* Backdrop */
-  --bg-base: #07061A;
-  --bg-deep: #130B3A;
-  --bg-mid: #241A6E;
+  --bg-base: #0F0815;
+  --bg-deep: #1A0F26;
+  --bg-mid: #241733;
 
   /* Ambient orbs */
-  --bg-orb-violet: #4F3BC9;
-  --bg-orb-peach: #FFAB8A;
+  --bg-orb-violet: #3A2856;
+  --bg-orb-peach: #EBD3FF;
   --bg-orb-mint: #5CE4B8;
 
   /* Brand */
-  --brand-indigo: #3F59E4;
-  --brand-violet: #7B5BFF;
-  --brand-peach: #FFAB8A;
+  --brand-indigo: #BC6DFF;
+  --brand-violet: #9921FE;
+  --brand-peach: #EBD3FF;
   --brand-mint: #5CE4B8;
-  --brand-shield-light: #CFD6F8;
+  --brand-shield-light: #ECEBE4;
 
   /* Text */
-  --text-hi: #F4F0FF;
-  --text-md: #BAB2E0;
-  --text-lo: #7F77A8;
-  --text-xlo: #5A5280;
+  --text-hi: #FBFBFA;
+  --text-md: #BFA9D6;
+  --text-lo: #7E6A9A;
+  --text-xlo: #6E5A8A;
 
   /* Glass */
   --glass-surface: rgba(255, 255, 255, 0.045);
@@ -69,7 +69,7 @@
 
   /* Semantic */
   --danger: #F87171;
-  --warning: #FFAB8A;
+  --warning: #EBD3FF;
   --success: #5CE4B8;
 
   /* Radii */
@@ -131,7 +131,7 @@ body {
       rgba(255, 171, 138, 0.18) 0%,
       transparent 55%
     ),
-    linear-gradient(180deg, var(--bg-base) 0%, var(--bg-deep) 70%, #0B0826 100%);
+    linear-gradient(180deg, var(--bg-base) 0%, var(--bg-deep) 70%, #0F0815 100%);
 }
 
 .orb {
@@ -575,9 +575,9 @@ body {
   color: var(--text-hi);
   background: linear-gradient(
     135deg,
-    #F4F0FF 0%,
-    #BAB2E0 50%,
-    #FFAB8A 100%
+    #FBFBFA 0%,
+    #BFA9D6 50%,
+    #EBD3FF 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -992,8 +992,8 @@ body {
   padding: 11px;
   border: none;
   border-radius: var(--r-md);
-  background: linear-gradient(135deg, var(--brand-mint) 0%, #3AB893 100%);
-  color: #0A0820;
+  background: linear-gradient(135deg, var(--brand-mint) 0%, #FF6217 100%);
+  color: #0F0815;
   font-family: inherit;
   font-size: 14.5px;
   font-weight: 600;
@@ -1396,7 +1396,7 @@ body {
   margin: 0 0 14px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--glass-border);
-  background: linear-gradient(135deg, #F4F0FF 0%, #BAB2E0 55%, #FFAB8A 100%);
+  background: linear-gradient(135deg, #FBFBFA 0%, #BFA9D6 55%, #EBD3FF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1688,8 +1688,8 @@ body {
   padding: 2px 8px;
   margin-left: 8px;
   border-radius: var(--r-pill);
-  background: linear-gradient(135deg, #3DD9D0 0%, #5CE4B8 100%);
-  color: #051C1A;
+  background: linear-gradient(135deg, #FF9665 0%, #5CE4B8 100%);
+  color: #0F0815;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -1724,13 +1724,13 @@ body {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #7DD9D0;
+  color: #FF9665;
 }
 
 .progress-panel-count {
   font-size: 12px;
   font-weight: 700;
-  color: #E6FFFD;
+  color: #FBFBFA;
   padding: 2px 9px;
   border-radius: var(--r-pill);
   background: rgba(61, 217, 208, 0.18);
@@ -1781,7 +1781,7 @@ body {
 
 .progress-step-icon.done {
   background: var(--brand-mint);
-  color: #0A0820;
+  color: #0F0815;
 }
 
 .progress-step-icon.pending {
@@ -1849,7 +1849,7 @@ body {
 }
 
 .progress-lab-dot.in-progress {
-  background: linear-gradient(135deg, #3DD9D0, #5CE4B8);
+  background: linear-gradient(135deg, #FF9665, #5CE4B8);
   box-shadow: 0 0 0 3px rgba(61, 217, 208, 0.2);
 }
 
