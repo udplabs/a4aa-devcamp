@@ -34,13 +34,15 @@ devcamp-a4aa/
 ├── RETAILZERO-STORY.md           ← long-form narrative / instructor notes
 │
 ├── lab-guide/                    ← step-by-step participant guides
-│   ├── 00-overview.md            ← workshop intro + environment setup
+│   ├── overview.md               ← landing page (what you'll do)
+│   ├── introduction.md           ← mission briefing (read during kickoff)
 │   ├── 01-user-authentication.md
 │   ├── 02-async-authorization-ciba.md
 │   ├── 03-fine-grained-authorization.md
 │   ├── 04-token-vault.md
 │   ├── 05-auth-for-mcp.md        ← keystone lab
-│   └── 06-end-to-end.md
+│   ├── 06-end-to-end.md
+│   └── conclusion.md             ← wrap-up (what you shipped, next steps)
 │
 ├── starter/                      ← workshop starting point (what participants edit)
 ├── starter-test/                 ← stripped-down harness for rapid iteration
