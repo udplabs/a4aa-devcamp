@@ -1,4 +1,12 @@
-# Lab 02: Async Authorization (CIBA)
+# Bonus: Async Authorization (CIBA)
+
+> [!NOTE]
+> This is the optional bonus module. The four core modules take Z-Merchant to production-ready; this one adds a human in the loop for the actions that cost money. The delivered workshop runs it live against Auth0 Guardian push, with an in-memory approve / deny fallback for anyone who skips device enrollment.
+
+## Prerequisites
+
+- You completed the four core modules (**02** through **05**), so Z-Merchant already authenticates the rep, authorizes with FGA, vaults credentials, and routes every tool call through the secured MCP server. CIBA adds a device-level approval gate on top.
+- For the live path: the Auth0 Guardian app installed (see **Module 01**) and the test rep enrolled. Skipping enrollment is fine; the in-memory fallback runs the same flow offline.
 
 ## Premise
 
@@ -14,17 +22,15 @@ CIBA (Client-Initiated Backchannel Authentication) is the flow for that. The age
 - Initiate a CIBA request, poll for approval, and gate the commit on the result.
 - Wire the frontend to show the pending approval state with the binding message.
 
-## Auth0 Dashboard Setup
+## What's provisioned for you
 
-### 1. Enable CIBA on the tenant
+The CREATE hook provisions a CIBA client on your tenant (a regular web app with the `urn:openid:params:grant-type:ciba` grant, authorized against the backend API), so the backchannel grant is wired without any dashboard work. The one step the hook cannot do for you is device enrollment: the test rep enrolling an Auth0 Guardian push device is a manual runtime step.
 
-- **Dashboard > Settings > Advanced > OAuth** -- enable **CIBA Grant Type** if it is not already on.
+- **Live path:** with a Guardian-enrolled rep, a non-standard commit triggers a real `/bc-authorize` request and the rep approves the push on their device.
+- **Fallback:** without enrollment, the app falls back to an in-memory approve / deny via `/api/ciba/*` with the same state machine, so you can run the full flow offline.
 
-### 2. Enable CIBA on the Z-Merchant M2M application
-
-This is the app the agent backend uses to talk to Auth0 directly (separate from the SPA). You will create it in Lab 05 and reuse it here. For Lab 02 the simulator handles approval, so you can keep the Auth0-side wiring minimal:
-
-- **Dashboard > Applications > <Z-Merchant Agent (M2M)> > Advanced Settings > Grant Types**: check **CIBA**.
+> [!NOTE]
+> Self-hosting `starter/`? Enable the CIBA grant on your tenant (**Settings > Advanced > OAuth**) and on the M2M app you create in **Module 05** (**Advanced Settings > Grant Types > CIBA**). The in-memory simulator below covers approval if you skip device enrollment.
 
 ## Code Steps
 
@@ -32,7 +38,7 @@ The starter ships a simulator for CIBA so you can run the full flow offline. The
 
 ### Step 1: implement the CIBA middleware
 
-`starter/server/middleware/ciba.ts` -- fill in each stub:
+`server/middleware/ciba.ts` -- fill in each stub:
 
 ```ts
 import { randomBytes } from "crypto";
@@ -119,7 +125,7 @@ export function buildQuoteCommitBindingMessage(params) {
 
 ### Step 3: gate the commit in the LLM path
 
-`starter/server/llm.ts` -- before calling the tool:
+`server/llm.ts` -- before calling the tool:
 
 ```ts
 import { initiateCIBA, buildQuoteCommitBindingMessage } from "./middleware/ciba";
@@ -140,11 +146,11 @@ if (toolName === "commit_quote_terms") {
 }
 ```
 
-Do the same in `starter/server/simulator.ts` so the simulator fallback also gates the commit.
+Do the same in `server/simulator.ts` so the simulator fallback also gates the commit.
 
 ### Step 4: add the CIBA endpoints
 
-`starter/server/index.ts`:
+`server/index.ts`:
 
 ```ts
 import {
@@ -182,18 +188,45 @@ app.get("/api/ciba/pending", (_req, res) => {
 
 ### Step 5: poll from the frontend
 
-`starter/src/hooks/useChat.ts` -- fill in `pollCIBAStatus` and call it when `data.pendingCIBA` comes back. Show the binding message in the pending card (already wired in `Chat.tsx`).
+`src/hooks/useChat.ts` -- fill in `pollCIBAStatus` and call it when `data.pendingCIBA` comes back. Show the binding message in the pending card (already wired in `Chat.tsx`).
 
 ## Checkpoint
 
-1. Prompt Z-Merchant: *"Commit the Acme Q3 quote at 25% discount net-60."*
-2. The response should include a **Device Approval Required** card showing `Approve 25% discount, net-60 on quote for acme?`.
-3. `curl http://localhost:3000/api/ciba/pending` shows the pending request.
-4. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
-5. The UI flips; the commit proceeds.
+> [!IMPORTANT]
+> Confirm each of the following before moving on:
+>
+> 1. Prompt Z-Merchant: *"Commit the Acme Q3 quote at 25% discount net-60."*
+> 2. The response should include a **Device Approval Required** card showing `Approve 25% discount, net-60 on quote for acme?`.
+> 3. `curl http://localhost:3000/api/ciba/pending` shows the pending request.
+> 4. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
+> 5. The UI flips; the commit proceeds.
 
-Negative test: do nothing for 300 seconds, the request auto-expires and the commit aborts.
+> [!TIP]
+> Negative test: do nothing for 300 seconds, the request auto-expires and the commit aborts.
 
 ## What you learned
 
-Tool-level approvals tied to the rep's device turn "agent took an action nobody signed off on" into "rep explicitly approved this margin concession, timestamped, with the exact terms in the approval record." That audit artifact is what lets RetailZero let Z-Merchant commit quotes autonomously at all. Without CIBA, every non-standard quote would still need the manual deal-desk cycle -- which is the exact operational expense we are cutting.
+Tool-level approvals tied to the rep's device turn "agent took an action nobody signed off on" into "rep explicitly approved this margin concession, timestamped, with the exact terms in the approval record." That audit artifact is what lets RetailZero let Z-Merchant commit quotes autonomously at all. Without CIBA, every non-standard quote would still need the manual deal-desk cycle, which is the exact operational expense we are cutting.
+
+#### <span style="font-variant: small-caps">Congrats!</span>
+
+*You have completed this bonus module.*
+
+You should have successfully:
+
+<ul>
+  <li style="list-style-type:'✅ ';">
+      detected non-standard quote terms before any commit lands;
+  </li>
+  <li style="list-style-type:'✅ '">
+      built a human-readable binding message from the quote parameters;
+  </li>
+  <li style="list-style-type:'✅ '">
+      initiated a CIBA request and gated the commit on the rep's device approval;
+  </li>
+  <li style="list-style-type:'✅ '">
+      produced a timestamped approval record tying the margin concession to the rep.
+  </li>
+</ul>
+
+#### <span style="font-variant: small-caps">Let's move on to the next module!</span>

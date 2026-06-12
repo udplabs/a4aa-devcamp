@@ -1,8 +1,8 @@
 # Securing AI Agents with Auth0 — DevCamp (A4AA)
 
-A hands-on workshop that takes a working B2B wholesale quote agent (**Z-Merchant**, built for the fictional retailer **RetailZero**) and secures it end-to-end with **Auth0 for AI Agents (A4AA)**. You implement user authentication, asynchronous consent (CIBA), fine-grained authorization (FGA), Token Vault for third-party credentials, and the full **Auth for MCP** stack in six progressive labs.
+A hands-on workshop that takes a working B2B wholesale quote agent (**Z-Merchant**, built for the fictional retailer **RetailZero**) and secures it end-to-end with **Auth0 for AI Agents (A4AA)**. You wire up user authentication, Token Vault for third-party credentials, and the full **Auth for MCP** stack across four modules. Fine-grained authorization (FGA) runs as a live demo against real Okta FGA, and asynchronous consent (CIBA) is available as an optional bonus.
 
-The chat UI ships pre-built. Every line of code you write is on the identity and authorization layer.
+The chat UI ships pre-built. Every line of code you write is on the identity and authorization layer. Your Auth0 tenant is provisioned for you when you launch, so there is no dashboard setup to do by hand.
 
 ## Why this lab exists
 
@@ -12,16 +12,17 @@ Framed another way: you are reducing operational expense on the deal-desk workfl
 
 ## What you'll build
 
-| # | Lab | Primitive | Outcome |
-|---|-----|-----------|---------|
-| 1 | User Authentication | Auth0 SPA + API, `express-oauth2-jwt-bearer` | Rep logs in, JWT validated on every API call |
-| 2 | Async Authorization | CIBA (Client-Initiated Backchannel Authentication) | Non-standard quote commits require out-of-band rep approval with a binding message |
-| 3 | Fine-Grained Authorization | Relationship-based access model | Reps can only read and commit on accounts they own or manage |
-| 4 | Token Vault | Per-rep federated credentials for Google + Slack | Agent calls downstream APIs with the rep's identity, refreshed automatically |
-| 5 | Auth for MCP | RFC 9728 + RFC 8414 + RFC 8693 + RFC 8707 + CIMD | MCP server becomes the trust boundary; agent runtime is just a client |
-| 6 | End-to-End | All of the above | Run the full quote workflow through every control in one deal |
+| Module | Title | Primitive | Outcome |
+|---|--------|-----------|---------|
+| 02 | User Authentication | Auth0 SPA + API, `express-oauth2-jwt-bearer` | Rep logs in, JWT validated on every API call |
+| 03 | Fine-Grained Authorization (live demo) | Real Okta FGA, relationship-based access model | Reps read and commit only on accounts they own or manage. Enforced live against a real FGA store and witnessed, not coded |
+| 04 | Token Vault | Per-rep federated credentials for Google + Slack | Agent calls downstream APIs with the rep's identity, refreshed automatically |
+| 05 | Auth for MCP | RFC 9728 + RFC 8414 + RFC 8693 + RFC 8707 + CIMD | MCP server becomes the trust boundary; agent runtime is just a client |
+| Bonus | Async Authorization (CIBA) | Client-Initiated Backchannel Authentication + Auth0 Guardian push | Non-standard quote commits require out-of-band rep approval with a binding message |
 
-See [`OUTLINE.md`](./OUTLINE.md) for the detailed lab-by-lab breakdown and [`lab-guide/`](./lab-guide/) for the step-by-step instructions.
+Modules 00 and 01 cover platform orientation and environment setup. Module 03 is the one piece you watch rather than write. FGA is provisioned and enforced live against real Okta FGA, so you see the allow and deny decisions land without touching the authorization code. A closing end-to-end run takes one deal through every control at once.
+
+See [`OUTLINE.md`](./OUTLINE.md) for the detailed module breakdown and [`lab-guide/`](./lab-guide/) for the step-by-step instructions.
 
 ## Repository layout
 
@@ -36,12 +37,14 @@ devcamp-a4aa/
 ├── lab-guide/                    ← step-by-step participant guides
 │   ├── overview.md               ← landing page (what you'll do)
 │   ├── introduction.md           ← mission briefing (read during kickoff)
-│   ├── 01-user-authentication.md
-│   ├── 02-async-authorization-ciba.md
-│   ├── 03-fine-grained-authorization.md
-│   ├── 04-token-vault.md
-│   ├── 05-auth-for-mcp.md        ← keystone lab
-│   ├── 06-end-to-end.md
+│   ├── 00-welcome.md                          ← Module 00 (platform orientation)
+│   ├── 01-prerequisites.md                    ← Module 01 (environment setup)
+│   ├── 02-user-authentication.md              ← Module 02
+│   ├── 03-fine-grained-authorization.md       ← Module 03 (FGA live demo, witnessed)
+│   ├── 04-token-vault.md                      ← Module 04
+│   ├── 05-auth-for-mcp.md                      ← Module 05 (keystone)
+│   ├── 06-bonus-async-authorization-ciba.md   ← Bonus (CIBA)
+│   ├── 07-end-to-end.md                        ← closing end-to-end run
 │   └── conclusion.md             ← wrap-up (what you shipped, next steps)
 │
 ├── starter/                      ← workshop starting point (what participants edit)
@@ -187,7 +190,7 @@ Typical loop:
 
 ## Demo users
 
-The starter seeds two reps with intentionally different access so Lab 3's FGA checks have something to bite on:
+The starter seeds two reps with intentionally different access so the FGA live demo (Module 03) has something to bite on:
 
 | User | Books | What they can do |
 |---|---|---|
@@ -198,17 +201,20 @@ The starter seeds two reps with intentionally different access so Lab 3's FGA ch
 
 ## What's real vs. simulated
 
+The delivered workshop runs on the platform-integrated `demo-app/` build, where each tenant's Auth0 footprint is provisioned automatically on launch. Against that footprint the previously-simulated controls run live, with an in-memory fallback so the app still runs offline.
+
 | Component | Status |
 |---|---|
 | Auth0 login, JWT validation, OAuth flows | **Real** |
 | MCP protocol, token exchange, audience enforcement | **Real** |
-| CIBA flow | Simulated (in-memory + curl approval, no Guardian push) |
-| FGA | Simulated (in-memory tuples, same API shape as Auth0 FGA) |
-| Token Vault | Simulated (in-memory mint + refresh) |
+| Per-tenant provisioning (SPA, APIs, M2M, connections) | **Real**, automatic on launch via the `demo-app/` CREATE hook |
+| FGA | **Live** against a real Okta FGA store provisioned per tenant. Shown as a witnessed demo (Module 03); in-memory tuples as fallback |
+| CIBA | **Real** via Auth0 Guardian push (optional bonus); in-memory approve/deny as fallback for anyone who skips device enrollment |
+| Token Vault | **Live** when a federated connection is provisioned for the tenant; in-memory mint + refresh as fallback |
 | Google Docs + Slack | Mocked on `:3002` |
 | LLM | Real if key is set, simulator otherwise |
 
-The simulations preserve the API shape of the real services so every line of code you write in the labs is code you'd write against production Auth0.
+The fallbacks preserve the API shape of the real services, so `starter/` and `solution/` still run end to end offline and every line of code you write is code you'd write against production Auth0. The self-contained live Token Vault path (a mock OAuth2 provider registered as a custom social connection, so the federated exchange runs without external Google or Slack apps) is the documented target and not yet wired in.
 
 ## Further reading
 
