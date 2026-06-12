@@ -1,49 +1,41 @@
-# Lab 04: Token Vault
+# Module 04: Token Vault
 
-## Premise
+## Objective
 
 Z-Merchant needs to drop a quote draft into the rep's own Google Workspace and post the finance-desk summary as the rep in Slack. The cheap, wrong way to do that is a shared bot token. That token is a single blast radius for every rep on the platform and has to be rotated manually when people leave.
 
 The right pattern is **Token Vault**: Auth0 stores each rep's federated credentials for Google and Slack. At tool-call time, Z-Merchant asks the vault for a short-lived, per-user access token scoped to the job at hand, calls the third party with that token, and discards it. The vault handles refresh. The rep's actual refresh token never leaves Auth0.
 
-## Objectives
+In this module you will:
 
-- Register Google and Slack as federated connections in Auth0.
-- Seed the vault with per-user access tokens for both providers.
 - Implement `getToken(userSub, provider)` with expiry + refresh.
 - Wire `create_google_doc` and `post_slack_triage` to call the third-party mock (port 3002) using vaulted tokens.
 - Stand up `/api/vault/link`, `/api/vault/unlink`, and `/api/vault/providers` endpoints.
 
-## Auth0 Dashboard Setup
+## Prerequisites
 
-The lab simulates the vault in-process so you can run it without OAuth credentials for Google or Slack. To wire real federated connections:
+- You completed **Module 02** (the rep's identity is on every request) and witnessed **Module 03** (FGA authorizes which accounts the rep can touch). Token Vault mints credentials for that same rep.
 
-### Google Workspace
+## What's provisioned for you
 
-- **Dashboard > Authentication > Social > Google** -- create OAuth client in Google Cloud, paste the Client ID + Secret.
-- Add scopes: `https://www.googleapis.com/auth/documents`, `https://www.googleapis.com/auth/drive.file`.
-- Enable **Store refresh tokens** under the connection settings.
+When your demo launches with Google and Slack OAuth credentials supplied as settings, the CREATE hook provisions the matching federated connections on your tenant. You do not register OAuth clients or paste any `GOOGLE_*` / `SLACK_*` secrets by hand. When a rep has linked a provider, the vault holds their federated credentials with these scopes:
 
-### Slack
+- **Google Workspace:** `https://www.googleapis.com/auth/documents`, `https://www.googleapis.com/auth/drive.file`, with refresh-token storage enabled.
+- **Slack:** `chat:write`, `channels:read`.
 
-- **Dashboard > Authentication > Social > Slack** (custom connection if needed).
-- Scopes: `chat:write`, `channels:read`.
+At tool-call time the backend asks Auth0 for a short-lived, per-rep federated access token for exactly one downstream call, using the rep's identity from Module 02. The rep's actual refresh token never leaves Auth0.
 
-### Expose vault operations
+> [!NOTE]
+> If the tenant launches without a federated connection (or the rep has not linked one), the vault falls back to an in-memory mint and refresh with the same API shape, so the Google Doc and Slack calls still complete offline. The code path you read below is what runs against the live connection; the fallback preserves its behavior.
 
-The Auth0 Tokens API lets your backend retrieve stored tokens on behalf of the authenticated user. For this lab we simulate it; in production the call pattern is:
-
-```
-GET /api/v2/users/{user_id}/tokens/{connection}
-```
-
-with an M2M token that has `read:user_tokens`.
+> [!NOTE]
+> Self-hosting `starter/`? Register Google and Slack as social connections in your own tenant, enable refresh-token storage, and the same code retrieves stored tokens for the authenticated rep. In production the retrieval pattern is `GET /api/v2/users/{user_id}/tokens/{connection}` with an M2M token that has `read:user_tokens`.
 
 ## Code Steps
 
 ### Step 1: implement the vault
 
-`starter/server/token-vault/vault.ts`:
+`server/token-vault/vault.ts`:
 
 ```ts
 export interface VaultEntry {
@@ -102,7 +94,7 @@ export async function seedVaultForUser(userId: string) {
 
 ### Step 2: stand up the third-party mock
 
-`starter/server/token-vault/third-party-api.ts`:
+`server/token-vault/third-party-api.ts`:
 
 ```ts
 function validate(prefix: string) {
@@ -131,7 +123,7 @@ export function startThirdPartyAPI() {
 
 ### Step 3: call the vault from tool handlers
 
-On the MCP server (you will complete this in Lab 05):
+On the MCP server (you will complete this in **Module 05**):
 
 ```ts
 case "create_google_doc": {
@@ -159,7 +151,7 @@ case "post_slack_triage": {
 
 ### Step 4: expose vault endpoints + seed on login
 
-`starter/server/index.ts`:
+`server/index.ts`:
 
 ```ts
 import { seedVaultForUser, listLinkedProviders, storeToken, removeToken } from "./token-vault/vault";
@@ -187,12 +179,38 @@ app.get("/api/vault/providers", validateAccessToken, async (req, res) => {
 
 ## Checkpoint
 
-1. Log in; the frontend calls `POST /api/vault/link` to seed google + slack entries.
-2. Prompt: *"Draft a Google Doc quote for Acme at tier-2."* -> Z-Merchant calls `create_google_doc` -> response includes a `documentId` and `url`.
-3. Prompt: *"Post a triage summary to #wholesale-quote-triage."* -> response includes a Slack `ts` and `permalink`.
-4. Age a token manually (set `expiresAt` in the past) -> next call silently refreshes.
-5. Call `/google/docs` with a bogus bearer -> 401.
+> [!IMPORTANT]
+> Confirm each of the following before moving on:
+>
+> 1. Log in; the frontend calls `POST /api/vault/link` to seed google + slack entries.
+> 2. Prompt: *"Draft a Google Doc quote for Acme at tier-2."* The agent calls `create_google_doc` and the response includes a `documentId` and `url`.
+> 3. Prompt: *"Post a triage summary to #wholesale-quote-triage."* The response includes a Slack `ts` and `permalink`.
+> 4. Age a token manually (set `expiresAt` in the past). The next call silently refreshes.
+> 5. Call `/google/docs` with a bogus bearer and confirm a `401`.
 
 ## What you learned
 
 Token Vault is the pattern that lets an AI agent act as the user in third-party systems without the agent ever holding a long-lived credential. Each call is scoped to the job and to the rep, every audit event ties back to the rep's identity, and rotation is Auth0's problem instead of a manual ops ritual. In practical terms: onboarding a new rep means "add them to Auth0 and link their Workspace" instead of "provision a bot token and log it in a spreadsheet," and offboarding is flipping one switch. That is textbook opex reduction on credential management.
+
+#### <span style="font-variant: small-caps">Congrats!</span>
+
+*You have completed this module.*
+
+You should have successfully:
+
+<ul>
+  <li style="list-style-type:'✅ ';">
+      implemented a per-rep vault with token expiry and refresh;
+  </li>
+  <li style="list-style-type:'✅ '">
+      drafted a Google Doc as the rep using a short-lived vaulted token;
+  </li>
+  <li style="list-style-type:'✅ '">
+      posted a Slack triage summary as the rep, with no shared bot token;
+  </li>
+  <li style="list-style-type:'✅ '">
+      exposed link / unlink / providers endpoints for managing rep credentials.
+  </li>
+</ul>
+
+#### <span style="font-variant: small-caps">Let's move on to the next module!</span>

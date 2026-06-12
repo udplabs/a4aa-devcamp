@@ -1,8 +1,8 @@
-# Lab 06: End-to-End
+# End-to-End
 
 ## Premise
 
-Five labs, five pillars. This one runs the full wholesale-quote workflow and confirms every control fires in one deal.
+Four core modules plus the bonus, five pillars. This closing run drives the full wholesale-quote workflow and confirms every control fires in one deal.
 
 ## Objectives
 
@@ -13,9 +13,9 @@ Five labs, five pillars. This one runs the full wholesale-quote workflow and con
 
 ## Prerequisites
 
-- Labs 01 through 05 complete in `starter/`.
-- `.env` populated with the RetailZero API audience, MCP audience, SPA client, and M2M client.
-- `cd starter && npm run dev` up -- frontend :5173, API :3000, MCP :3001, third-party mock :3002.
+- Modules **02** through **05** wired up (and the CIBA bonus, if you ran it).
+- Your tenant is provisioned on launch, so the RetailZero API audience, MCP audience, SPA client, and M2M client are already in place. (Self-hosting `starter/`? Populate `.env` and run `cd starter && npm run dev`.)
+- The app is running -- frontend :5173, API :3000, MCP :3001, third-party mock :3002.
 - Demo users: `alice@retailzero.demo` (owns acme + globex), `bob@retailzero.demo` (manages team-west -> initech).
 
 ## Happy path: Acme Q3 tier-2 quote
@@ -43,7 +43,7 @@ Five labs, five pillars. This one runs the full wholesale-quote workflow and con
 12. Approve out-of-band:
 
 ```
-curl -X POST http://localhost:3000/api/ciba/pending
+curl http://localhost:3000/api/ciba/pending
 # copy the authReqId
 curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>
 ```
@@ -64,8 +64,7 @@ curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>
 
 ### Missing scope
 
-- Open `.env`, remove `mcp:docs:create` from the M2M app's authorized scopes via the Auth0 dashboard.
-- Restart the backend.
+- In the Auth0 dashboard, remove `mcp:docs:create` from the M2M app's authorized scopes, then restart the backend.
 - Prompt: *"Draft a Google Doc."*
 - Expected: `MCP denied create_google_doc -- insufficient scope (need mcp:docs:create)`.
 
@@ -99,14 +98,35 @@ The same rep `sub` flows through every hop, which gives you one audit key for ev
 
 ## What you learned
 
-Five controls -- Authentication, CIBA, FGA, Token Vault, MCP with CIMD + OBO + PRM -- stacked behind one agent. Each one is a lever on a specific risk:
+Five controls -- Authentication, FGA, Token Vault, MCP with CIMD + OBO + PRM, and the CIBA bonus -- stacked behind one agent. Each one is a lever on a specific risk:
 
 - JWT validation kills unauthenticated use.
-- CIBA kills unilateral commits on non-standard terms.
 - FGA kills cross-customer data access.
 - Token Vault kills shared-credential sprawl.
 - MCP kills agent-framework lock-in on your authorization code.
+- CIBA kills unilateral commits on non-standard terms.
 
 The commercial shape of that: a wholesale quote agent that closes deals faster than the manual desk (GTM acceleration), reviews cleanly with the security team (shorter procurement cycle), and does not re-buy identity work every time the agent runtime changes (lower opex on the platform team).
 
-That is the full RetailZero Z-Merchant workshop. The starter code you just finished is the reference implementation for the pattern; the solution/ tree mirrors it one-to-one for comparison.
+That is the full RetailZero Z-Merchant workshop. The starter code you just finished is the reference implementation for the pattern; the `solution/` tree mirrors it one-to-one for comparison.
+
+#### <span style="font-variant: small-caps">Congrats!</span>
+
+*You have completed the end-to-end run.*
+
+You should have successfully:
+
+<ul>
+  <li style="list-style-type:'✅ ';">
+      driven a full happy-path quote for Acme through every control;
+  </li>
+  <li style="list-style-type:'✅ '">
+      tripped CIBA on a non-standard discount and approved it out-of-band;
+  </li>
+  <li style="list-style-type:'✅ '">
+      run each negative test and confirmed the guardrails hold;
+  </li>
+  <li style="list-style-type:'✅ '">
+      traced a single rep <code>sub</code> through every hop in the logs.
+  </li>
+</ul>

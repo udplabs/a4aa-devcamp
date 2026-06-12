@@ -1,4 +1,19 @@
-# Lab 05: Auth for MCP (the keystone lab)
+# Module 05: Auth for MCP (the keystone module)
+
+## Objective
+
+This is the keystone. Everything you built so far (the rep's identity, the FGA decisions, the vaulted credentials) now moves behind a single bearer-authenticated boundary: an MCP (Model Context Protocol) server. The agent stops being the trust boundary and becomes just one more client. By the end of this module, every tool call crosses a token-exchange boundary that preserves the rep's `sub` all the way to execution.
+
+In this module you will:
+
+- Stand up the MCP server on port 3001 behind JWT validation.
+- Publish `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414) so any compliant MCP client can discover the resource and its issuer.
+- Have the agent exchange the rep's user token for an MCP-audience token, preserving `sub` so downstream FGA and Token Vault still reason about the *human*, not the agent.
+- Enforce a distinct scope per tool and return a proper `WWW-Authenticate: Bearer error="insufficient_scope"` response so clients can drive step-up authorization.
+
+## Prerequisites
+
+- You completed **Module 02** (rep identity on every request), witnessed **Module 03** (FGA), and built **Module 04** (Token Vault). This module routes those handlers through a secured MCP server.
 
 ## Premise
 
@@ -6,9 +21,10 @@ So far, every security control has lived on the agent backend. That works, but i
 
 **MCP (Model Context Protocol)** fixes that. It is a standard surface for advertising tools, and with Auth0 in front of it, every tool call is bearer-token-authenticated against a resource server that enforces FGA, Token Vault, and scope checks. The agent is just a client. Swap it, add a second one, Claude Agent SDK vs custom loop; the guardrails live on the MCP server regardless.
 
-> **What's new.** Auth0's **Auth for MCP** went GA on April 29, 2026 as part of the Auth for AI Agents (A4AA) product line. It follows the MCP authorization spec (revision 2025-11-25) published at [modelcontextprotocol.io/specification](https://modelcontextprotocol.io/specification) and layers it on top of OAuth 2.1 so that any conformant MCP client (Claude Desktop, Claude Agent SDK, your own runtime) can discover and call your tools with the rep's actual identity. Product overview and canonical docs: [auth0.com/ai](https://auth0.com/ai).
+> [!NOTE]
+> Auth0's **Auth for MCP** went GA on April 29, 2026 as part of the Auth for AI Agents (A4AA) product line. It follows the MCP authorization spec (revision 2025-11-25) published at [modelcontextprotocol.io/specification](https://modelcontextprotocol.io/specification) and layers it on top of OAuth 2.1 so that any conformant MCP client (Claude Desktop, Claude Agent SDK, your own runtime) can discover and call your tools with the rep's actual identity. Product overview and canonical docs: [auth0.com/ai](https://auth0.com/ai).
 
-This lab wires six Auth for MCP features in one flow:
+This module wires six Auth for MCP features in one flow:
 
 | Part | Feature | RFC / Spec |
 |---|---|---|
@@ -19,48 +35,27 @@ This lab wires six Auth for MCP features in one flow:
 | E | On-Behalf-Of token exchange with RFC 8707 resource indicator | RFC 8693 + RFC 8707 |
 | F | Per-tool scope enforcement with `WWW-Authenticate` step-up hints | OAuth 2.1 + MCP 2025-11-25 |
 
-## Objectives
+## What's provisioned for you
 
-- Stand up the MCP server on :3001 behind JWT validation.
-- Publish `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414) so any compliant MCP client can discover the resource and its issuer.
-- Have the agent exchange the rep's user token for an MCP-audience token, preserving `sub` so downstream FGA + Token Vault still reason about the *human*, not the agent.
-- Enforce a distinct scope per tool and return a proper `WWW-Authenticate: Bearer error="insufficient_scope"` response so clients can drive step-up authorization.
-- Route Labs 03 and 04 handlers through this secured server.
+The two Auth0 objects this module depends on are created for you by the CREATE hook when your demo launches. You write the server and client code below; the tenant footprint is already in place.
 
-## Auth0 Dashboard Setup
+### The MCP API (resource server)
 
-### Part A: register the MCP API
-
-- **Dashboard > Applications > APIs > Create API**
-- **Name:** `Z-Merchant MCP Server`
-- **Identifier (audience):** `https://devcamp-mcp-server`
-- **Signing Algorithm:** RS256
-
-Add permissions (these become required scopes on individual tools):
+`https://devcamp-mcp-server` (RS256), with the four per-tool scopes:
 
 - `mcp:quote:read`
 - `mcp:docs:create`
 - `mcp:slack:post`
 - `mcp:quote:commit`
 
-### Part B: register the Z-Merchant agent client (CIMD)
+### The Z-Merchant agent client (CIMD)
 
 **Client ID Metadata Documents (CIMD)** is the pre-registered identity of the agent. The MCP authorization spec allows Dynamic Client Registration (DCR, RFC 7591), but DCR is the wrong fit for a production agent: it creates a fresh, ephemeral `client_id` on every install, which breaks audit trails and admin consent. CIMD is the A4AA answer: the agent has a stable `client_id` whose metadata lives in the tenant, survives upgrades, and can be governed like any other workload.
 
-- **Dashboard > Applications > Applications > Create > Machine to Machine**
-- **Name:** `Z-Merchant Agent (M2M)`
-- **Authorize it** against the `Z-Merchant MCP Server` API.
-- **Grant Types** (Advanced Settings): check **Client Credentials**, **Token Exchange**, and **CIBA**.
-- **Scopes:** allow all four `mcp:*` scopes.
+The hook provisions this as a non-interactive (M2M) client authorized against the MCP API, with **Client Credentials** and **Token Exchange** grants (plus **CIBA** for the bonus) and all four `mcp:*` scopes. Its id, secret, and the MCP audience arrive through your runtime config; there are no `AUTH0_CLIENT_ID_M2M`, `AUTH0_CLIENT_SECRET_M2M`, or `MCP_AUTH0_AUDIENCE` values for you to copy. Also confirm your tenant has the **token exchange** feature enabled, since the on-behalf-of exchange below depends on it.
 
-Copy into `starter/.env`:
-
-```
-AUTH0_CLIENT_ID_M2M=...
-AUTH0_CLIENT_SECRET_M2M=...
-MCP_AUTH0_AUDIENCE=https://devcamp-mcp-server
-MCP_SERVER_PORT=3001
-```
+> [!NOTE]
+> Self-hosting `starter/`? Create the MCP API and an M2M client in your own tenant, grant Client Credentials + Token Exchange (+ CIBA), authorize all four scopes, and put the client id, secret, `MCP_AUTH0_AUDIENCE=https://devcamp-mcp-server`, and `MCP_SERVER_PORT=3001` in `starter/.env`.
 
 ## Code Steps
 
@@ -68,7 +63,7 @@ MCP_SERVER_PORT=3001
 
 PRM is how an MCP client that only knows your server URL figures out *which* authorization server issues tokens for it. Without it, the client has to hardcode the Auth0 tenant. With it, the client fetches `/.well-known/oauth-protected-resource`, follows the `authorization_servers` pointer to the AS metadata, and completes the discovery chain without any configuration on the agent side.
 
-`starter/server/mcp/metadata.ts`:
+`server/mcp/metadata.ts`:
 
 ```ts
 export function protectedResourceMetadata(_req, res) {
@@ -116,7 +111,7 @@ export async function authorizationServerMetadata(_req, res) {
 
 ### Part E: MCP server JWT validation + routing
 
-`starter/server/mcp/server.ts`:
+`server/mcp/server.ts`:
 
 ```ts
 import { auth } from "express-oauth2-jwt-bearer";
@@ -215,7 +210,7 @@ async function executeToolLogic(name, args, userSub) {
 
 The token exchange below is the heart of Auth for MCP. The agent's backend holds the rep's Auth0 access token (audience = your app API). To call the MCP server, it needs a token with the MCP server as its audience, but it must preserve the rep's `sub` so FGA and Token Vault still reason about the human, not the agent. RFC 8693 token exchange plus RFC 8707's resource indicator achieve exactly that: they mint a scoped token that cannot be replayed against any other API, which hardens every downstream resource server against lateral movement and token theft and keeps the blast radius of any single compromise contained to one audience.
 
-`starter/server/mcp/client.ts`:
+`server/mcp/client.ts`:
 
 ```ts
 private async getToken(userAccessToken: string): Promise<string> {
@@ -273,7 +268,7 @@ async callTool(name: string, args: Record<string, any>, userAccessToken: string)
 
 ### Part E: route the agent's tool calls through MCP
 
-`starter/server/llm.ts` replace `executeToolLocally`:
+`server/llm.ts` replace `executeToolLocally`:
 
 ```ts
 import { createMCPClient } from "./mcp/client";
@@ -283,11 +278,11 @@ const mcpClient = createMCPClient();
 const result = await mcpClient.callTool(toolName, parameters, user.accessToken!);
 ```
 
-Do the same in `starter/server/simulator.ts`.
+Do the same in `server/simulator.ts`.
 
 ### Part F: start the MCP server
 
-`starter/server/index.ts`:
+`server/index.ts`:
 
 ```ts
 import { startMCPServer } from "./mcp/server";
@@ -296,14 +291,17 @@ startMCPServer();
 
 ## Checkpoint
 
-1. `curl http://localhost:3001/.well-known/oauth-protected-resource` -> JSON with `resource`, `authorization_servers`, `scopes_supported`. This is the RFC 9728 discovery document a fresh MCP client reads first.
-2. `curl http://localhost:3001/.well-known/oauth-authorization-server` -> issuer, jwks_uri, token_endpoint, the four scopes, `urn:ietf:params:oauth:grant-type:token-exchange` in `grant_types_supported`, and `"cimd"` in `client_registration_types_supported`.
-3. `curl -i http://localhost:3001/mcp/tools` without a bearer -> 401 with a `WWW-Authenticate: Bearer realm="..."` header pointing back to the PRM URL.
-4. Log into the SPA and send a quote prompt. You should observe the backend log emit:
-   - `OBO exchange audience=https://devcamp-mcp-server resource=https://devcamp-mcp-server client_id=<CIMD>`
-   - `MCP call: get_catalog_and_buyer_tier -- FGA allow`
-5. Revoke `mcp:docs:create` on the M2M app; next Google Doc call -> `403` with body `{ "error": "insufficient_scope", "required": "mcp:docs:create" }`. A compliant MCP client treats this as the step-up signal and re-requests the missing scope on the next OBO exchange.
-6. The `sub` in the MCP access token matches the rep's user id; confirm by logging `req.auth.payload.sub` on the MCP server. If this drifts to the CIMD client id, FGA and Token Vault will key off the agent instead of the human -- the exact failure mode A4AA is designed to prevent.
+> [!IMPORTANT]
+> Confirm each of the following before moving on:
+>
+> 1. `curl http://localhost:3001/.well-known/oauth-protected-resource` -> JSON with `resource`, `authorization_servers`, `scopes_supported`. This is the RFC 9728 discovery document a fresh MCP client reads first.
+> 2. `curl http://localhost:3001/.well-known/oauth-authorization-server` -> issuer, jwks_uri, token_endpoint, the four scopes, `urn:ietf:params:oauth:grant-type:token-exchange` in `grant_types_supported`, and `"cimd"` in `client_registration_types_supported`.
+> 3. `curl -i http://localhost:3001/mcp/tools` without a bearer -> 401 with a `WWW-Authenticate: Bearer realm="..."` header pointing back to the PRM URL.
+> 4. Log into the SPA and send a quote prompt. You should observe the backend log emit:
+>    - `OBO exchange audience=https://devcamp-mcp-server resource=https://devcamp-mcp-server client_id=<CIMD>`
+>    - `MCP call: get_catalog_and_buyer_tier -- FGA allow`
+> 5. Revoke `mcp:docs:create` on the M2M app; next Google Doc call -> `403` with body `{ "error": "insufficient_scope", "required": "mcp:docs:create" }`. A compliant MCP client treats this as the step-up signal and re-requests the missing scope on the next OBO exchange.
+> 6. The `sub` in the MCP access token matches the rep's user id; confirm by logging `req.auth.payload.sub` on the MCP server. If this drifts to the CIMD client id, FGA and Token Vault will key off the agent instead of the human, the exact failure mode A4AA is designed to prevent.
 
 ## What you learned
 
@@ -324,3 +322,26 @@ Why this matters beyond the lab:
 - Auth for AI Agents product overview: [auth0.com/ai](https://auth0.com/ai)
 - MCP authorization spec (2025-11-25): [modelcontextprotocol.io/specification](https://modelcontextprotocol.io/specification)
 - RFC 9728 Protected Resource Metadata, RFC 8414 AS Metadata, RFC 8693 Token Exchange, RFC 8707 Resource Indicators
+
+#### <span style="font-variant: small-caps">Congrats!</span>
+
+*You have completed this module.*
+
+You should have successfully:
+
+<ul>
+  <li style="list-style-type:'✅ ';">
+      stood up the MCP server behind JWT validation as the single trust boundary;
+  </li>
+  <li style="list-style-type:'✅ '">
+      published RFC 9728 and RFC 8414 discovery documents so any compliant client configures itself;
+  </li>
+  <li style="list-style-type:'✅ '">
+      exchanged the rep's token on-behalf-of, preserving <code>sub</code> all the way to tool execution;
+  </li>
+  <li style="list-style-type:'✅ '">
+      enforced per-tool scopes with a graceful <code>insufficient_scope</code> step-up response.
+  </li>
+</ul>
+
+#### <span style="font-variant: small-caps">Let's move on to the next module!</span>

@@ -1,43 +1,37 @@
-# Securing AI Agents with Auth0
+### Summary
 
-A hands-on workshop where you take a working AI agent and make it production-ready using Auth0 — in under two hours, with minimal code.
+## Welcome to Auth0 dev{camp} | Agentic AI
 
-## What you'll experience
+RetailZero built its name on wholesale. Bulk B2B orders outrun consumer retail three to one, and the deal desk is where those orders actually get made. Reps pull pricing, draft quotes, route to finance, and commit terms all day, every day. Every cycle burns salaried hours, and on roughly 60% of wholesale RFPs the first vendor to quote is the one who wins.
 
-You'll work with **Z-Merchant**, a B2B wholesale quote agent built for RetailZero. It already works — it drafts quotes, checks pricing, creates documents, and posts to Slack. Your job is to close four security gaps that stand between it and production.
+So last quarter RetailZero shipped **Z-Merchant**, an AI assistant built to collapse that loop. It looks up catalog prices and buyer tiers, drafts quote documents in the rep's Google Workspace, pings the deal-desk channel in Slack, and commits final terms to the order system. It works, and it is fast. The catch: it cannot ship to production, because nothing ties it to the rep on whose behalf it acts.
 
-Each module maps to an Auth0 capability:
+As newly minted RetailZero contract engineers for the next two hours, we will close that gap and build the Identity Bridge for Z-Merchant, through the lens of Auth0's Auth for AI Agents suite of features.
 
-| Module | Auth0 Capability | What it solves |
-|--------|-----------------|----------------|
-| 1 | User Authentication | The agent doesn't know who's talking to it |
-| 2 | Fine-Grained Authorization | The agent can see every account, not just yours |
-| 3 | Token Vault | The agent uses shared bot credentials for Google and Slack |
-| 4 | Auth for MCP | The agent's tools are open to any caller |
+### Overview of Modules
 
-There's also an **optional bonus module** — **Async Authorization (CIBA)** — for high-stakes actions that need out-of-band human approval.
+This lab consists of **four (4)** core modules plus an **optional bonus**, each building on the last until Z-Merchant goes from unsupervised automation to a trusted colleague at the deal desk. Your Auth0 tenant is provisioned for you on launch, so there is no dashboard setup to wire by hand. Most modules are hands-on; one, Fine-Grained Authorization, runs as a live demo you witness rather than code.
 
-## How it works
+This will jumpstart your understanding of the Auth0 platform and the role it plays in securing AI agents today!
 
-This isn't a traditional coding lab. The app is pre-built. For each module, you'll:
+Here is what we will get into:
 
-1. **Understand why** — what's the security gap and what does Auth0 do about it
-2. **Configure** — set up the Auth0 feature (scopes, relationships, providers)
-3. **Connect** — write 2-3 lines of code that wire it in
-4. **Witness** — watch Auth0 in action through a live event panel that narrates every token exchange, access check, and credential mint in real time
+1. **Who Goes There?**: ***User Authentication***
 
-## Prerequisites
+   *Give Z-Merchant a way to know exactly which rep is talking to it. The rep logs in, and every call into the agent carries a validated token instead of an anonymous request.*
 
-A browser with access to GitHub. That's it.
+2. **The Guest List**: ***Auth0 Fine-Grained Authorization (FGA)*** *(live demo)*
 
-Your environment runs entirely in GitHub Codespaces — no local installs, no dependencies, no laptop restrictions. Your Auth0 tenant is provisioned automatically when you launch.
+   *Not every rep should see every account. Watch Auth0 FGA enforce the relationship graph live against a real store, so a rep reads and commits only on the accounts they own or manage, and a query outside their book gets a clean deny at the data boundary.*
 
-## Time
+3. **The Keychain**: ***Token Vault***
 
-~2.5 hours total:
-- **30 minutes** — kickoff presentation and story setup
-- **~2 hours** — hands-on modules
+   *Z-Merchant has to write Google Docs and post to Slack on the rep's behalf. Use Token Vault to hold each rep's federated credentials, refresh them automatically, and hand the agent a short-lived, scoped token for exactly one downstream call. Credentials never sit in agent memory.*
 
-## Ready?
+4. **The Trust Boundary**: ***Auth for MCP***
 
-Click **Launch** to provision your environment. While it spins up, you'll get a short briefing on RetailZero and your mission.
+   *Z-Merchant's tools run on a Model Context Protocol (MCP) server that should never accept an anonymous caller. Make the MCP server the trust boundary, with on-behalf-of token exchange so every downstream call knows which rep triggered it and the agent runtime becomes just a client.*
+
+**Bonus.** **Approve It, or It Doesn't Happen**: ***Async Authorization via Client-Initiated Backchannel Authentication (CIBA)***
+
+   *For the actions that actually cost money, add a human in the loop. Z-Merchant can prepare a steep discount, but it cannot commit until the rep approves a signed binding message from their own device. The agent proposes, the human disposes.*
