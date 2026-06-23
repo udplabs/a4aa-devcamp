@@ -15,12 +15,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
-# Built SPA + server sources (server runs via tsx at start).
+# Built SPA + server sources (server runs via node at start).
 COPY --from=build /app/dist ./dist
 COPY server ./server
-COPY tsconfig.json ./
-# tsx is needed to run the TypeScript server in production.
-RUN npm install tsx@^4.19.1
 
 EXPOSE 3000
 CMD ["npm", "run", "start"]

@@ -1,44 +1,50 @@
 ## The Story
 
-RetailZero built its name on wholesale. Bulk B2B orders outrun consumer retail three to one, and the deal desk is where those orders actually get made. Reps pull catalog pricing, draft quotes, route them to finance, and commit final terms all day, every day. Every cycle burns salaried hours, and every non-standard discount adds a round trip. On roughly 60% of wholesale RFPs, the first vendor to quote is the one who wins.
-
-So last quarter RetailZero shipped **Z-Merchant**, an AI agent built to collapse that loop. It looks up catalog prices and buyer tiers, drafts quote documents in the rep's Google Workspace, posts to the deal-desk triage channel in Slack, and commits final terms to the order system. It works, and it is fast.
+You built Nexus's MCP server: it exposes four tools covering document search, document retrieval, CRM logging, and external sharing. Your first-party Nexus agent already uses it, third-party partners want to integrate, and Claude Desktop users want to call your tools directly. Multiple agents and multiple clients are routing through the same server on behalf of company employees. The server works today; what it cannot do is tell those clients apart or prove which employee any of them is acting for.
 
 ## The Challenge(s)
 
-Z-Merchant works in the demo, but it cannot ship to production. The security team flagged four blockers, and none of them are about the model:
+The MCP server works, but it cannot ship. Five blockers stand between today's demo and a production deployment, and none of them are about the model:
 
-1. **No identity.** Anyone can talk to the agent. It has no idea which rep is making a request, so there is no way to scope access or audit what it does.
+1. **No mechanism to distinguish clients.** The MCP server cannot tell a first-party agent (your own Nexus agent with a stable CIMD identity) from a third-party integration from a forged request. There are no discovery documents for compliant clients to find, and no token validation to enforce before a tool executes.
 
-2. **No access boundaries.** Z-Merchant can see every wholesale account. A rep pulling a competitor's pricing or another team's book has nothing stopping them.
+2. **No user identity flowing through the agent boundary.** Even if a caller presents a token, the server does not know which employee is behind it. Downstream systems cannot scope access to a person, OBO token exchange is not wired, and there is nothing to audit.
 
-3. **No per-user credentials.** When the agent writes a Google Doc or posts to Slack, it uses a shared bot token. If that token leaks, every rep's workspace is exposed, and you cannot revoke one person without breaking everyone.
+3. **No per-user credentials for downstream systems.** When Nexus logs CRM activity, it uses a shared service account: impossible to attribute, dangerous if it leaks, and a manual burden when employees leave.
 
-4. **No trust boundary.** The tools Z-Merchant calls run on a Model Context Protocol (MCP) server that accepts any caller. A forged request could commit a quote, read pricing data, or post to Slack with nothing to validate it.
+4. **No approval gate on irreversible actions.** An agent can share a document with any external recipient, at any time, without confirmation. A mistyped email or a compromised session sends a confidential file outside the org with no recourse.
 
-Every one of these is an identity problem. Nothing ties the agent to the rep on whose behalf it acts.
+5. **No access control at the document level.** With the user's identity in the token, FGA can enforce relationship-based access, but only if that identity actually flows to the check. Without OBO carrying `sub` end-to-end, the check is meaningless.
+
+Every one of these is an identity problem. Nothing ties the server, or the agents connecting to it, to the employee on whose behalf they act.
 
 ## The Solution
 
-You will close that gap with Auth0's Auth for AI Agents suite. Across four core modules plus an optional bonus, Z-Merchant goes from unsupervised automation to a trusted colleague at the deal desk:
+You will close that gap with Auth0's Auth for AI Agents suite. CIMD and OBO Token Exchange are the mechanism that makes everything else possible: once the agent has a stable identity and carries the employee's `sub` through the exchange, Token Vault, CIBA, and FGA all have the signal they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
 
-- **User Authentication** gives the agent a verified rep identity on every request.
-- **Fine-Grained Authorization (FGA)** scopes each rep to the accounts they own or manage, enforced live against a real store. You witness this module rather than code it.
-- **Token Vault** holds each rep's federated Google and Slack credentials and hands the agent a short-lived, scoped token for exactly one downstream call.
-- **Auth for MCP** turns the MCP server into the trust boundary, with on-behalf-of token exchange so every downstream call knows which rep triggered it.
-- **Async Authorization (CIBA)**, the optional bonus, puts a human in the loop for the actions that cost money, requiring out-of-band rep approval before a non-standard quote commits.
+- **Auth for MCP** makes the MCP server the trust boundary. It handles JWT validation, PRM and AS discovery documents, and on-behalf-of token exchange so every tool call is scoped to a resource and a caller.
+- **User Authentication** gives the server a verified employee identity on every request, so everything downstream reasons about the human, not the agent.
+- **Token Vault** holds each employee's federated CRM credential and hands the server a short-lived, scoped token for exactly one downstream call.
+- **Async Authorization (CIBA)** puts a human in the loop for irreversible external sharing: the agent proposes, the employee approves from their device, then it executes.
+- **Fine-Grained Authorization (FGA)** scopes each employee to the documents they are authorized to read and share, enforced live at the data boundary. You witness this module rather than code it.
 
-Your Auth0 tenant is provisioned for you on launch, so there is no dashboard setup to wire by hand.
+### The Business Case
+
+The five controls in this lab are not purely security requirements; they are the conditions under which enterprise customers will buy. Each maps directly to a commercial outcome:
+
+- **Go-to-market acceleration**: Zero-config client discovery via PRM and stable agent identities through CIMD remove the custom onboarding burden from every new integration. A compliant partner or agent framework connects without engineering work from either side, shortening the path from pilot to production.
+- **Operational expense reduction**: A single authorization engine across all agent runtimes, combined with per-user short-lived credentials, eliminates credential sprawl and per-client auth logic. Offboarding an employee becomes a single revocation, not a coordination exercise across every downstream system the agent touches.
+- **Enterprise revenue growth**: A verifiable audit trail on every action, approval gates on irreversible operations, and document-level access enforcement answer the security questionnaire before it is asked, compressing security review cycles from months to weeks and enabling the access-tier differentiation that supports enterprise pricing.
 
 ## The Journey
 
-You work in a running build of Z-Merchant, not slides. Two things are in front of you the whole time:
+You work in a running build of Nexus, not slides. Two things are in front of you the whole time:
 
 - **The in-app lab guide.** Open it from the **Lab guide** button in the UI. It renders these same module pages with copy-ready code, so you can read a step and apply it without leaving the app.
-- **Z-Merchant itself.** The chat surface is the live agent. As you wire up each module, you talk to Z-Merchant the way a rep would, then watch the result land through the live event panel: every token exchange, every access decision, every credential mint as it happens.
+- **Nexus itself.** The chat surface is the live agent. As you wire up each module, you talk to Nexus the way an employee would, then watch the result land through the live event panel: every token exchange, every access decision, every credential mint as it happens.
 
-Most modules are hands-on. You configure something in Auth0, connect it with a few lines of code, and confirm it at a checkpoint before moving on. One module, Fine-Grained Authorization, runs as a live demo you watch rather than build. A closing end-to-end run takes one deal through every control at once.
+Most modules are hands-on. You configure something in Auth0, connect it with a few lines of code, and confirm it at a checkpoint before moving on. One module, Fine-Grained Authorization, runs as a live demo you watch rather than build. A closing end-to-end run takes one document request through every control at once.
 
-Over the next two hours, you will resolve each blocker in turn. By the end, Z-Merchant is identity-aware, access-controlled, credential-safe, and trust-bounded.
+Over the next two hours, you will close each gap in turn. By the end, Nexus is secured from end to end: clients are identified, employees are authenticated, credentials stay scoped and short-lived, approval gates protect external shares, and access is enforced at the document boundary.
 
 Let's go.

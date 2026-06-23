@@ -1,0 +1,224 @@
+// =============================================================
+// Core provisioning logic -- shared by:
+//   - platform/hooks.js  (webhook-driven, platform path)
+//   - server/index.js    (in-app button, Codespace path)
+//
+// runProvision() creates all Auth0 resources for one demo tenant:
+//   backend API + MCP API resource servers, M2M client (OBO),
+//   SPA client, CIBA client, CRM connection, optional FGA store.
+//
+// For the platform path, pass oidcClientId to reconfigure the
+// platform-created SPA. For the in-app path, leave it null and
+// a new SPA is created using appUrl as the callback origin.
+// =============================================================
+
+import {
+  createResourceServer,
+  createClient,
+  updateClient,
+  grantClientToApi,
+  createVaultConnection,
+  deleteClient,
+  deleteConnectionByName,
+  deleteResourceServerByIdentifier,
+} from "./auth0Management.js";
+import { provisionFgaStore, deleteFgaStore, fgaSettingsFromEnvOrRecord } from "./fgaProvision.js";
+
+export const BACKEND_API_IDENTIFIER =
+  process.env.BACKEND_API_IDENTIFIER || "https://devcamp-docagent-api";
+export const MCP_API_IDENTIFIER =
+  process.env.MCP_API_IDENTIFIER || "https://devcamp-mcp-server";
+export const MCP_SCOPES = [
+  "mcp:docs:search",
+  "mcp:docs:read",
+  "mcp:crm:log",
+  "mcp:docs:share",
+];
+export const BACKEND_SCOPES = ["chat:send"];
+const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
+
+export async function safe(label, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`[provision] step "${label}" failed: ${err.message}`);
+    return null;
+  }
+}
+
+export async function runProvision(
+  ctx,
+  { appUrl, crmUrl, demoName, fgaSettings, oidcClientId = null }
+) {
+  // 1. Resource servers (idempotent-ish: ignore "already exists")
+  await safe("backend resource server", () =>
+    createResourceServer(ctx, {
+      identifier: BACKEND_API_IDENTIFIER,
+      name: "Nexus Backend API",
+      scopes: BACKEND_SCOPES,
+      rbac: true,
+    })
+  );
+  await safe("mcp resource server", () =>
+    createResourceServer(ctx, {
+      identifier: MCP_API_IDENTIFIER,
+      name: "Nexus MCP Server",
+      scopes: MCP_SCOPES,
+      rbac: true,
+    })
+  );
+
+  // 2. M2M client with user-delegated OBO grant.
+  // Token Exchange must be enabled manually in the Dashboard (Lab 04).
+  const m2m = await safe("m2m client", () =>
+    createClient(ctx, {
+      name: `docagent-mcp-m2m-${demoName}`,
+      app_type: "resource_server",
+      resource_server_identifier: MCP_API_IDENTIFIER,
+    })
+  );
+  if (m2m) {
+    await safe("grant m2m -> mcp api (user-delegated)", () =>
+      grantClientToApi(ctx, m2m.client_id, MCP_API_IDENTIFIER, MCP_SCOPES, {
+        subject_type: "user",
+      })
+    );
+  }
+
+  // 3. SPA client — reconfigure if the platform created one, otherwise create new.
+  const appOrigin = (appUrl || "").replace(/\/$/, "");
+  let spa = null;
+  if (oidcClientId) {
+    await safe("reconfigure SPA", () =>
+      updateClient(ctx, oidcClientId, {
+        callbacks: [appOrigin, `${appOrigin}/`],
+        allowed_logout_urls: [appOrigin, `${appOrigin}/`],
+        web_origins: [appOrigin, `${appOrigin}/`],
+      })
+    );
+    spa = { client_id: oidcClientId };
+  } else {
+    spa = await safe("create SPA", () =>
+      createClient(ctx, {
+        name: `docagent-spa-${demoName}`,
+        app_type: "spa",
+        callbacks: [appOrigin, `${appOrigin}/`],
+        allowed_logout_urls: [appOrigin, `${appOrigin}/`],
+        web_origins: [appOrigin, `${appOrigin}/`],
+      })
+    );
+    if (spa) {
+      await safe("grant spa -> backend api", () =>
+        grantClientToApi(ctx, spa.client_id, BACKEND_API_IDENTIFIER, BACKEND_SCOPES)
+      );
+    }
+  }
+
+  // 4. CIBA client (Bonus lab). CIBA must be enabled at tenant level in Dashboard.
+  const ciba = await safe("ciba client", () =>
+    createClient(ctx, {
+      name: `docagent-ciba-${demoName}`,
+      app_type: "regular_web",
+      grant_types: [CIBA_GRANT],
+      async_approval_notification_channels: ["email"],
+    })
+  );
+  if (ciba) {
+    await safe("grant ciba -> backend api", () =>
+      grantClientToApi(ctx, ciba.client_id, BACKEND_API_IDENTIFIER, BACKEND_SCOPES)
+    );
+    await safe("grant ciba -> mcp api (share scope)", () =>
+      grantClientToApi(ctx, ciba.client_id, MCP_API_IDENTIFIER, ["mcp:docs:share"])
+    );
+  }
+
+  // 5. CRM OAuth2 connection. Token Vault storage is intentionally NOT enabled
+  // so participants enable it manually in the Dashboard (Lab 03 step).
+  const vault_connections = {};
+  const crmBase = (crmUrl || appOrigin).replace(/\/$/, "");
+  const crmName = await safe("crm connection", () =>
+    createVaultConnection(ctx, {
+      name: `crm-${demoName}`,
+      strategy: "oauth2",
+      authorizationURL: `${crmBase}/crm/oauth/authorize`,
+      tokenURL: `${crmBase}/crm/oauth/token`,
+      clientId: "crm-demo-client",
+      clientSecret: process.env.CRM_CLIENT_SECRET || "crm-demo-secret",
+      scopes: ["crm:activities:write"],
+      enabledClients: [spa?.client_id, m2m?.client_id].filter(Boolean),
+    })
+  );
+  if (crmName) vault_connections.crm = crmName;
+
+  // 6. FGA store + model (optional; only if FGA credentials are provided)
+  let fga = null;
+  if (fgaSettings) {
+    fga = await safe("fga store", () => provisionFgaStore(fgaSettings, demoName));
+  }
+
+  const deploymentData = {
+    demo_name: demoName,
+    created_at: new Date().toISOString(),
+    backend_audience: BACKEND_API_IDENTIFIER,
+    mcp_audience: MCP_API_IDENTIFIER,
+    mcp_scopes: MCP_SCOPES,
+    spa_client_id: spa?.client_id,
+    m2m_client_id: m2m?.client_id,
+    m2m_client_secret: m2m?.client_secret,
+    ciba_client_id: ciba?.client_id,
+    ciba_client_secret: ciba?.client_secret,
+    vault_connections,
+    ...(fga
+      ? {
+          fga_api_url: fgaSettings.apiUrl,
+          fga_api_audience: fgaSettings.apiAudience,
+          fga_store_id: fga.storeId,
+          fga_model_id: fga.modelId,
+          fga_api_token_issuer: fgaSettings.apiTokenIssuer,
+          fga_client_id: fgaSettings.clientId,
+          fga_client_secret: fgaSettings.clientSecret,
+        }
+      : {}),
+  };
+
+  return deploymentData;
+}
+
+// Tear down the provisioned Auth0 footprint for the current .env config.
+// Reads client/connection IDs from process.env and deletes them in order:
+// clients first (so grants are removed), then connections, then resource servers.
+export async function runDeprovision(ctx) {
+  const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
+  const m2mClientId = process.env.AUTH0_CLIENT_ID_M2M;
+  const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
+  const crmConnName = process.env.VAULT_CONN_CRM;
+  const fgaStoreId = process.env.FGA_STORE_ID;
+
+  if (spaClientId) await safe("del spa client", () => deleteClient(ctx, spaClientId));
+  if (m2mClientId) await safe("del m2m client", () => deleteClient(ctx, m2mClientId));
+  if (cibaClientId) await safe("del ciba client", () => deleteClient(ctx, cibaClientId));
+  if (crmConnName) await safe("del crm connection", () => deleteConnectionByName(ctx, crmConnName));
+  await safe("del backend api", () => deleteResourceServerByIdentifier(ctx, BACKEND_API_IDENTIFIER));
+  await safe("del mcp api", () => deleteResourceServerByIdentifier(ctx, MCP_API_IDENTIFIER));
+  if (fgaStoreId) {
+    const fgaSettings = fgaSettingsFromEnvOrRecord({});
+    if (fgaSettings) await safe("del fga store", () => deleteFgaStore(fgaSettings, fgaStoreId));
+  }
+}
+
+// Maps deploymentData keys to the env var names that tenant.js reads
+// in its single-tenant (env var) fallback path.
+export function deploymentDataToEnvVars(dd) {
+  const vars = {};
+  if (dd.spa_client_id) vars.VITE_AUTH0_CLIENT_ID = dd.spa_client_id;
+  if (dd.backend_audience) vars.AUTH0_AUDIENCE = dd.backend_audience;
+  if (dd.mcp_audience) vars.MCP_AUTH0_AUDIENCE = dd.mcp_audience;
+  if (dd.m2m_client_id) vars.AUTH0_CLIENT_ID_M2M = dd.m2m_client_id;
+  if (dd.m2m_client_secret) vars.AUTH0_CLIENT_SECRET_M2M = dd.m2m_client_secret;
+  if (dd.ciba_client_id) vars.AUTH0_CIBA_CLIENT_ID = dd.ciba_client_id;
+  if (dd.ciba_client_secret) vars.AUTH0_CIBA_CLIENT_SECRET = dd.ciba_client_secret;
+  if (dd.vault_connections?.crm) vars.VAULT_CONN_CRM = dd.vault_connections.crm;
+  if (dd.fga_store_id) vars.FGA_STORE_ID = dd.fga_store_id;
+  if (dd.fga_model_id) vars.FGA_MODEL_ID = dd.fga_model_id;
+  return vars;
+}

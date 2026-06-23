@@ -237,15 +237,106 @@
   font-size: 13px;
 }
 
+.guide-markdown table th,
 .guide-markdown table td {
   padding: 8px 12px;
   border: 1px solid #3A2856;
+  text-align: left;
 }
 
-.guide-markdown table tr:first-child td {
+.guide-markdown table th {
   background: #2D1D40;
   font-weight: 600;
   color: #FBFBFA;
+}
+
+/* --- GitHub-style alert callouts --- */
+
+.gh-alert {
+  border-left: 4px solid #3A2856;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  background: #1A0F26;
+}
+
+.gh-alert > :last-child {
+  margin-bottom: 0;
+}
+
+.gh-alert-title {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 6px 0;
+}
+
+.gh-alert-note {
+  border-left-color: #539BF5;
+}
+.gh-alert-note .gh-alert-title {
+  color: #539BF5;
+}
+
+.gh-alert-tip {
+  border-left-color: #57AB5A;
+}
+.gh-alert-tip .gh-alert-title {
+  color: #57AB5A;
+}
+
+.gh-alert-important {
+  border-left-color: #986EE2;
+}
+.gh-alert-important .gh-alert-title {
+  color: #986EE2;
+}
+
+.gh-alert-warning {
+  border-left-color: #C69026;
+}
+.gh-alert-warning .gh-alert-title {
+  color: #E0A93C;
+}
+
+.gh-alert-caution {
+  border-left-color: #E5534B;
+}
+.gh-alert-caution .gh-alert-title {
+  color: #E5534B;
+}
+
+/* --- Inline HTML used by the guide --- */
+
+.guide-markdown kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid #3A2856;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #2D1D40;
+  font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: #ECEBE4;
+}
+
+.guide-markdown mark {
+  background: #4A2D6B;
+  color: #FBFBFA;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.guide-markdown blockquote {
+  border-left: 3px solid #3A2856;
+  margin: 12px 0;
+  padding: 4px 16px;
+  color: #BFA9D6;
+}
+
+.guide-markdown a {
+  color: #BC6DFF;
 }
 
 /* --- Pagination --- */

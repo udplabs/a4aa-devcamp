@@ -1,25 +1,33 @@
 ### Description
 
-You came in with a fast agent that could not ship, and you are leaving with one that can. Z-Merchant now looks up catalog pricing, drafts quotes in the rep's Google Workspace, posts to the deal-desk channel in Slack, and commits final terms, and every one of those actions is now tied to a verified rep.
+You came in with a working MCP server and no way to control who could use it or on whose behalf. You are leaving with a production-ready one: agents connect with stable CIMD identities, OBO token exchange carries the employee's identity through every agent boundary, and Token Vault, CIBA, and FGA enforce policy against that identity at every layer.
 
-Four blockers stood between Z-Merchant and production, and you closed each one with a layer of the Auth0 for AI Agents stack:
+Five gaps stood between Nexus and production, and you closed each one with a layer of the Auth0 for AI Agents stack:
 
-- **User Authentication** gave the agent a verified identity on every request, so anonymous calls are gone.
-- **Fine-Grained Authorization (FGA)**, witnessed live against a real store, scoped each rep to the accounts they own or manage and returned a clean deny on everything outside their book.
-- **Token Vault** replaced the shared bot token with per-rep, short-lived, scoped credentials for Google and Slack, refreshed automatically and never held in agent memory.
-- **Auth for MCP** made the MCP server the trust boundary, with on-behalf-of token exchange so every downstream call knows which rep triggered it.
-- **Async Authorization (CIBA)**, the optional bonus, put a human in the loop so a non-standard quote cannot commit until the rep approves a binding message from their own device.
+- **Auth for MCP** made the MCP server the trust boundary, with on-behalf-of token exchange so every tool call knows which employee triggered it and is scoped to a single resource.
+- **User Authentication** gave the server a verified employee identity on every request, so anonymous calls are gone and every log line names a real employee.
+- **Token Vault** replaced a shared CRM bot token with per-user, short-lived federated credentials, refreshed automatically and never held in agent memory.
+- **Async Authorization (CIBA)** put a human in the loop so a document share with an external recipient cannot execute until the employee approves a binding message from their own device.
+- **Fine-Grained Authorization (FGA)**, witnessed live against a real store, scoped each employee to the documents they are authorized to read or share; confidential HR and executive documents never surfaced for those outside those departments.
 
-What you built here is not RetailZero-specific. Every agent that calls APIs, touches user data, or executes tools needs this same stack, regardless of the framework, the model, or the use case.
+### Business Value Delivered
+
+The five controls you implemented map directly to the commercial outcomes that differentiate a production-ready AI agent platform from a prototype:
+
+- **Go-to-market acceleration**: PRM discovery and CIMD-based client identity mean any compliant agent or integration connects without custom onboarding work. Every new agent runtime you support inherits the same authorization engine, eliminating rework and additional review cycles.
+- **Operational expense reduction**: Token Vault eliminates the bot token management lifecycle entirely. Auth for MCP consolidates authorization logic into one server. Offboarding is a revocation. These translate to hours of operational toil removed per employee per quarter.
+- **Enterprise revenue growth**: The audit trail, approval records, and FGA access model are what let procurement teams say yes. They compress the security review cycle from months to weeks, and FGA's relationship-based access is the mechanical foundation for tiered enterprise pricing.
+
+What you built transcends Nexus. Every AI agent that calls APIs, touches user data, or executes tools on behalf of a human needs this same stack, and every enterprise customer evaluating that agent needs to see it.
 
 ### What You Accomplished
 
-- ✅ Gave Z-Merchant a verified rep identity on every request with Auth0 user authentication
-- ✅ Witnessed Auth0 FGA enforce relationship-based access live, scoping each rep to their own book
-- ✅ Issued short-lived, per-rep federated credentials through Token Vault instead of a shared bot token
-- ✅ Made the MCP server the trust boundary with on-behalf-of token exchange
-- ✅ Gated high-stakes quote commits behind out-of-band human approval with CIBA
-- ✅ Took a working but unshippable AI agent all the way to production-ready
+- ✅ Made the MCP server the trust boundary with on-behalf-of token exchange preserving the user's `sub` end-to-end
+- ✅ Gave Nexus a verified employee identity on every request with Auth0 user authentication
+- ✅ Issued short-lived, per-user federated CRM credentials through Token Vault instead of a shared bot token
+- ✅ Gated irreversible external document shares behind out-of-band human approval with CIBA
+- ✅ Witnessed Auth0 FGA enforce relationship-based access live, keeping confidential documents out of unauthorized search results
+- ✅ Took a working but unshippable MCP server all the way to production-ready
 
 ### What's Next
 

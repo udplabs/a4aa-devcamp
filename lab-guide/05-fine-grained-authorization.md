@@ -1,0 +1,118 @@
+# Module 05: Fine-Grained Authorization (FGA), Live Demo
+
+> [!IMPORTANT]
+> This module is the one piece you **watch** rather than build. You have built the MCP server, authenticated users, vaulted their credentials, and gated irreversible actions. Now watch the authorization model that fires *inside* that server enforce document-level access control live. FGA is already provisioned and enforced for your tenant.
+
+## Objective
+
+Nexus gives every user access to the company knowledge base, but not all of it. An engineer should read engineering documents, and someone in sales should not read HR compensation data. Reading a document is also not the same as sharing it externally.
+
+Role-based access control is too coarse for this problem. "Engineer" versus "HR" versus "executive" cannot capture the real rule: "Alice can read and share the Q3 roadmap because she owns it, but Bob can only read the employee handbook." Fine-grained authorization models this as relationships instead of roles:
+
+- `user → viewer/editor/owner → document`
+- `user → member → department`
+- `department → viewer → document` (inherited via `department#member`)
+
+From those relationships, FGA derives the two decisions Nexus actually needs: can this user **read** this document, and can this user **share** it externally.
+
+### Why we're building this
+
+Role-based access control breaks down at enterprise scale. Assigning roles like "engineer" or "hr" cannot capture the real shape of a knowledge organization: who owns which documents, which departments share access to which resources, and where the boundary between read and share sits. The result is either over-permissioned access that fails compliance audits, or under-permissioned access that blocks legitimate use.
+
+The commercial consequence: relationship-based authorization at the data boundary answers the "how do you prevent data leakage between departments?" question in the security questionnaire before it is asked. It is also the same mechanism that enables enterprise tier pricing (different customers, different access levels, enforced by the same store) without custom access logic for each deployment.
+
+## Prerequisites
+
+- You completed **Modules 01–04**. FGA keys every decision off the verified `sub` that Module 02 established.
+
+## What's provisioned for you
+
+When you clicked **Provision Resources**, the app created a per-tenant Auth0 / Okta FGA store with the authorization model already written. Demo tuples are seeded on first login so the allow and deny paths are ready to observe immediately. You do not create a store, write a DSL model, or copy any `FGA_*` credentials.
+
+> [!NOTE]
+> If the tenant launches without FGA credentials, the app falls back to an in-memory tuple store with the same model and the same allow / deny behavior, so the demo still runs offline. Either way, what you observe below is identical.
+
+### The authorization model (for reference)
+
+You will not edit this, but it is worth seeing the shape of what is enforcing the decisions. `can_read` covers direct relations plus department membership, while `can_share` is tighter because only editors and owners may share:
+
+```
+type user
+
+type department
+  relations
+    define member: [user]
+
+type document
+  relations
+    define owner: [user]
+    define editor: [user]
+    define viewer: [user, department#member]
+    define can_read: owner or editor or viewer
+    define can_share: owner or editor
+```
+
+### The seeded relationships
+
+| User | Tuples | Net effect |
+|---|---|---|
+| `alice@docagent.demo` | `alice member department:engineering`, `alice editor document:q3-roadmap` | Reads all-company + all engineering docs; can share q3-roadmap |
+| `bob@docagent.demo` | `bob viewer document:handbook`, `bob viewer document:security-policy` | All-company docs only; denied on engineering, HR, and executive |
+
+`document:compensation-q3` (HR) and `document:board-deck-q3` (Executive) are intentionally never seeded for demo users, so any query against them is a clean deny. Together these tuples give the demo a direct-access allow, a department-inheritance allow, a direct deny, and a confidential-classification deny.
+
+## Where the checks fire
+
+FGA sits at the data boundary inside the MCP server you built in **Module 01**. The three tool handlers that call it are:
+
+- `search_documents` filters results by FGA, so only documents the user can read appear in the response, regardless of the search query.
+- `get_document` checks `can_read` before returning full document content.
+- `share_document` checks `can_share` before proceeding, preventing viewers from sharing (only editors and owners can).
+
+Because every check keys off the user's `sub` (the identity from Module 02), the decision is always about the human, never the agent. A deny is returned at the data boundary before any content is read, ensuring nothing leaks on the way to the refusal.
+
+## What you'll observe
+
+Watch the live event panel as these prompts run. Each one maps to a specific edge of the relationship graph.
+
+1. **Allow (all-company viewer).** Logged in as Alice: *"Find the security policy."* FGA checks `can_read(alice, security-policy)`, and Alice has a viewer tuple on all-company docs, so the document returns.
+
+2. **Allow (department member).** Still Alice: *"Show me the Q3 roadmap."* FGA resolves the path through `alice member department:engineering` and `department:engineering viewer document:q3-roadmap`, so the content returns.
+
+3. **Deny (outside department).** Logged in as Bob: *"Show me the Q3 roadmap."* Bob has no membership in `department:engineering` and no direct viewer tuple on `document:q3-roadmap`. You see `[FGA] Check: user:auth0|<bob_sub> can_read document:q3-roadmap -> DENIED` and no content is returned.
+
+4. **Deny (confidential).** Bob or Alice: *"Find the compensation review."* Neither user has any tuple on `document:compensation-q3`. Clean deny on both sides, with the document never surfacing in search results or as a retrievable ID.
+
+5. **Share allowed for editor, denied for viewer.** Alice can share `q3-roadmap` because she has an editor tuple, but Bob cannot share `security-policy` even though he can read it, because viewers do not meet the `can_share` condition.
+
+> [!TIP]
+> Each decision lands in the event panel keyed on the user's `sub`, the relation checked, and the document ID, so the allow and the deny are both auditable on the same key.
+
+## What you learned
+
+Relationship-based authorization handles the real shape of a knowledge organization (individuals, departments, matrixed ownership, document tiers) without the rigid role explosion that RBAC forces on you. More importantly, FGA keeps confidential documents for HR from ever appearing in an engineer's search results, which is what the compliance team ultimately cares about. That keeps data classification risk off the quarterly risk register.
+
+You watched this one rather than coded it. The same `sub`-keyed decision you saw the store make has been firing inside the MCP server since Module 01. Token Vault (Module 03) minted CRM credentials for the users FGA just authorized, and CIBA (Module 04) gated irreversible shares on the same identity. All five controls key off the same `sub`.
+
+#### <span style="font-variant: small-caps">Congrats!</span>
+
+*You have completed this module.*
+
+You should have successfully:
+
+<ul>
+  <li style="list-style-type:'✅ ';">
+      seen FGA allow a read for a direct viewer and for a department member;
+  </li>
+  <li style="list-style-type:'✅ '">
+      seen a clean deny when a user queries a document outside their access;
+  </li>
+  <li style="list-style-type:'✅ '">
+      seen confidential documents stay invisible to all demo users;
+  </li>
+  <li style="list-style-type:'✅ '">
+      understood that <code>can_share</code> is stricter than <code>can_read</code>, and why.
+  </li>
+</ul>
+
+#### <span style="font-variant: small-caps">Let's move on to the next module!</span>
