@@ -2,36 +2,32 @@
 
 ## Welcome to Auth0 dev{camp} | Agentic AI
 
-RetailZero built its name on wholesale. Bulk B2B orders outrun consumer retail three to one, and the deal desk is where those orders actually get made. Reps pull pricing, draft quotes, route to finance, and commit terms all day, every day. Every cycle burns salaried hours, and on roughly 60% of wholesale RFPs the first vendor to quote is the one who wins.
+You built Nexus's MCP server: it exposes four tools covering document search, document retrieval, CRM logging, and external sharing. The first-party Nexus agent already uses it, third-party partners want to integrate, and Claude Desktop users want to call your tools directly. The server works, but it cannot distinguish a legitimate first-party agent from a forged request, and when a valid agent connects, it has no way to know which employee is behind it.
 
-So last quarter RetailZero shipped **Z-Merchant**, an AI assistant built to collapse that loop. It looks up catalog prices and buyer tiers, drafts quote documents in the rep's Google Workspace, pings the deal-desk channel in Slack, and commits final terms to the order system. It works, and it is fast. The catch: it cannot ship to production, because nothing ties it to the rep on whose behalf it acts.
-
-As newly minted RetailZero contract engineers for the next two hours, we will close that gap and build the Identity Bridge for Z-Merchant, through the lens of Auth0's Auth for AI Agents suite of features.
+You are the team shipping that server as a platform. The bottleneck is identity. Without proof of who is calling and which employee they represent, the server cannot enforce any policy downstream, leaving sensitive operations exposed to misuse. Over the next two hours, you will close that gap using Auth0's Auth for AI Agents suite.
 
 ### Overview of Modules
 
-This lab consists of **four (4)** core modules plus an **optional bonus**, each building on the last until Z-Merchant goes from unsupervised automation to a trusted colleague at the deal desk. Your Auth0 tenant is provisioned for you on launch, so there is no dashboard setup to wire by hand. Most modules are hands-on; one, Fine-Grained Authorization, runs as a live demo you witness rather than code.
-
-This will jumpstart your understanding of the Auth0 platform and the role it plays in securing AI agents today!
+This lab consists of **five (5)** core modules, each adding one security layer to the Nexus MCP server deployment. Your Auth0 tenant is provisioned for you on launch. Most modules are hands-on; one, Fine-Grained Authorization, runs as a live demo to illustrate enforcement in action rather than as a coding exercise.
 
 Here is what we will get into:
 
-1. **Who Goes There?**: ***User Authentication***
+1. **The Trust Boundary**: ***Auth for MCP***
 
-   *Give Z-Merchant a way to know exactly which rep is talking to it. The rep logs in, and every call into the agent carries a validated token instead of an anonymous request.*
+   *Register the MCP server as an Auth0 resource and publish PRM plus AS discovery so any compliant client finds it with zero configuration. Pre-register the first-party Nexus agent via CIMD so it has a stable, auditable identity across deploys. OBO token exchange carries the employee's `sub` through the agent boundary, ensuring every tool call downstream identifies exactly who triggered it.*
 
-2. **The Guest List**: ***Auth0 Fine-Grained Authorization (FGA)*** *(live demo)*
+2. **Who Goes There?**: ***User Authentication***
 
-   *Not every rep should see every account. Watch Auth0 FGA enforce the relationship graph live against a real store, so a rep reads and commits only on the accounts they own or manage, and a query outside their book gets a clean deny at the data boundary.*
+   *The MCP server now identifies its callers, but before it can enforce policy downstream, it needs a verified employee in the session. Wire Universal Login so every request carries the JWT `sub` that CIMD's OBO exchange will preserve to the tool, establishing the user context for all downstream authorization decisions.*
 
 3. **The Keychain**: ***Token Vault***
 
-   *Z-Merchant has to write Google Docs and post to Slack on the rep's behalf. Use Token Vault to hold each rep's federated credentials, refresh them automatically, and hand the agent a short-lived, scoped token for exactly one downstream call. Credentials never sit in agent memory.*
+   *When agents act on behalf of users to access downstream systems, they need scoped, attributable credentials. Replace the shared bot token with a per-user CRM credential vaulted by Auth0, retrieved per-call, and never held in agent memory, eliminating shared secrets and ensuring every API call is traceable to a specific user.*
 
-4. **The Trust Boundary**: ***Auth for MCP***
+4. **Approve It, or It Doesn't Happen**: ***Async Authorization (CIBA)***
 
-   *Z-Merchant's tools run on a Model Context Protocol (MCP) server that should never accept an anonymous caller. Make the MCP server the trust boundary, with on-behalf-of token exchange so every downstream call knows which rep triggered it and the agent runtime becomes just a client.*
+   *Not every tool call should execute without confirmation. When an agent requests an external document share, the MCP server requires out-of-band approval from the employee before it executes, giving users explicit control over sensitive operations.*
 
-**Bonus.** **Approve It, or It Doesn't Happen**: ***Async Authorization via Client-Initiated Backchannel Authentication (CIBA)***
+5. **The Guest List**: ***Auth0 Fine-Grained Authorization (FGA)*** *(live demo)*
 
-   *For the actions that actually cost money, add a human in the loop. Z-Merchant can prepare a steep discount, but it cannot commit until the rep approves a signed binding message from their own device. The agent proposes, the human disposes.*
+   *With the agent-identity pipeline in place, watch FGA enforce document-level access using the `sub` that flows from OBO. An engineer reads only engineering documents, HR data remains confidential, and a viewer cannot share what they are permitted only to read.*

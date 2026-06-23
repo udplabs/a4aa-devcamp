@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx scripts/find-port.ts && concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "node scripts/find-port.js && concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite",
-    "dev:server": "tsx watch server/index.ts",
-    "build": "tsc && vite build",
-    "start": "tsx server/index.ts"
+    "dev:server": "node --watch server/index.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test:provision": "node scripts/test-provision.js",
+    "test:hooks": "node scripts/test-hooks.js"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.2.4",
@@ -17,19 +19,14 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-oauth2-jwt-bearer": "^1.6.0",
+    "marked": "^14.1.2",
     "openai": "^4.73.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^9.0.1",
-    "tsx": "^4.19.1",
-    "typescript": "^5.5.4",
     "vite": "^5.4.3"
   }
 }
