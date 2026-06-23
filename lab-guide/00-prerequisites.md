@@ -94,13 +94,27 @@ Because the environment lives in the cloud, the list is short. You need:
 
 ## Configure and provision your environment
 
-Once the Codespace is running, the app starts automatically. When you open it for the first time, you will see a **setup screen**; this is expected. Follow these steps:
+Once the Codespace finishes building, start the app in the terminal:
+
+```bash
+cd demo-app
+npm run dev
+```
+
+The Codespace will open a browser preview automatically. When you open it for the first time, you will see a **setup screen**; this is expected. Follow these steps:
 
 ### Step 1: add your credentials to `.env`
 
 The setup screen shows the three environment variables Nexus needs to connect to your Auth0 tenant. Copy each value from the **Launch Pad** on the right side of the screen.
 
-In the Codespace terminal, open `.env` and add the three lines:
+In the Codespace terminal, navigate to the `demo-app` directory and open `.env`:
+
+```bash
+cd demo-app
+cp .env.sample .env
+```
+
+Then add the three values:
 
 ```
 AUTH0_DOMAIN=<your-tenant>.auth0.com
@@ -117,7 +131,7 @@ The app polls for these variables every few seconds. Once it detects them, the s
 
 After the credentials are detected, the app shows the **Provision Resources** screen. Click the **Provision Resources** button.
 
-Nexus calls the Auth0 Management API and creates everything it needs in your tenant (the backend API, MCP resource server, agent client, CRM connection, and where available, FGA store and CIBA client). This takes about 10 seconds.
+Nexus calls the Auth0 Management API and creates the Auth0 API registrations your app will use throughout the lab — the backend API, MCP resource server, agent client, CRM connection, and where available, FGA store and CIBA client. This takes about 10 seconds.
 
 When provisioning completes, the server restarts automatically and the app reloads into its normal state.
 
@@ -127,6 +141,13 @@ When provisioning completes, the server restarts automatically and the app reloa
 ### Step 3: confirm the app is running
 
 After the reload, you should see the Nexus chat interface. You are now ready to start Module 01.
+
+> [!NOTE]
+> Your Auth0 tenant comes pre-loaded with two demo employees. You will use both throughout the lab to observe access decisions:
+> - **`alice@docagent.demo`** — engineering team member with access to engineering documents
+> - **`bob@docagent.demo`** — all-company viewer only, denied on engineering and confidential documents
+>
+> These users exist in your tenant already. Their passwords are shown in the **Demo Users** section of your Launch Pad.
 
 ## Confirm access to your Auth0 tenant
 

@@ -1,15 +1,17 @@
 # Module 02: User Authentication
 
-## Objective
+## Objective *(~15 min)*
 
 The MCP server now has a trust boundary: it can distinguish a first-party agent (CIMD identity) from an anonymous request and a valid token from a forged one. But OBO token exchange needs an employee identity to carry through to tool execution, and right now there is nothing to carry. This module wires Auth0 Universal Login so every session has a verifiable employee `sub`, the identity that CIMD's OBO exchange will preserve to every tool call downstream.
 
-In this module you will:
+This module is a **read-through**. The authentication wiring is pre-built in the starter. Your goal is to understand where the employee's identity enters the system and how it flows downstream — not to write new code.
 
-- Gate the chat UI behind Auth0 Universal Login.
-- Send the user's access token on every `/api/*` call.
-- Validate JWTs on the Express backend with `express-oauth2-jwt-bearer`.
-- Extract `sub`, `email`, and `scope` from the token so downstream modules have a real user context.
+By the end you will understand:
+
+- How the chat UI is gated behind Auth0 Universal Login.
+- How the user's access token reaches every `/api/*` call.
+- How JWTs are validated on the Express backend with `express-oauth2-jwt-bearer`.
+- How `sub`, `email`, and `scope` are extracted so downstream modules have a real user context.
 
 ### Why we're building this
 
@@ -30,12 +32,14 @@ When you clicked **Provision Resources**, the app created everything Nexus needs
 - **Two demo users** seeded with intentionally different document access so later modules have something to bite on:
   - `alice@docagent.demo` — engineering team member, can read and share engineering documents
   - `bob@docagent.demo` — all-company access only, denied on engineering, HR, and executive documents
+  
+  Their passwords are in the **Demo Users** section of your Launch Pad.
 
 The SPA pulls its Auth0 domain, client ID, and audience at runtime from `GET /api/config`, so the same build works for your tenant. There are no `VITE_AUTH0_*` values for you to copy.
 
 ## Code Steps
 
-The app already has this wiring in place. Walk through each file so you can see exactly where the user's identity enters the system and how it flows to the backend.
+The app already has this wiring in place. Open each file in your editor as you go — you are tracing the employee's identity from the browser login all the way to the backend handler.
 
 ### Step 1: the React tree is wrapped in `Auth0Provider`
 
@@ -180,18 +184,18 @@ There is no mock `anonymous` user: a request without a valid token never reaches
 > [!IMPORTANT]
 > Confirm each of the following before moving on:
 >
-> - Clicking **Sign In** takes you to Auth0 Universal Login.
-> - After login, the header shows `alice@docagent.demo` and a Log Out button.
-> - The Network tab shows `Authorization: Bearer eyJ...` on `/api/chat`.
-> - Requests without a token return `401 Unauthorized`.
-> - The backend logs `Authenticated request from user: auth0|...`.
+> - If you are not already logged in from Module 01, click **Sign In** — it should take you to Auth0 Universal Login and back.
+> - The header shows `alice@docagent.demo` and a Log Out button.
+> - Open the browser Network tab and send a chat message — confirm `Authorization: Bearer eyJ...` appears on `/api/chat`.
+> - The backend terminal shows `Authenticated request from user: auth0|...` for the `sub` value.
+> - Requests without a token return `401 Unauthorized` (confirm by running `curl -X POST http://localhost:3000/api/chat -H "Content-Type: application/json" -d '{}'` with no auth header).
 
 > [!TIP]
 > Decode the JWT at [jwt.io](https://jwt.io). Confirm `aud` contains `https://devcamp-docagent-api` and `scope` contains `chat:send`.
 
 ## What you learned
 
-Every Nexus call now carries a verifiable user identity, which becomes the foundational anchor for everything that follows: Token Vault (Module 03) mints CRM credentials scoped to this user, CIBA (Module 04) binds device approval to this same identity, and FGA (Module 05) evaluates document access keyed on this `sub`. The MCP server built in Module 01 receives this identity on every tool call, which is precisely what FGA, Token Vault, and CIBA all reason against. Without a verifiable identity at every layer, there is no audit trail; without an audit trail, there is no compliance sign-off.
+Every Nexus call now carries a verifiable user identity, which becomes the foundational anchor for everything that follows: Token Vault (Module 03) mints CRM credentials scoped to this user, CIBA (Module 04) binds device approval to this same identity, and FGA (Module 05) evaluates document access keyed on this `sub`. The MCP server built in Module 01 receives this identity on every tool call, which is precisely what FGA, Token Vault, and CIBA all reason against. Without a verifiable identity at every layer, there is no audit trail. Without an audit trail, there is no compliance sign-off.
 
 > [!NOTE]
 > Business win: a clean user-level audit trail on document access is the difference between a six-month security review and a two-week one.
@@ -216,5 +220,7 @@ You should have successfully:
       extracted the user's <code>sub</code>, <code>email</code>, and <code>scope</code> for downstream modules.
   </li>
 </ul>
+
+Every request now carries a verified employee identity. Module 03 uses that identity to retrieve per-user credentials from Token Vault — so the agent never touches a shared service account.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

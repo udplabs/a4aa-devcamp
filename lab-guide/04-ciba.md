@@ -1,5 +1,22 @@
 # Module 04: Async Authorization (CIBA)
 
+## Objective *(~20 min)*
+
+Not every tool call should execute without confirmation. This module wires CIBA (Client-Initiated Backchannel Authentication) so that irreversible actions — specifically, sharing a document with an external recipient — require explicit employee approval on their own device before they execute.
+
+In this module you will:
+
+- Enable the CIBA grant type at the tenant level in the Auth0 Dashboard.
+- Understand how `share_document` triggers CIBA before calling the MCP server.
+- See how the binding message ties the push notification to the exact action being approved.
+- Observe the in-memory approve/deny fallback vs. the live Guardian push path.
+
+### Why we're building this
+
+Fully automated irreversible actions, like sharing a confidential document with an external recipient, represent one of the highest-risk categories of AI agent behavior. Without a human approval gate, a single compromised session or a mistyped email address sends sensitive data outside the organization with no recourse.
+
+The commercial consequence: compliance teams at enterprise customers block AI agent deployments that can execute irreversible external actions without an audit trail. CIBA turns a blocked feature into an approved one. Every external share produces a timestamped, device-bound approval record that satisfies the audit requirement. That is the difference between a feature that reaches production and one that dies in security review.
+
 ## Prerequisites
 
 - You completed **Modules 01–03**. Nexus already authenticates the user, vaults credentials, and routes every tool call through the secured MCP server. CIBA adds a device-level approval gate on top of that.
@@ -9,20 +26,7 @@
 
 A user wants to share a sensitive document with an external email address. External sharing is irreversible and subject to data policy, so Nexus should not execute that action without the user actively confirming on their own device.
 
-CIBA (Client-Initiated Backchannel Authentication) is the flow for that. The agent backend initiates an authorization request with a human-readable binding message, the user's device surfaces a push notification, the user approves, and only then does the share execute.
-
-## Objectives
-
-- Enable the CIBA grant type at the tenant level in the Auth0 Dashboard (Dashboard step above).
-- Understand how `share_document` triggers CIBA before calling the MCP server.
-- See how the binding message ties the push notification to the exact action being approved.
-- Observe the in-memory approve/deny fallback vs. the live Guardian push path.
-
-### Why we're building this
-
-Fully automated irreversible actions, like sharing a confidential document with an external recipient, represent one of the highest-risk categories of AI agent behavior. Without a human approval gate, a single compromised session or a mistyped email address sends sensitive data outside the organization with no recourse.
-
-The commercial consequence: compliance teams at enterprise customers block AI agent deployments that can execute irreversible external actions without an audit trail. CIBA turns a blocked feature into an approved one; every external share produces a timestamped, device-bound approval record that satisfies the audit requirement. That is the difference between a feature that reaches production and one that dies in security review.
+The agent backend initiates an authorization request with a human-readable binding message. The user's device surfaces a push notification. The user approves, and only then does the share execute.
 
 ## What's provisioned for you
 
@@ -33,31 +37,39 @@ The CREATE hook provisioned a CIBA client on your tenant (a regular web app with
 >
 > 1. Auth0 Dashboard → **Settings → Advanced**
 >
-> *[Screenshot: Settings → Advanced page scrolled to the Grant Types section, with CIBA visible but not yet enabled]*
+> *You should see: the Advanced settings page with a Grant Types section.*
 >
 > 2. Scroll to **Grant Types** → enable **CIBA** → **Save**
 >
-> *[Screenshot: The same section with the CIBA toggle enabled and the Save button highlighted]*
+> *You should see: the CIBA toggle enabled.*
 >
 > 3. Verify: **Applications → docagent-ciba-`{{demoName}}`** → **Advanced Settings → Grant Types** → confirm **CIBA** is checked
 >
-> *[Screenshot: The CIBA client's Advanced Settings → Grant Types tab showing the CIBA grant type checked]*
->
-> Without this toggle, the app falls back to an in-memory approve/deny simulation with the same state machine and UI — the full flow runs, but no real push fires. Enable it and `POST /bc-authorize` triggers a real Guardian push notification to any enrolled device.
+> Without this toggle, the app falls back to an in-memory approve/deny simulation with the same state machine and UI. The full flow still runs, but no real push fires. Enable it and `POST /bc-authorize` triggers a real Guardian push notification to any enrolled device.
 
-**Device enrollment** remains a manual runtime step: you (as the test user) must enroll in Auth0 Guardian to receive the push. If you skip enrollment, the in-memory fallback covers the complete flow offline.
+**Device enrollment** is required for the live push path. If you skip it, the in-memory fallback runs the complete flow offline — all checkpoint steps work either way.
 
-- **Live path:** with a Guardian-enrolled user, `share_document` triggers a real `/bc-authorize` request and the push arrives on the user's device.
-- **Fallback:** without enrollment, the app falls back to an in-memory approve/deny via `/api/ciba/*` with the same state machine, so you can run the full flow offline.
+To enroll your device for the live path:
+
+1. In the Auth0 Dashboard, go to **Security → Multi-factor Auth** and ensure Guardian is enabled.
+2. Log in to Nexus as `alice@docagent.demo`.
+3. On next login, Auth0 will prompt to enroll a second factor. Open the Guardian app and scan the QR code shown.
+4. Once enrolled, triggering a document share sends a real push notification to your device.
+
+> [!TIP]
+> Most participants skip enrollment and use the in-memory fallback — it runs the same approval flow without device setup overhead. Only enroll if you have a spare few minutes and want to see the Guardian push in action.
 
 > [!NOTE]
 > Self-hosting `starter/`? Enable the CIBA grant on your tenant (**Settings → Advanced → Grant Types**) and on the CIBA client you create (**Advanced Settings → Grant Types → CIBA**). The in-memory simulator below covers approval if you skip device enrollment.
 
 ## Code Steps
 
-The starter ships a simulator for CIBA so you can run the full flow offline. The state machine mirrors Auth0's: `pending` → `approved | denied`, 300-second expiry.
+> [!NOTE]
+> This code is already implemented in the demo-app. The steps below walk you through the implementation — open each file in your editor as you go. You are not writing new code in this module.
 
-### Step 1: implement the CIBA middleware
+The CIBA simulator runs the full flow offline. The state machine mirrors Auth0's: `pending` → `approved | denied`, 300-second expiry.
+
+### Step 1: the CIBA middleware
 
 `server/middleware/ciba.js`:
 
@@ -113,7 +125,7 @@ export function listPendingCIBA() {
 }
 ```
 
-### Step 2: build the binding message
+### Step 2: the binding message
 
 Same file, `buildDocShareBindingMessage`:
 
@@ -127,14 +139,16 @@ export function buildDocShareBindingMessage(params) {
 
 The binding message is human-readable and surfaces exactly what the user is approving (title and recipient) in the push notification on their device.
 
-### Step 3: gate `share_document` in the LLM path
+### Step 3: the `share_document` gate in the LLM path
 
-`server/llm.js` — before calling the tool:
+`server/llm.js` — when the authorization check returns `requiresConsent: true` for `share_document`, the gate fires before the tool reaches the MCP server:
 
 ```js
-import { initiateCIBA, buildDocShareBindingMessage } from "./middleware/ciba.js";
+// checkToolAuthorization returns { authorized, requiresConsent, cibaInfo }
+// when share_document is detected and no approval is in place yet.
+const authResult = await checkToolAuthorization(user.sub, user.scope, toolName);
 
-if (toolName === "share_document") {
+if (!authResult.authorized && authResult.requiresConsent) {
   const bindingMessage = buildDocShareBindingMessage({
     documentTitle: parameters.documentTitle,
     recipientEmail: parameters.recipientEmail,
@@ -147,9 +161,9 @@ if (toolName === "share_document") {
 }
 ```
 
-Do the same in `server/simulator.js` so the simulator fallback also gates the share.
+The same gate runs in `server/simulator.js` so the in-memory fallback also requires CIBA approval before the share executes.
 
-### Step 4: add the CIBA endpoints
+### Step 4: the CIBA endpoints
 
 `server/index.js`:
 
@@ -188,7 +202,7 @@ app.get("/api/ciba/pending", (_req, res) => {
 });
 ```
 
-### Step 5: poll from the frontend
+### Step 5: the frontend poll
 
 `src/hooks/useChat.js` — `startPolling` checks `/api/ciba/status/:authReqId` when `data.pendingCIBA` comes back. The binding message surfaces in the pending card (wired in `Chat.jsx`).
 
@@ -198,13 +212,13 @@ app.get("/api/ciba/pending", (_req, res) => {
 > Confirm each of the following before moving on:
 >
 > 1. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."*
-> 2. The response should include a **Device Approval Required** card showing `Nexus: share "Q3 Product Roadmap" with external@partner.com — approve?`.
+> 2. The response should include a **Device Approval Required** card showing `Nexus: share "Q3 Product Roadmap" with external@partner.com — approve?`. The exact document title in the message comes from the document metadata — you may see slight variation depending on how Nexus extracted the title from your prompt.
 > 3. `curl http://localhost:3000/api/ciba/pending` shows the pending request.
 > 4. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
 > 5. The UI flips; the share executes.
 
 > [!TIP]
-> Negative test: do nothing for 300 seconds, the request auto-expires and the share is aborted.
+> The approval window is 300 seconds. You do not need to wait — just note that if you initiate a share and do nothing, `/api/ciba/status/:id` will return `denied` after 5 minutes and the share is silently aborted.
 
 ## What you learned
 
@@ -230,5 +244,7 @@ You should have successfully:
       produced a timestamped approval record tying the external share to the authenticated user.
   </li>
 </ul>
+
+Irreversible actions are now gated. The final control — document-level access enforcement — has been running silently throughout. Module 05 shows you what it looks like in action.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>
