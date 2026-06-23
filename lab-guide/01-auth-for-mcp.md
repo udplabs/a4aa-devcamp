@@ -1,15 +1,15 @@
 # Module 01: Auth for MCP (the keystone module)
 
-## Objective
+## Objective *(~25 min)*
 
-This module wires the mechanism that makes everything downstream possible: registering Nexus's MCP server as an Auth0 resource and giving the first-party Nexus agent a stable, pre-registered identity via CIMD. Once a compliant client, whether internal or external, can discover the server and the agent can present a CIMD identity, OBO token exchange carries the employee's `sub` all the way to tool execution, and Token Vault, CIBA, and FGA all have the identity they need to enforce policy.
+This module wires the mechanism that makes everything downstream possible: registering Nexus's MCP server as an Auth0 resource and giving the first-party Nexus agent a stable, pre-registered identity via CIMD (Client ID Metadata Documents). Once a compliant client, whether internal or external, can discover the server and the agent can present a CIMD identity, OBO token exchange carries the employee's `sub` all the way to tool execution, and Token Vault, CIBA, and FGA all have the identity they need to enforce policy.
 
-In this module you will:
+By the end you will understand:
 
-- Stand up the MCP server on port 3001 behind JWT validation.
-- Publish `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414) so any compliant MCP client can discover the resource and its issuer.
-- Have the agent exchange the user's token for an MCP-audience token, preserving `sub` so downstream FGA and Token Vault still reason about the *human*, not the agent.
-- Enforce a distinct scope per tool and return a proper `WWW-Authenticate: Bearer error="insufficient_scope"` response so clients can drive step-up authorization.
+- How the MCP server is set up behind JWT validation on port 3001.
+- How `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414) enable zero-config client discovery.
+- How the agent exchanges the user's token for an MCP-scoped token, preserving `sub` so FGA and Token Vault still reason about the *human*, not the agent.
+- How a distinct scope per tool enforces least-privilege and enables `WWW-Authenticate` step-up hints for clients.
 
 ### Why we're building this
 
@@ -43,7 +43,7 @@ This module wires six Auth for MCP features in one flow:
 
 ## What's provisioned for you
 
-The two Auth0 objects this module depends on are created for you by the CREATE hook when your demo launches. You write the server and client code below; the tenant footprint is already in place.
+The two Auth0 objects this module depends on are created for you by the CREATE hook when your demo launches. The server and client code is also already implemented — the Code Steps section walks you through it.
 
 ### The MCP API (resource server)
 
@@ -67,18 +67,18 @@ The hook provisions this as a non-interactive (M2M) client authorized against th
 >
 > 1. Auth0 Dashboard → **Applications → Applications**
 >
-> *[Screenshot: Applications list page showing docagent-mcp-m2m-{{demoName}} in the table]*
+> *You should see: the Applications list with **docagent-mcp-m2m-{{demoName}}** in the table.*
 >
 > 2. Open **docagent-mcp-m2m-`{{demoName}}`**
 > 3. Scroll down to **Advanced Settings → Grant Types**
 >
-> *[Screenshot: The Advanced Settings → Grant Types tab on the M2M client, with the Token Exchange checkbox unchecked (before enabling)]*
+> *You should see: the Grant Types tab with Token Exchange unchecked.*
 >
 > 4. Check **Token Exchange** → **Save Changes**
 >
-> *[Screenshot: The same Grant Types tab with Token Exchange now checked and Save Changes highlighted]*
+> *You should see: Token Exchange checked and Save Changes highlighted.*
 >
-> Until this is enabled, the OBO exchange returns a `403` and every tool call fails. This is the deliberate first moment of insight in the module: the scaffolding is in place, but the capability requires an explicit trust decision.
+> Until this is enabled, the OBO exchange returns a `403` and every tool call fails. This is the deliberate first moment of insight in the module: the scaffolding is in place, but the capability requires an explicit trust decision. Provisioning deliberately skips this step because it is a security posture choice, not a resource creation task.
 
 > [!IMPORTANT]
 > **Dashboard Step B: Observe the CIMD client identity**
@@ -87,15 +87,18 @@ The hook provisions this as a non-interactive (M2M) client authorized against th
 >
 > 1. From the same M2M client, copy the **Client ID** shown at the top of the page
 >
-> *[Screenshot: The M2M client overview page with the Client ID field highlighted]*
+> *You should see: the Client ID field at the top of the application settings page.*
 >
 > 2. In your Codespace terminal: `curl http://localhost:3001/.well-known/client-metadata`
-> 3. Confirm the `client_id` in the JSON response matches the one in the Dashboard. This identity survives redeploys and shows up in every token audit log — that is the entire point of CIMD.
+> 3. Confirm the `client_id` in the JSON response matches the one in the Dashboard. This is a stable, pre-registered identity that survives redeploys and shows up in every token audit log. Compare it to Dynamic Client Registration (DCR), where a new `client_id` is minted on every install and audit logs become meaningless. CIMD is why the audit log entry says "agent" and not "unknown client."
 
 > [!NOTE]
 > Self-hosting `starter/`? Create the MCP API and an M2M client in your own tenant, grant user-delegated access and Token Exchange, authorize all four scopes, and put the client id, secret, `MCP_AUTH0_AUDIENCE=https://devcamp-mcp-server`, and `MCP_SERVER_PORT=3001` in `starter/.env`.
 
 ## Code Steps
+
+> [!NOTE]
+> This code is already implemented in the demo-app. The steps below are a structured walk-through — open each file in your editor as you go, read the implementation, and understand what it does. You are not writing new code in this module.
 
 ### Part C: Protected Resource Metadata (PRM, RFC 9728)
 
@@ -328,7 +331,7 @@ async callTool(name, args, userAccessToken) {
 ```js
 import { executeTool } from "./tools/registry.js";
 
-// inside processMessage, after the CIBA gate:
+// inside processMessage, after the CIBA gate (explained in Module 04):
 result = await executeTool(toolName, parameters, user.accessToken);
 ```
 
@@ -351,17 +354,21 @@ startMCPServer();
 > 1. `curl http://localhost:3001/.well-known/oauth-protected-resource` → JSON with `resource`, `authorization_servers`, `scopes_supported`. This is the RFC 9728 discovery document a fresh MCP client reads first.
 > 2. `curl http://localhost:3001/.well-known/oauth-authorization-server` → issuer, jwks_uri, token_endpoint, the four Nexus scopes, `urn:ietf:params:oauth:grant-type:token-exchange` in `grant_types_supported`, and `"metadata"` in `client_registration_types_supported`.
 > 3. `curl -i http://localhost:3001/mcp/tools` without a bearer → 401 with a `WWW-Authenticate: Bearer realm="..."` header pointing back to the PRM URL.
+
+> [!NOTE]
+> Auth0 Universal Login is already wired in the starter. Module 02 explains how it works. For now, just click **Log In** and use `alice@docagent.demo` to proceed with steps 4–6.
+
 > 4. Log into the SPA and send a document search. You should observe the backend log emit:
 >    - `[MCP Client] Exchanging user token for MCP-scoped token...`
 >    - `[MCP Client] Token exchange successful -- MCP token acquired`
 >    - `[MCP Server] Tool call: search_documents, sub=auth0|...`
 >    - `[FGA] Check: user:auth0|... can_read document:... -> ALLOWED`
-> 5. Revoke `mcp:docs:share` on the M2M app; next share request → `403` with body `{ "error": "Insufficient scope", "required": "mcp:docs:share" }`. A compliant MCP client treats this as the step-up signal and re-requests the missing scope on the next OBO exchange.
-> 6. The `sub` in the MCP access token matches the user's Auth0 id; confirm by logging `req.auth.payload.sub` on the MCP server. If this drifts to the CIMD client id, FGA and Token Vault will key off the agent instead of the human — the exact failure mode A4AA is designed to prevent.
+> 5. In the Auth0 Dashboard, navigate to **Applications → Applications → docagent-mcp-m2m-`{{demoName}}`→ APIs tab → `devcamp-mcp-server`** and deselect `mcp:docs:share`. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."* A **Device Approval Required** card will appear — this is the CIBA flow from Module 04 that is already wired. Approve it via curl: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`. After approval, the MCP server should respond with `403 { "error": "Insufficient scope", "required": "mcp:docs:share" }`. Re-enable the scope when done.
+> 6. The `sub` in the MCP access token matches the user's Auth0 id. Confirm by checking the terminal for the line `[MCP Server] Tool call: search_documents, sub=auth0|...` — the `sub=` value should match alice's Auth0 id, not the M2M client id. If this drifts to the CIMD client id, FGA and Token Vault will key off the agent instead of the human. That is the exact failure mode A4AA is designed to prevent.
 
 ## What you learned
 
-Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the user's actual identity on a resource server that enforces FGA, Token Vault, and scope. The agent backend stops being the trust boundary. Concretely, you just implemented the full A4AA "Auth for MCP" pattern:
+Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the user's actual identity on a resource server that enforces FGA, Token Vault, and scope. The agent backend stops being the trust boundary. Concretely, you just walked through the full A4AA "Auth for MCP" pattern:
 
 - **Discovery without config.** RFC 9728 PRM and RFC 8414 AS metadata let a new MCP client point at your server URL and resolve the issuer, scopes, and grant types on its own. No hardcoded tenant values on the agent side.
 - **Stable agent identity.** CIMD replaces dynamic client registration so the agent has a long-lived, auditable `client_id` that survives redeploys and shows up in tenant logs.
@@ -387,17 +394,19 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      stood up the MCP server behind JWT validation as the single trust boundary;
+      understood how the MCP server is set up as the single trust boundary with JWT validation;
   </li>
   <li style="list-style-type:'✅ '">
-      published RFC 9728 and RFC 8414 discovery documents so any compliant client configures itself;
+      understood how RFC 9728 and RFC 8414 discovery documents enable zero-config client integration;
   </li>
   <li style="list-style-type:'✅ '">
-      exchanged the user's token on-behalf-of, preserving <code>sub</code> all the way to tool execution;
+      understood how OBO token exchange preserves the user's <code>sub</code> all the way to tool execution;
   </li>
   <li style="list-style-type:'✅ '">
-      enforced per-tool scopes with a graceful <code>Insufficient scope</code> step-up response.
+      confirmed per-tool scope enforcement returns a graceful <code>Insufficient scope</code> step-up response.
   </li>
 </ul>
+
+The MCP server now has a trust boundary — every caller is validated and every tool call is scoped to a resource and an identity. The next step is ensuring that identity is a verified employee, not just a token. Module 02 wires that.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

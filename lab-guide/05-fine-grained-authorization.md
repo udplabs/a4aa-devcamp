@@ -1,9 +1,9 @@
 # Module 05: Fine-Grained Authorization (FGA), Live Demo
 
 > [!IMPORTANT]
-> This module is the one piece you **watch** rather than build. You have built the MCP server, authenticated users, vaulted their credentials, and gated irreversible actions. Now watch the authorization model that fires *inside* that server enforce document-level access control live. FGA is already provisioned and enforced for your tenant.
+> This module is the one piece you **watch** rather than configure. In previous modules you enabled Dashboard settings and walked through the implementation. In this module there is nothing to enable and nothing to read — just run the prompts and watch the authorization model enforce access decisions live. FGA is already provisioned and enforced for your tenant.
 
-## Objective
+## Objective *(~10 min)*
 
 Nexus gives every user access to the company knowledge base, but not all of it. An engineer should read engineering documents, and someone in sales should not read HR compensation data. Reading a document is also not the same as sharing it externally.
 
@@ -27,7 +27,7 @@ The commercial consequence: relationship-based authorization at the data boundar
 
 ## What's provisioned for you
 
-When you clicked **Provision Resources**, the app created a per-tenant Auth0 / Okta FGA store with the authorization model already written. Demo tuples are seeded on first login so the allow and deny paths are ready to observe immediately. You do not create a store, write a DSL model, or copy any `FGA_*` credentials.
+When you clicked **Provision Resources**, the app created a per-tenant Auth0 / Okta FGA store with the authorization model already written. Demo tuples are seeded on your first tool call so the allow and deny paths are ready to observe immediately. You do not create a store, write a DSL model, or copy any `FGA_*` credentials.
 
 > [!NOTE]
 > If the tenant launches without FGA credentials, the app falls back to an in-memory tuple store with the same model and the same allow / deny behavior, so the demo still runs offline. Either way, what you observe below is identical.
@@ -54,10 +54,12 @@ type document
 
 ### The seeded relationships
 
-| User | Tuples | Net effect |
+All demo users are seeded as **viewer** on `document:handbook` and `document:security-policy` (all-company public docs). The table shows the additional tuples that differentiate alice and bob:
+
+| User | Additional tuples | Net effect |
 |---|---|---|
 | `alice@docagent.demo` | `alice member department:engineering`, `alice editor document:q3-roadmap` | Reads all-company + all engineering docs; can share q3-roadmap |
-| `bob@docagent.demo` | `bob viewer document:handbook`, `bob viewer document:security-policy` | All-company docs only; denied on engineering, HR, and executive |
+| `bob@docagent.demo` | *(no additional tuples)* | All-company docs only; denied on engineering, HR, and executive |
 
 `document:compensation-q3` (HR) and `document:board-deck-q3` (Executive) are intentionally never seeded for demo users, so any query against them is a clean deny. Together these tuples give the demo a direct-access allow, a department-inheritance allow, a direct deny, and a confidential-classification deny.
 
@@ -73,7 +75,7 @@ Because every check keys off the user's `sub` (the identity from Module 02), the
 
 ## What you'll observe
 
-Watch the live event panel as these prompts run. Each one maps to a specific edge of the relationship graph.
+Open the **Tool Logs** panel on the right side of the Nexus UI, then run these prompts. Each one maps to a specific edge of the relationship graph and you will see the FGA decision land in the panel in real time.
 
 1. **Allow (all-company viewer).** Logged in as Alice: *"Find the security policy."* FGA checks `can_read(alice, security-policy)`, and Alice has a viewer tuple on all-company docs, so the document returns.
 
@@ -83,7 +85,7 @@ Watch the live event panel as these prompts run. Each one maps to a specific edg
 
 4. **Deny (confidential).** Bob or Alice: *"Find the compensation review."* Neither user has any tuple on `document:compensation-q3`. Clean deny on both sides, with the document never surfacing in search results or as a retrievable ID.
 
-5. **Share allowed for editor, denied for viewer.** Alice can share `q3-roadmap` because she has an editor tuple, but Bob cannot share `security-policy` even though he can read it, because viewers do not meet the `can_share` condition.
+5. **Share allowed for editor, denied for viewer.** To test this, prompt Nexus to share a document. A **Device Approval Required** card will appear first — approve it via `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`. After approval, Alice's share of `q3-roadmap` succeeds because she has an editor tuple. Bob's share of `security-policy` is denied at the data boundary — viewers do not meet the `can_share` condition — even though he can read it.
 
 > [!TIP]
 > Each decision lands in the event panel keyed on the user's `sub`, the relation checked, and the document ID, so the allow and the deny are both auditable on the same key.

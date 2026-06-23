@@ -1,6 +1,6 @@
 # Module 03: Token Vault
 
-## Objective
+## Objective *(~15 min)*
 
 Nexus needs to log document activity to the CRM under the employee's own identity, not a shared service account. A single bot token creates operational risk: one blast radius for every user, no audit trail tied to the individual, and a manual rotation burden each time someone leaves.
 
@@ -24,19 +24,22 @@ The commercial consequence: Token Vault removes the bot token management lifecyc
 
 ## What's provisioned for you
 
-The CREATE hook provisioned a CRM OAuth2 connection on your tenant — it points to the CRM sample app running in your Codespace. Token storage (Token Vault) is **disabled by default** so you experience the exact setting that makes the live exchange possible.
+The CREATE hook provisioned a CRM OAuth2 connection on your tenant — it points to the CRM mock running on port 3002 of your Codespace. The provisioning step derived the connection URL from your Codespace's public address, so Auth0 can reach it. Token storage (Token Vault) is **disabled by default** so you experience the exact setting that makes the live exchange possible.
+
+> [!WARNING]
+> If you restart your Codespace, it gets a new public URL. The CRM connection registered in Auth0 will point to the old URL and the live Token Vault path will fail. To fix this, click **Provision Resources** again from the Nexus setup screen to re-register the connection with the new URL.
 
 > [!IMPORTANT]
 > **Dashboard Step: Enable Token Vault on the CRM connection**
 >
 > 1. Auth0 Dashboard → **Authentication → Social**
 >
-> *[Screenshot: Authentication → Social page with the crm-{{demoName}} connection listed in the table]*
+> *You should see: the Social connections page with **crm-{{demoName}}** listed in the table.*
 >
 > 2. Open **crm-`{{demoName}}`**
 > 3. **Settings** tab → **Token Vault** section → toggle **Store user access tokens** → **Save**
 >
-> *[Screenshot: The CRM connection Settings tab with the Token Vault "Store user access tokens" toggle highlighted, showing before and after enabling it]*
+> *You should see: the Token Vault section with the **Store user access tokens** toggle.*
 >
 > Before you enable it, the vault falls back to an in-memory mock CRM token — the tool call still succeeds, but Auth0 is not yet involved in storing the credential. After enabling, Auth0 stores the user's real CRM access token and the live federated exchange fires on every `log_crm_activity` call.
 
@@ -110,15 +113,17 @@ The `userId: userSub` in the request body is the user's Auth0 subject, so the CR
 > [!IMPORTANT]
 > Confirm each of the following before moving on:
 >
-> 1. Log in; the first tool call seeds an in-memory CRM token so the lab works offline.
+> 1. Log in and send any non-CRM message first (e.g. *"Find the Q3 roadmap"*). This seeds the in-memory CRM credential on your first tool call, so `log_crm_activity` works immediately without needing to enable Token Vault yet.
 > 2. In the chat, send: *"Log that I viewed the Q3 roadmap in the CRM."* The response confirms the activity was logged with an activity ID.
 > 3. **Enable Token Vault** on the CRM connection in the Dashboard (step above). Send the same message again. This time the server log shows `[Token Vault] (live) federated token for …` instead of the seeded mock.
-> 4. Call `GET http://localhost:3002/crm/activities` with a bogus bearer → `401`.
+> 4. Confirm the CRM requires authentication: `curl -H "Authorization: Bearer bogus123" http://localhost:3002/crm/activities` → `401 { "error": "Invalid or expired CRM access token" }`.
 > 5. The `userId` in the CRM activity record matches the Auth0 `sub` of the logged-in user — not a service account.
 
 ## What you learned
 
-Token Vault eliminates the operational and compliance burden of shared bot tokens. Instead of managing long-lived service credentials across teams, each call is scoped to the job and to the individual, every CRM record ties back to the employee's identity, and credential rotation becomes Auth0's responsibility rather than a manual ops ritual. Onboarding a new user means adding them to Auth0 and linking their CRM account; offboarding is revoking the connection, with no token spreadsheet to maintain.
+Token Vault eliminates the operational and compliance burden of shared bot tokens. Instead of managing long-lived service credentials across teams, each call is scoped to the job and to the individual, every CRM record ties back to the employee's identity, and credential rotation becomes Auth0's responsibility rather than a manual ops ritual.
+
+In the lab, the vault was auto-seeded with a simulated credential on your first tool call. In production, a real employee would go through an OAuth2 consent flow the first time they link their CRM account — Auth0 stores the resulting refresh token, and Token Vault exchanges it for short-lived access tokens on every subsequent call. Offboarding is revoking that connection in Auth0. No token spreadsheet to maintain.
 
 #### <span style="font-variant: small-caps">Congrats!</span>
 
@@ -140,5 +145,7 @@ You should have successfully:
       confirmed the CRM record shows the user's Auth0 <code>sub</code>, not an agent client ID.
   </li>
 </ul>
+
+Per-user credentials are now handled. One gap remains: the agent can share documents with external recipients without any confirmation. Module 04 adds the approval gate.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

@@ -41,9 +41,9 @@ The five controls in this lab are not purely security requirements; they are the
 You work in a running build of Nexus, not slides. Two things are in front of you the whole time:
 
 - **The in-app lab guide.** Open it from the **Lab guide** button in the UI. It renders these same module pages with copy-ready code, so you can read a step and apply it without leaving the app.
-- **Nexus itself.** The chat surface is the live agent. As you wire up each module, you talk to Nexus the way an employee would, then watch the result land through the live event panel: every token exchange, every access decision, every credential mint as it happens.
+- **Nexus itself.** The chat surface is the live agent. As you work through each module, you talk to Nexus the way an employee would, then watch the result land through the live event panel: every token exchange, every access decision, every credential mint as it happens.
 
-Most modules are hands-on. You configure something in Auth0, connect it with a few lines of code, and confirm it at a checkpoint before moving on. One module, Fine-Grained Authorization, runs as a live demo you watch rather than build. A closing end-to-end run takes one document request through every control at once.
+Most modules are hands-on. You configure something in Auth0, walk through the implementation in the editor, and confirm it at a checkpoint before moving on. One module, Fine-Grained Authorization, runs as a live demo you watch rather than configure. A closing end-to-end run takes one document request through every control at once.
 
 Over the next two hours, you will close each gap in turn. By the end, Nexus is secured from end to end: clients are identified, employees are authenticated, credentials stay scoped and short-lived, approval gates protect external shares, and access is enforced at the document boundary.
 

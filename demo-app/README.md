@@ -1,7 +1,5 @@
 # Nexus (A4AA): demo.okta.com deploy
 
-> Note: this README uses no em dashes by house style.
-
 This is the **platform-integrated deploy copy** of the Nexus devcamp lab. It is the same five-module Auth0 for AI Agents app as [`../solution/`](../solution/), repackaged so a single deployment serves many demos on **demo.okta.com**. Creating a demo instance auto-provisions the entire Auth0 footprint through lifecycle hooks, and the running app pulls its per-tenant config at runtime.
 
 The business case is straightforward: one running image with zero manual dashboard setup per demo removes per-demo provisioning overhead and lets an SE spin up a fully-configured Nexus demo in minutes rather than an afternoon, reducing operational costs and accelerating go-to-market directly.
@@ -83,9 +81,15 @@ demo-app/
 ├── .env.sample                   ← all platform + local vars, documented
 ├── package.json                  ← dev / build / start scripts
 │
+├── scripts/
+│   ├── find-port.js              ← auto-selects free ports at startup
+│   ├── test-hooks.js             ← manual hook payload tester
+│   └── test-provision.js         ← manual provisioning smoke test
+│
 ├── server/
 │   ├── index.js                  ← API :3000, mounts hooks + tenant middleware + /api/config + static SPA
-│   ├── llm.js / simulator.js     ← agent runtime (real LLM or pattern matcher), tenant-threaded
+│   ├── llm.js                    ← OpenAI tool-calling loop, tenant-threaded
+│   ├── simulator.js              ← pattern-matching fallback when no API key
 │   │
 │   ├── platform/                 ← demo.okta.com integration
 │   │   ├── hooks.js              ← request / create / update / destroy lifecycle
@@ -98,7 +102,7 @@ demo-app/
 │   │
 │   ├── middleware/
 │   │   ├── auth.js               ← [Module 02] per-tenant JWT validation
-│   │   ├── agent-auth.js         ← [Module 01] MCP token validation
+│   │   ├── agent-auth.js         ← [Module 01] MCP bearer token validation
 │   │   └── ciba.js               ← [Module 04] live /bc-authorize + poll, simulation fallback
 │   │
 │   ├── fga/
@@ -108,31 +112,40 @@ demo-app/
 │   ├── token-vault/
 │   │   └── vault.js              ← [Module 03] live federated CRM token exchange, simulation fallback
 │   │
+│   ├── crm/
+│   │   └── app.js                ← mock CRM OAuth2 server + activities API (:3002)
+│   │
 │   ├── mcp/
 │   │   ├── server.js             ← [Module 01] MCP server :3001, per-tenant token validation + scope enforcement
 │   │   ├── client.js             ← [Module 01] OBO token exchange, per-tenant M2M creds from token iss
 │   │   ├── cimd.js               ← [Module 01] Client ID Metadata Document endpoint
-│   │   └── metadata.js           ← [Module 01] PRM (RFC 9728) + AS metadata (RFC 8414)
+│   │   ├── metadata.js           ← [Module 01] PRM (RFC 9728) + AS metadata (RFC 8414)
+│   │   └── toolLog.js            ← structured tool call event log (streamed to the UI)
 │   │
-│   ├── crm/
-│   │   └── app.js                ← mock CRM OAuth2 server + activities API (:3002)
+│   ├── tools/
+│   │   └── registry.js           ← framework-agnostic tool definitions shared by llm.js + simulator.js
 │   │
-│   └── routes/guide.js           ← serves the in-app lab guide
+│   ├── utils/
+│   │   └── port.js               ← port resolution helper
+│   │
+│   └── routes/guide.js           ← serves the in-app lab guide markdown
 │
 └── src/                          ← React frontend (Vite + JS)
+    ├── App.jsx                   ← auth gate, layout shell, setup orchestration
     ├── main.jsx                  ← RuntimeConfigProvider → Auth0Provider → App
     ├── config/runtimeConfig.jsx  ← fetches /api/config, gates render
     ├── auth/Auth0Provider.jsx    ← consumes runtime config (no VITE_AUTH0_* at build time)
     ├── components/
     │   ├── Chat.jsx              ← chat surface
-    │   ├── Message.jsx           ← user / assistant bubbles
-    │   ├── ToolApproval.jsx      ← CIBA binding-message card
+    │   ├── Message.jsx           ← user / assistant message bubbles
+    │   ├── ToolApproval.jsx      ← CIBA binding-message approval card
+    │   ├── ToolLogs.jsx          ← live tool call event panel
+    │   ├── ToolTester.jsx        ← manual tool testing UI
+    │   ├── MCPStatus.jsx         ← MCP server connection status indicator
+    │   ├── LabGuide.jsx          ← in-app lab guide viewer
     │   ├── LoginScreen.jsx       ← pre-auth landing screen
     │   ├── SetupBanner.jsx       ← environment variable setup screen
-    │   ├── ProvisionPanel.jsx    ← Auth0 resource provisioning screen
-    │   ├── MCPStatus.jsx         ← MCP server connection status
-    │   ├── ToolLogs.jsx          ← live tool call event panel
-    │   └── ToolTester.jsx        ← manual tool testing UI
+    │   └── ProvisionPanel.jsx    ← Auth0 resource provisioning screen
     └── hooks/useChat.js          ← chat state + CIBA polling, uses runtime audience
 ```
 
