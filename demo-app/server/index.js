@@ -129,9 +129,13 @@ app.post("/api/setup/provision", async (req, res) => {
   }
   try {
     const appUrl = req.body?.appUrl || `${req.protocol}://${req.headers.host}`;
-    // In a Codespace the CRM server runs on port 3002; derive its public URL
-    // by swapping the port suffix in the Codespace forwarding URL.
-    const crmUrl = appUrl.replace(/-3000(\.app\.github\.dev)/, "-3002$1");
+    // Derive the CRM server's public URL from the app URL.
+    // Codespace: swap the port suffix in the forwarding URL (3000 → 3002).
+    // Local: use localhost on the CRM port directly.
+    const crmPort = parseInt(process.env.CRM_PORT || process.env.THIRD_PARTY_API_PORT || "3002");
+    const crmUrl = appUrl.includes(".app.github.dev")
+      ? appUrl.replace(/-3000(\.app\.github\.dev)/, "-3002$1")
+      : `http://localhost:${crmPort}`;
     const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
     const fgaSettings = fgaSettingsFromEnvOrRecord({});
     const deploymentData = await runProvision(ctx, {

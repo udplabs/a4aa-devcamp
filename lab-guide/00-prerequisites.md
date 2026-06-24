@@ -66,7 +66,10 @@ In addition to the ability to copy credentials from the Launch Pad, we've also p
 
 ## Your lab environment
 
-Above, you activated your Auth0 tenant. The rest of this lab runs entirely in **GitHub Codespaces**, a cloud development environment that opens in your browser. There is nothing to install on your own machine: Node.js, the code editor, and every project dependency are provisioned for you when the Codespace launches. The checklist below makes sure you can get into that environment.
+Above, you activated your Auth0 tenant. The lab is designed to run in **GitHub Codespaces**, a cloud development environment that opens in your browser — nothing to install, everything pre-configured. It also runs locally on your own machine if you prefer (Node.js 20+ required). The steps below are the same either way.
+
+> [!NOTE]
+> **Running locally instead of Codespaces?** Clone the repository, open a terminal in the `demo-app/` directory, and follow the same steps below. All modules work locally except the live Token Vault path in Module 03 — Auth0 (a cloud service) cannot reach `localhost:3002` to perform the CRM OAuth flow, so the vault falls back to the in-memory simulation. Everything else, including login, MCP, CIBA, and FGA, works exactly as described.
 
 #### *It is important that the requirements are met in order for your participation in the lab to be successful.*
 
@@ -94,10 +97,11 @@ Because the environment lives in the cloud, the list is short. You need:
 
 ## Configure and provision your environment
 
-Once the Codespace finishes building, start the app in the terminal:
+Once the Codespace finishes building, install dependencies and start the app in the terminal:
 
 ```bash
 cd demo-app
+npm install
 npm run dev
 ```
 
@@ -107,14 +111,13 @@ The Codespace will open a browser preview automatically. When you open it for th
 
 The setup screen shows the three environment variables Nexus needs to connect to your Auth0 tenant. Copy each value from the **Launch Pad** on the right side of the screen.
 
-In the Codespace terminal, navigate to the `demo-app` directory and open `.env`:
+In the Codespace terminal, create the `.env` file in the `demo-app` directory:
 
 ```bash
-cd demo-app
-cp .env.sample .env
+touch demo-app/.env
 ```
 
-Then add the three values:
+Then open `demo-app/.env` in the editor and paste the three values from the **Launch Pad**:
 
 ```
 AUTH0_DOMAIN=<your-tenant>.auth0.com
@@ -125,7 +128,7 @@ AUTH0_MGMT_CLIENT_SECRET=<management-client-secret>
 The app polls for these variables every few seconds. Once it detects them, the setup screen will automatically advance.
 
 > [!TIP]
-> The setup screen has a **Copy keys** button that copies the variable names to your clipboard, ready to paste into `.env`.
+> The setup screen has a **Copy keys** button that copies the variable names to your clipboard. Open `demo-app/.env` in the Codespace editor, paste the names, and fill in the values from the Launch Pad.
 
 ### Step 2: provision Auth0 resources
 

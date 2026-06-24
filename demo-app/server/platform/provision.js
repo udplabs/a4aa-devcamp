@@ -91,6 +91,8 @@ export async function runProvision(
   if (oidcClientId) {
     await safe("reconfigure SPA", () =>
       updateClient(ctx, oidcClientId, {
+        app_type: "spa",
+        token_endpoint_auth_method: "none",
         callbacks: [appOrigin, `${appOrigin}/`],
         allowed_logout_urls: [appOrigin, `${appOrigin}/`],
         web_origins: [appOrigin, `${appOrigin}/`],
