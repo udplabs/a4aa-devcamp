@@ -33,7 +33,9 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
         try {
           const token = await getAccessTokenSilently({ authorizationParams: { audience } });
           const [, payloadB64] = token.split(".");
-          const payload = JSON.parse(atob(payloadB64));
+          const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+          const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, "=");
+          const payload = JSON.parse(atob(padded));
           const hasAud = Array.isArray(payload.aud)
             ? payload.aud.some((a) => a.includes("docagent"))
             : payload.aud?.includes("docagent");
