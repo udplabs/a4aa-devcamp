@@ -157,14 +157,14 @@ export async function runProvision(
   // Password is shown in the lab guide; email_verified is set so they can
   // log in immediately without an invitation email.
   const DEMO_PASSWORD = process.env.DEMO_USER_PASSWORD || "DevCamp1!";
-  await safe("demo user alice", () =>
+  const alice = await safe("demo user alice", () =>
     createDemoUser(ctx, {
       email: "alice@docagent.demo",
       password: DEMO_PASSWORD,
       name: "Alice (Engineering)",
     })
   );
-  await safe("demo user bob", () =>
+  const bob = await safe("demo user bob", () =>
     createDemoUser(ctx, {
       email: "bob@docagent.demo",
       password: DEMO_PASSWORD,
@@ -184,16 +184,10 @@ export async function runProvision(
         { resource_server_identifier: BACKEND_API_IDENTIFIER, permission_name: "chat:send" },
       ])
     );
-    for (const email of ["alice@docagent.demo", "bob@docagent.demo"]) {
-      const users = await safe(`lookup ${email}`, () =>
-        fetch(`https://${ctx.domain}/api/v2/users-by-email?email=${encodeURIComponent(email)}`, {
-          headers: { Authorization: `Bearer ${ctx.token}` },
-        }).then((r) => r.json())
-      );
-      const user = Array.isArray(users) ? users[0] : null;
-      if (user) {
-        await safe(`assign role -> ${email}`, () =>
-          assignRoleToUser(ctx, user.user_id, nexusRole.id)
+    for (const demoUser of [alice, bob]) {
+      if (demoUser?.user_id) {
+        await safe(`assign role -> ${demoUser.email}`, () =>
+          assignRoleToUser(ctx, demoUser.user_id, nexusRole.id)
         );
       }
     }

@@ -133,7 +133,16 @@ AUTH0_MGMT_CLIENT_ID=<management-client-id>
 AUTH0_MGMT_CLIENT_SECRET=<management-client-secret>
 ```
 
-The app polls for these variables every few seconds. Once it detects them, the setup screen will automatically advance.
+Once the values are saved, stop the running app and restart it so the server picks up the new environment variables:
+
+```bash
+# in the terminal where npm run dev is running
+Ctrl+C
+
+npm run dev
+```
+
+The app will reload and the setup screen will automatically advance to the next step.
 
 > [!TIP]
 > The setup screen has a **Copy keys** button that copies the variable names to your clipboard. Open `demo-app/.env` in the Codespace editor, paste the names, and fill in the values from the Launch Pad.
