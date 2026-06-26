@@ -59,6 +59,13 @@ export function Module01Panel({ onReady }) {
           <li>
             <strong>Register the CIMD identity</strong>
             <ul>
+              <li>
+                In your Codespace, open the <strong>PORTS</strong> tab → find port <strong>3001</strong> → right-click → <strong>Port Visibility → Public</strong>
+                <br />
+                <span style={{ fontSize: "12px", color: "#6E5A8A" }}>
+                  Auth0 needs to reach the metadata URL to register the agent. The port must be public before the next step.
+                </span>
+              </li>
               <li>Auth0 Dashboard → <strong>Applications → Applications → Create Application</strong></li>
               <li>Select <strong>Import from URL</strong></li>
               <li>

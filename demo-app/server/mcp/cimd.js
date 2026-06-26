@@ -36,15 +36,18 @@ export function getClientMetadata(req) {
   const host  = req.headers["x-forwarded-host"]  || req.headers.host;
   const clientId = `${proto}://${host}/.well-known/client-metadata`;
 
+  // Derive the frontend redirect URI from the MCP server host by
+  // swapping port 3001 → 5173 (Codespace) or 3001 → 3000 (local built).
+  const frontendOrigin = host.includes(".app.github.dev")
+    ? `${proto}://${host.replace(/-3001(\.app\.github\.dev)/, "-5173$1")}`
+    : `${proto}://${host.replace(/:3001$/, ":5173")}`;
+
   return {
     client_id:   clientId,
     client_name: "Nexus Agent (DevCamp)",
-    description: "Nexus company knowledge assistant — pre-registered via CIMD so its identity is stable across deploys and auditable.",
-    allowed_scopes: [
-      "mcp:docs:search", // search_documents  (FGA-filtered)
-      "mcp:docs:read",   // get_document       (per-doc FGA check)
-      "mcp:crm:log",     // log_crm_activity   (Token Vault — CRM)
-      "mcp:docs:share",  // share_document     (CIBA-gated)
-    ],
+    grant_types: ["authorization_code"],
+    redirect_uris: [frontendOrigin, `${frontendOrigin}/`],
+    token_endpoint_auth_method: "none",
+    scope: "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share",
   };
 }

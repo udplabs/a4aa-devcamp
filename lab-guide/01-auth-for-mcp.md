@@ -86,7 +86,17 @@ You will see:
 > [!IMPORTANT]
 > The `client_id` field is the URL of this document. That is the point of CIMD: the agent's identity is self-described and self-hosted. Compare this to Dynamic Client Registration (DCR, RFC 7591), where a new opaque UUID is minted on every install and audit logs become meaningless across deploys.
 
-**Step 2: Register in Auth0 using Import from URL**
+**Step 2: Make port 3001 public in your Codespace**
+
+Auth0 needs to fetch the metadata document to register the agent. Port 3001 is private by default — Auth0 will receive a 302 redirect to GitHub's login page instead of the JSON.
+
+1. In the Codespace VS Code editor, open the **PORTS** tab (bottom panel)
+2. Find port **3001**
+3. Right-click → **Port Visibility → Public**
+
+*You should see: the visibility icon on port 3001 changes to show it is publicly accessible.*
+
+**Step 3: Register in Auth0 using Import from URL**
 
 1. Auth0 Dashboard → **Applications → Applications → Create Application**
 2. Select **Import from URL**
