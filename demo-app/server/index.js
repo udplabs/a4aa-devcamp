@@ -1,4 +1,18 @@
 import "dotenv/config";
+import fs from "fs";
+
+// Load pre-claimed ports written by find-port.js so servers don't re-scan
+// and collide. Falls back to env vars or defaults if the file doesn't exist.
+try {
+  const portsFile = fs.readFileSync(".ports", "utf-8");
+  for (const line of portsFile.split("\n")) {
+    const [key, val] = line.split("=");
+    if (key && val && !process.env[key.trim()]) {
+      process.env[key.trim()] = val.trim();
+    }
+  }
+} catch { /* not present in production / first run */ }
+
 import express from "express";
 import cors from "cors";
 import { processMessage as simulatorProcessMessage } from "./simulator.js";
@@ -20,7 +34,6 @@ import { getClientMetadata } from "./mcp/cimd.js";
 import { getManagementToken } from "./platform/auth0Management.js";
 import { runProvision, runDeprovision, deploymentDataToEnvVars } from "./platform/provision.js";
 import { fgaSettingsFromEnvOrRecord } from "./platform/fgaProvision.js";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import guideRouter from "./routes/guide.js";
