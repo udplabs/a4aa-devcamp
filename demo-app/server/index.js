@@ -363,12 +363,31 @@ app.get("/api/verify/module01", async (req, res) => {
           console.log("[verify/module01] obo client fields:", JSON.stringify(clientData));
           const rsId = clientData?.resource_server_identifier;
           const hasRsAssoc = rsId === mcpAudience;
+
+          // If the OBO grant type is missing from grant_types, add it. Auth0's Dashboard
+          // OBO toggle doesn't always populate grant_types correctly for Custom API Clients.
+          const OBO_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange";
+          const existingGrants = clientData?.grant_types || [];
+          if (!existingGrants.includes(OBO_GRANT)) {
+            try {
+              const patchCR = await fetch(`https://${domain}/api/v2/clients/${oboId}`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${mgmtToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ grant_types: [...existingGrants, OBO_GRANT] }),
+              });
+              const patchCBody = await patchCR.text();
+              console.log("[verify/module01] patch client grant_types status=%d body=%s", patchCR.status, patchCBody);
+            } catch (patchCErr) {
+              console.error("[verify/module01] failed to patch client grant_types:", patchCErr.message);
+            }
+          }
+
           checks.push({
             id: "obo_client_assoc",
             name: "docagent-mcp-obo associated with Nexus MCP Server",
             pass: hasRsAssoc,
             message: hasRsAssoc
-              ? `resource_server_identifier: ${rsId}`
+              ? `resource_server_identifier: ${rsId}${existingGrants.includes(OBO_GRANT) ? "" : " (auto-added OBO grant type)"}`
               : `resource_server_identifier is "${rsId || "not set"}" — expected "${mcpAudience}". This association is required for OBO.`,
           });
         } catch (e) {
