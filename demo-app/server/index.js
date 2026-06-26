@@ -306,7 +306,6 @@ app.get("/api/verify/module01", async (req, res) => {
   }
 
   // 5. OBO toggle — send a test exchange; expect access_denied not unauthorized_client
-  const domain = process.env.AUTH0_DOMAIN;
   const oboId = process.env.AUTH0_OBO_CLIENT_ID;
   const oboSecret = process.env.AUTH0_OBO_CLIENT_SECRET;
   if (domain && oboId && oboSecret) {
