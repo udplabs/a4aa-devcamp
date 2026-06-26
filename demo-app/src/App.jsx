@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Chat } from "./components/Chat";
 import { MCPStatus } from "./components/MCPStatus";
@@ -18,8 +18,17 @@ const TABS = [
 // domain/clientId/audience are fetched at runtime from /api/config
 // so the same build works across every demo tenant.
 export default function App() {
-  const { isAuthenticated, isLoading, user, logout } = useAuth0();
+  const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently } = useAuth0();
   const [activeTab, setActiveTab] = useState("chat");
+
+  // Expose auth state to window so ProgressTracker (mounted outside Auth0Provider)
+  // can reach real auth context for Module 02 checks.
+  useEffect(() => {
+    window.__nexusAuth = isAuthenticated
+      ? { isAuthenticated: true, getAccessTokenSilently }
+      : { isAuthenticated: false, getAccessTokenSilently: null };
+    return () => { window.__nexusAuth = null; };
+  }, [isAuthenticated, getAccessTokenSilently]);
 
   if (isLoading) {
     return (
@@ -30,8 +39,6 @@ export default function App() {
     );
   }
 
-  // Lab 01 -- unauthenticated users land on the login screen.
-  // ProgressTracker renders outside the auth gate so it's visible from Module 01 onwards.
   if (!isAuthenticated) {
     return <LoginScreen />;
   }

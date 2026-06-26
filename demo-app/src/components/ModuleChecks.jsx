@@ -82,14 +82,15 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
   }
 }
 
-// Safe wrappers — these hooks throw when called outside their provider trees,
-// which happens when ModuleChecks renders during setup (Module01Panel).
+// Safe wrappers — these hooks throw when called outside their provider trees
+// (e.g. when ProgressTracker is mounted outside ConfigGate during Module01Panel).
+// Fall back to window.__nexusAuth, which App.jsx populates once the user logs in.
 function useAuth0Safe() {
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useAuth0();
   } catch {
-    return { isAuthenticated: false, getAccessTokenSilently: null };
+    return window.__nexusAuth || { isAuthenticated: false, getAccessTokenSilently: null };
   }
 }
 
