@@ -112,10 +112,10 @@ Auth0 needs to fetch the metadata document to register the agent. Port 3001 is p
 
 The OBO exchange requires a confidential client authorized against the MCP API with both user-delegated and direct client access. Create it from the resource server screen.
 
-1. Auth0 Dashboard → **APIs → Nexus MCP Server
+1. Auth0 Dashboard → **APIs → Nexus MCP Server**
 2. Click **Add Application**
 3. Name it `docagent-mcp-obo`
-4. In **API Access** tab, authorize all four `mcp:*` scopes for both **user-delegated access** and **client access**
+4. In **API Access** tab, enable **user-delegated access** for all four `mcp:*` scopes
 
 *You should see: a new application listed in the API's Applications tab with all four scopes granted.*
 

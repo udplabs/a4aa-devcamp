@@ -324,11 +324,13 @@ app.get("/api/verify/module01", async (req, res) => {
     checks.push({ id: "mcp_401", name: "MCP server requires bearer token", pass: false, message: e.message });
   }
 
-  // 5. OBO toggle — send a test exchange; expect access_denied not unauthorized_client
+  // 5. OBO toggle + user-delegated grant
   const oboId = process.env.AUTH0_OBO_CLIENT_ID;
   const oboSecret = process.env.AUTH0_OBO_CLIENT_SECRET;
+  const mcpAudience = process.env.MCP_AUTH0_AUDIENCE || "https://devcamp-mcp-server";
   if (domain && oboId && oboSecret) {
     try {
+      // 5a. OBO toggle — test exchange returns access_denied (bad token), not unauthorized_client (toggle off)
       const r = await fetch(`https://${domain}/oauth/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -336,8 +338,8 @@ app.get("/api/verify/module01", async (req, res) => {
           grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
           subject_token: "test",
           subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          audience: process.env.MCP_AUTH0_AUDIENCE || "https://devcamp-mcp-server",
-          resource: process.env.MCP_AUTH0_AUDIENCE || "https://devcamp-mcp-server",
+          requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          audience: mcpAudience,
           client_id: oboId,
           client_secret: oboSecret,
         }),
@@ -345,7 +347,27 @@ app.get("/api/verify/module01", async (req, res) => {
       const body = await r.json();
       const toggled = body.error !== "unauthorized_client";
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
-        message: toggled ? `Auth0 accepted the grant (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
+        message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
+
+      // 5b. User-delegated grant — client must have subject_type: "user" grant against MCP API
+      if (toggled && domain && mgmtId && mgmtSecret) {
+        try {
+          const { getManagementToken } = await import("./platform/auth0Management.js");
+          const { token: mgmtToken } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
+          const grantsR = await fetch(
+            `https://${domain}/api/v2/client-grants?client_id=${oboId}&audience=${encodeURIComponent(mcpAudience)}`,
+            { headers: { Authorization: `Bearer ${mgmtToken}` } }
+          );
+          const grants = await grantsR.json();
+          const userGrant = Array.isArray(grants) && grants.find((g) => g.subject_type === "user");
+          checks.push({ id: "obo_user_grant", name: "User-delegated grant on docagent-mcp-obo", pass: !!userGrant,
+            message: userGrant
+              ? "User-delegated access grant exists for Nexus MCP Server"
+              : "Missing user-delegated grant — in docagent-mcp-obo → API Access → Nexus MCP Server, enable user-delegated access for all mcp:* scopes" });
+        } catch (e) {
+          checks.push({ id: "obo_user_grant", name: "User-delegated grant on docagent-mcp-obo", pass: false, message: e.message });
+        }
+      }
     } catch (e) {
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false, message: e.message });
     }

@@ -94,7 +94,7 @@ export function Module01Panel({ onReady }) {
             <ul>
               <li>Auth0 Dashboard → <strong>APIs → Nexus MCP Server → Applications tab</strong></li>
               <li>Click <strong>Add Application</strong></li>
-              <li>Name it <code>docagent-mcp-obo</code> and authorize all four <code>mcp:*</code> scopes for user-delegated and client access</li>
+              <li>Name it <code>docagent-mcp-obo</code> and enable <strong>user-delegated access</strong> for all four <code>mcp:*</code> scopes</li>
               <li>Open the new application → scroll to <strong>Token Exchange</strong></li>
               <li>Enable <strong>On-Behalf-Of Token Exchange</strong> → <strong>Save</strong></li>
             </ul>
