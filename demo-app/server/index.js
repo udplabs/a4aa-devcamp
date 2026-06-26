@@ -356,7 +356,7 @@ app.get("/api/verify/module01", async (req, res) => {
           const { getManagementToken } = await import("./platform/auth0Management.js");
           const { token: mgmtToken } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
           const clientR = await fetch(
-            `https://${domain}/api/v2/clients/${oboId}?fields=resource_server_identifier,grant_types,app_type&include_fields=true`,
+            `https://${domain}/api/v2/clients/${oboId}?fields=resource_server_identifier,grant_types,app_type,token_exchange&include_fields=true`,
             { headers: { Authorization: `Bearer ${mgmtToken}` } }
           );
           const clientData = await clientR.json();
