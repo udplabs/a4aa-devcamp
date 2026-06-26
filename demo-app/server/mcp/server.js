@@ -189,6 +189,7 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
   console.log(
     `[MCP Server] Tool call: ${name}, sub=${userSub}, scopes=${tokenScopes.join(",")}`
   );
+  console.log(`[MCP Server] Full token payload:`, JSON.stringify(payload));
 
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) {
