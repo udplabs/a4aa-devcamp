@@ -29,6 +29,10 @@ What you built transcends Nexus. Every AI agent that calls APIs, touches user da
 - ✅ Witnessed Auth0 FGA enforce relationship-based access live, keeping confidential documents out of unauthorized search results
 - ✅ Took a working but unshippable MCP server all the way to production-ready
 
+### Cleaning Up
+
+To remove the Auth0 resources created during provisioning, click **Delete Resources** in the top-right corner of the Nexus app header (next to your username). You will be asked to confirm. This calls the deprovision endpoint and removes the backend API, MCP resource server, M2M client, SPA client, CIBA client, and CRM connection from your tenant. Your Auth0 tenant itself and its users remain intact.
+
 ### What's Next
 
 - **Docs**: [Auth0 for AI Agents](https://auth0.com/ai) for the full platform documentation

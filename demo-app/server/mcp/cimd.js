@@ -1,37 +1,50 @@
 // =============================================================
-// Client ID Metadata Document (CIMD) -- Lab 04
+// Client ID Metadata Document (CIMD) -- Module 01 (Auth for MCP)
 //
-// CIMD is the A4AA answer to Dynamic Client Registration (DCR).
-// Instead of creating a new ephemeral client_id at each install,
-// the Nexus agent has a stable, pre-registered client_id
-// whose metadata is managed by an admin in the Auth0 Dashboard.
+// In true CIMD (per the MCP authorization spec), the agent's
+// client_id IS the URL of this metadata document. The authorization
+// server fetches the URL at registration time to learn the agent's
+// name, description, and allowed scopes. After that, the URL is
+// the stable, pre-registered identity used in every OBO exchange
+// and audit log entry.
 //
-// Benefits over DCR:
-//   - Audit trail: the same client_id shows up in every token log.
-//   - Admin consent: an admin can pre-approve the scopes without
-//     the agent having to request them at runtime.
-//   - Lifecycle: the client survives redeploys and upgrades.
+// Why this matters:
+//   - The URL is self-describing: anyone can fetch it and learn
+//     what the agent is and what it is authorized to do.
+//   - The identity survives redeploys: the URL doesn't change
+//     even if the underlying M2M client secret rotates.
+//   - Audit trail: every token exchange carries the URL as
+//     client_id, so logs name the agent, not an opaque UUID.
 //
-// In the demo the CREATE hook provisions this M2M client and its
-// id/secret arrive through runtime config (deploymentData). You
-// can inspect it in the Auth0 Dashboard > Applications.
+// Contrast with Dynamic Client Registration (DCR, RFC 7591):
+//   - DCR mints a new ephemeral client_id on every install.
+//   - Audit logs become meaningless (different UUID each time).
+//   - Admin consent cannot be pre-approved.
+//
+// In this lab, participants register the Nexus agent in Auth0 by
+// providing the URL of this endpoint. Auth0 creates the application
+// with the URL as the client_id and issues a client_secret.
+// The participant adds both to .env so the OBO exchange works.
 // =============================================================
 
-// Return metadata for the pre-registered Nexus client.
-// In production this could call the Auth0 Management API to fetch
-// the application metadata dynamically; for the lab we return the
-// known configuration for the DevCamp tenant.
-export function getClientMetadata(clientId) {
+export function getClientMetadata(req) {
+  // Derive the canonical URL from the request so the client_id is
+  // always self-referential regardless of the host (Codespace, local,
+  // or production). x-forwarded-* headers are set by Codespace's
+  // reverse proxy; fall back to the direct host for local runs.
+  const proto = req.headers["x-forwarded-proto"] || req.protocol;
+  const host  = req.headers["x-forwarded-host"]  || req.headers.host;
+  const clientId = `${proto}://${host}/.well-known/client-metadata`;
+
   return {
-    client_id: clientId,
-    client_name: "Nexus (DevCamp)",
-    description:
-      "Nexus company knowledge assistant. Pre-registered via CIMD so its identity is stable across deploys and auditable.",
+    client_id:   clientId,
+    client_name: "Nexus Agent (DevCamp)",
+    description: "Nexus company knowledge assistant — pre-registered via CIMD so its identity is stable across deploys and auditable.",
     allowed_scopes: [
-      "mcp:docs:search", // search_documents (FGA-filtered)
-      "mcp:docs:read",   // get_document (per-doc FGA check)
-      "mcp:crm:log",     // log_crm_activity (Token Vault — CRM)
-      "mcp:docs:share",  // share_document (CIBA-gated)
+      "mcp:docs:search", // search_documents  (FGA-filtered)
+      "mcp:docs:read",   // get_document       (per-doc FGA check)
+      "mcp:crm:log",     // log_crm_activity   (Token Vault — CRM)
+      "mcp:docs:share",  // share_document     (CIBA-gated)
     ],
   };
 }

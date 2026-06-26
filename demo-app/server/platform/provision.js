@@ -68,22 +68,14 @@ export async function runProvision(
     })
   );
 
-  // 2. M2M client with user-delegated OBO grant.
-  // Token Exchange must be enabled manually in the Dashboard (Lab 04).
-  const m2m = await safe("m2m client", () =>
-    createClient(ctx, {
-      name: `docagent-mcp-m2m-${demoName}`,
-      app_type: "resource_server",
-      resource_server_identifier: MCP_API_IDENTIFIER,
-    })
-  );
-  if (m2m) {
-    await safe("grant m2m -> mcp api (user-delegated)", () =>
-      grantClientToApi(ctx, m2m.client_id, MCP_API_IDENTIFIER, MCP_SCOPES, {
-        subject_type: "user",
-      })
-    );
-  }
+  // 2. M2M confidential client — NOT auto-provisioned.
+  // Participants create this manually in Module 01 from the MCP API
+  // resource server screen (APIs → devcamp-mcp-server → Applications).
+  // They also register a separate CIMD native app (public) via
+  // Applications → Import from URL using the /.well-known/client-metadata
+  // URL. The M2M client performs OBO exchanges; the CIMD native app
+  // establishes the agent's published identity document.
+  const m2m = null;
 
   // 3. SPA client — reconfigure if the platform created one, otherwise create new.
   const appOrigin = (appUrl || "").replace(/\/$/, "");
@@ -104,6 +96,8 @@ export async function runProvision(
       createClient(ctx, {
         name: `docagent-spa-${demoName}`,
         app_type: "spa",
+        token_endpoint_auth_method: "none",
+        grant_types: ["authorization_code", "implicit", "refresh_token"],
         callbacks: [appOrigin, `${appOrigin}/`],
         allowed_logout_urls: [appOrigin, `${appOrigin}/`],
         web_origins: [appOrigin, `${appOrigin}/`],

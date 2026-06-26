@@ -95,6 +95,14 @@ Because the environment lives in the cloud, the list is short. You need:
 > [!TIP]
 > Prefer your own editor? You can connect the desktop VS Code app to a running Codespace, but it is not required. Everything in this lab works from the in-browser editor.
 
+> [!TIP]
+> **Already have a Codespace open?** If the lab material has been updated since you created it, pull the latest changes before starting:
+> ```bash
+> git pull
+> cd demo-app && npm install
+> ```
+> Then restart the app with `npm run dev`.
+
 ## Configure and provision your environment
 
 Once the Codespace finishes building, install dependencies and start the app in the terminal:

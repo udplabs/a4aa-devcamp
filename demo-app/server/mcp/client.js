@@ -60,6 +60,16 @@ export class MCPClient {
         audience: tenant.mcpAudience || this.config.audience,
       };
     }
+    // Local path: AUTH0_CLIENT_ID_M2M and AUTH0_CLIENT_SECRET_M2M are
+    // set manually in Module 01 after the participant creates the M2M
+    // confidential client from the MCP API resource server screen.
+    if (!this.config.clientId) {
+      console.warn(
+        "[MCP Client] AUTH0_CLIENT_ID_M2M is not set. " +
+        "Complete Module 01 to create the M2M client from the " +
+        "devcamp-mcp-server API screen and add credentials to .env."
+      );
+    }
     return this.config;
   }
 
@@ -92,9 +102,9 @@ export class MCPClient {
           subject_token: userAccessToken,
           subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
           audience: cfg.audience,
-          resource: cfg.audience,
-          client_id: cfg.clientId,
-          client_secret: cfg.clientSecret,
+          resource: cfg.audience,          // RFC 8707 resource indicator
+          client_id: cfg.clientId,         // M2M confidential client (opaque UUID)
+          client_secret: cfg.clientSecret, // M2M client secret for OBO exchange
         }),
       }
     );

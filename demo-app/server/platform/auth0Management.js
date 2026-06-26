@@ -93,6 +93,7 @@ export async function createClient(ctx, opts) {
   };
   if (opts.resource_server_identifier) body.resource_server_identifier = opts.resource_server_identifier;
   if (opts.grant_types) body.grant_types = opts.grant_types;
+  if (opts.token_endpoint_auth_method) body.token_endpoint_auth_method = opts.token_endpoint_auth_method;
   if (opts.callbacks) body.callbacks = opts.callbacks;
   if (opts.allowed_logout_urls) body.allowed_logout_urls = opts.allowed_logout_urls;
   if (opts.web_origins) body.web_origins = opts.web_origins;

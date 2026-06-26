@@ -111,7 +111,7 @@ app.get("/api/health", (_req, res) => {
 app.get("/api/setup/status", (_req, res) => {
   res.json({
     hasBaseConfig: !!(process.env.AUTH0_DOMAIN && process.env.AUTH0_MGMT_CLIENT_ID),
-    isProvisioned: !!(process.env.VITE_AUTH0_CLIENT_ID && process.env.AUTH0_CLIENT_ID_M2M),
+    isProvisioned: !!(process.env.VITE_AUTH0_CLIENT_ID),
   });
 });
 
@@ -179,15 +179,10 @@ app.post("/api/setup/deprovision", async (req, res) => {
   }
 });
 
-// CIMD: per-tenant client metadata document (RFC 9728 / MCP CIMD spec).
-// In the Codespace model the URL is unique per participant automatically
-// because each Codespace has its own public hostname.
+// CIMD: client metadata document. The URL of this endpoint IS the
+// agent's client_id — self-referential per the CIMD spec.
 app.get("/.well-known/client-metadata", (req, res) => {
-  const clientId =
-    req.tenant?.deploymentData?.m2m_client_id ||
-    process.env.AUTH0_CLIENT_ID_M2M ||
-    "";
-  res.json(getClientMetadata(clientId));
+  res.json(getClientMetadata(req));
 });
 
 // Resolve the tenant for every /api request from the request
