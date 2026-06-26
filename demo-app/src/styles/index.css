@@ -1383,6 +1383,11 @@ body {
   margin-bottom: 0;
 }
 
+.module01-steps .setup-code-block code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .spinner-sm {
   display: inline-block;
   width: 12px;
