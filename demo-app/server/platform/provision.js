@@ -182,6 +182,7 @@ export async function runProvision(
     await safe("role permissions", () =>
       addPermissionsToRole(ctx, nexusRole.id, [
         { resource_server_identifier: BACKEND_API_IDENTIFIER, permission_name: "chat:send" },
+        ...MCP_SCOPES.map((s) => ({ resource_server_identifier: MCP_API_IDENTIFIER, permission_name: s })),
       ])
     );
     for (const demoUser of [alice, bob]) {
