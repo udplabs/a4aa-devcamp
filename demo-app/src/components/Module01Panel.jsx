@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 
 export function Module01Panel({ onReady }) {
-  // Poll /api/setup/status every 3 s. When hasMCPConfig flips true
-  // (participant added AUTH0_CLIENT_ID_M2M + AUTH0_CLIENT_SECRET_M2M
-  // to .env and restarted), advance to the login screen.
   useEffect(() => {
     const id = setInterval(async () => {
       try {
@@ -30,7 +27,7 @@ export function Module01Panel({ onReady }) {
 
         <p className="setup-desc">
           Resources are provisioned. Before you can log in and use Nexus,
-          complete the two Dashboard steps in <strong>Module 01</strong> of your lab guide.
+          complete the Dashboard steps in <strong>Module 01</strong> of your lab guide.
         </p>
 
         <div className="setup-resource-list">
@@ -38,35 +35,49 @@ export function Module01Panel({ onReady }) {
           <span className="setup-resource-pill">Part C: M2M Client</span>
         </div>
 
-        <ol className="module01-steps">
+        <ul className="module01-steps">
           <li>
-            <strong>Register the CIMD identity</strong> — Auth0 Dashboard →
-            Applications → Create Application → Import from URL → paste your
-            MCP server's <code>/.well-known/client-metadata</code> URL.
+            <strong>Register the CIMD identity</strong>
+            <ul>
+              <li>Auth0 Dashboard → <strong>Applications → Applications → Create Application</strong></li>
+              <li>Select <strong>Import from URL</strong></li>
+              <li>Paste your MCP server's <code>/.well-known/client-metadata</code> URL and click <strong>Preview</strong></li>
+              <li>Click <strong>Create</strong></li>
+            </ul>
           </li>
           <li>
-            <strong>Create the M2M client</strong> — Auth0 Dashboard →
-            APIs → <code>devcamp-mcp-server</code> → Applications →
-            Create &amp; Authorize New Application (Custom API Client) with all
-            four <code>mcp:*</code> scopes. Then enable <strong>On-Behalf-Of
-            Token Exchange</strong> in the application's Token Exchange settings.
+            <strong>Create the M2M client for OBO exchange</strong>
+            <ul>
+              <li>Auth0 Dashboard → <strong>APIs → devcamp-mcp-server → Applications tab</strong></li>
+              <li>Click <strong>Create &amp; Authorize New Application</strong> → Custom API Client</li>
+              <li>Name it <code>docagent-mcp-m2m</code> and authorize all four <code>mcp:*</code> scopes</li>
+              <li>Open the new application → scroll to <strong>Token Exchange</strong></li>
+              <li>Enable <strong>On-Behalf-Of Token Exchange</strong> → <strong>Save</strong></li>
+            </ul>
           </li>
           <li>
-            <strong>Add credentials to <code>.env</code></strong> — copy the
-            M2M client ID and secret into <code>demo-app/.env</code>:
-            <div className="setup-code-block" style={{ marginTop: "0.5rem" }}>
-              <code>
-                AUTH0_CLIENT_ID_M2M=&lt;client-id&gt;{"\n"}
-                AUTH0_CLIENT_SECRET_M2M=&lt;client-secret&gt;
-              </code>
-            </div>
+            <strong>Add credentials to <code>.env</code></strong>
+            <ul>
+              <li>Copy the client ID and secret from the application settings</li>
+              <li>
+                Add to <code>demo-app/.env</code>:
+                <div className="setup-code-block">
+                  <code>
+                    AUTH0_CLIENT_ID_M2M=&lt;client-id&gt;{"\n"}
+                    AUTH0_CLIENT_SECRET_M2M=&lt;client-secret&gt;
+                  </code>
+                </div>
+              </li>
+            </ul>
           </li>
           <li>
-            <strong>Restart the app</strong> — run <code>npm run dev</code> in
-            the terminal. This screen will advance automatically once the
-            credentials are detected.
+            <strong>Restart the app</strong>
+            <ul>
+              <li>Stop the app (<code>Ctrl+C</code>) and run <code>npm run dev</code></li>
+              <li>This screen advances automatically once the credentials are detected</li>
+            </ul>
           </li>
-        </ol>
+        </ul>
 
         <p className="setup-waiting">
           <span className="spinner-sm" /> Waiting for MCP credentials…

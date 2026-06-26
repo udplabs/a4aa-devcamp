@@ -1331,6 +1331,58 @@ body {
   color: #6E5A8A;
 }
 
+/* Module 01 gate panel */
+.module01-steps {
+  list-style: disc;
+  padding-left: 20px;
+  margin-bottom: 24px;
+}
+
+.module01-steps > li {
+  color: #FBFBFA;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.module01-steps > li:last-child {
+  margin-bottom: 0;
+}
+
+/* Sub-bullets */
+.module01-steps > li > ul {
+  list-style: circle;
+  padding-left: 18px;
+  margin-top: 8px;
+}
+
+.module01-steps > li > ul > li {
+  font-size: 13px;
+  font-weight: 400;
+  color: #BFA9D6;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.module01-steps > li > ul > li:last-child {
+  margin-bottom: 0;
+}
+
+.module01-steps code {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+  background: #1F132C;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #BC6DFF;
+  font-weight: 400;
+}
+
+.module01-steps .setup-code-block {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
 .spinner-sm {
   display: inline-block;
   width: 12px;
