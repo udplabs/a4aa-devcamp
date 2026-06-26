@@ -272,11 +272,11 @@ app.get("/api/verify/module01", async (req, res) => {
       const { getManagementToken } = await import("./platform/auth0Management.js");
       const token = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
       const clientsR = await fetch(
-        `https://${domain}/api/v2/clients?fields=client_id,name&include_fields=true&per_page=100`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `https://${domain}/api/v2/clients?external_client_id=${encodeURIComponent(cimdUrl)}&fields=client_id,name&include_fields=true`,
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
       );
       const clients = await clientsR.json();
-      const found = Array.isArray(clients) && clients.find((c) => c.client_id === cimdUrl);
+      const found = Array.isArray(clients) && clients.length > 0 ? clients[0] : null;
       checks.push({ id: "cimd_registered", name: "CIMD client registered in Auth0", pass: !!found,
         message: found
           ? `Found: ${found.name} (${cimdUrl})`
