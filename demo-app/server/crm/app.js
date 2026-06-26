@@ -129,13 +129,20 @@ app.post("/crm/oauth/token", (req, res) => {
     exp: now + TOKEN_TTL,
   });
 
+  const hasOfflineAccess = entry.scope?.includes("offline_access");
+  const refreshToken = hasOfflineAccess
+    ? signToken({ sub: entry.userId, type: "refresh", iat: now, exp: now + 30 * 24 * 3600 })
+    : undefined;
+
   console.log(`[CRM OAuth] Token issued for client=${client_id || entry.clientId}`);
-  res.json({
+  const tokenResponse = {
     access_token: accessToken,
     token_type: "Bearer",
     expires_in: TOKEN_TTL,
     scope: entry.scope,
-  });
+  };
+  if (refreshToken) tokenResponse.refresh_token = refreshToken;
+  res.json(tokenResponse);
 });
 
 // ---- CRM API: POST /crm/activities -------------------------------

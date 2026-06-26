@@ -34,14 +34,16 @@ The CREATE hook provisioned a CRM OAuth2 connection on your tenant — it points
 >
 > 1. Auth0 Dashboard → **Authentication → Social**
 >
-> *You should see: the Social connections page with **crm-{{demoName}}** listed in the table.*
+> *You should see: the Social connections page with **crm-codespace** listed in the table.*
 >
-> 2. Open **crm-`{{demoName}}`**
-> 3. **Settings** tab → **Token Vault** section → toggle **Store user access tokens** → **Save**
+> 2. Open **crm-codespace**
+> 3. Scroll down to the **Purpose** section
+> 4. Select **Authentication and Connected Accounts for Token Vault**
+> 5. Click **Save Changes**
 >
-> *You should see: the Token Vault section with the **Store user access tokens** toggle.*
+> *You should see: the Purpose radio button update to the Token Vault option. Auth0 will automatically request a refresh token from the CRM on every OAuth2 flow so it can maintain the stored credential without user re-authentication.*
 >
-> Before you enable it, the vault falls back to an in-memory mock CRM token — the tool call still succeeds, but Auth0 is not yet involved in storing the credential. After enabling, Auth0 stores the user's real CRM access token and the live federated exchange fires on every `log_crm_activity` call.
+> Before you enable it, the vault falls back to an in-memory mock CRM token — the tool call still succeeds, but Auth0 is not yet involved in storing the credential. After enabling, Auth0 stores the user's real CRM access token and refresh token, and the live federated exchange fires on every `log_crm_activity` call.
 
 At tool-call time the backend asks Auth0 for a short-lived, per-user federated access token for exactly one downstream call, preserving the user's identity from Module 01. The user's actual refresh token never leaves Auth0.
 
@@ -57,6 +59,9 @@ At tool-call time the backend asks Auth0 for a short-lived, per-user federated a
 
 `getToken(userId, provider)` tries the live federated path first. If the tenant has the CRM connection provisioned **and** Token Vault is enabled on it (the Dashboard step above), it exchanges the user's access token with Auth0 to get a short-lived CRM credential. If either condition is not met, it falls back to the in-memory mock so the lab runs offline.
 
+> [!NOTE]
+> The grant type here — `urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token` — is Auth0's own variant, distinct from the RFC 8693 OBO grant you used in Module 01 (`urn:ietf:params:oauth:grant-type:token-exchange`). Both are token exchanges but they serve different purposes: OBO preserves user identity across the agent boundary; this one retrieves a stored third-party credential from Token Vault.
+
 ```js
 // Live path: Token Vault exchange
 async function getLiveToken(userId, provider, tenant, userAccessToken) {
@@ -68,7 +73,7 @@ async function getLiveToken(userId, provider, tenant, userAccessToken) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+      grant_type: "urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token",
       subject_token: userAccessToken,
       subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
       requested_token_type: "http://auth0.com/oauth/token-type/federated-connection-access-token",

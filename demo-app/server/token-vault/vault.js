@@ -41,7 +41,10 @@ const liveTokens = new Map();
 
 const FEDERATED_TOKEN_TYPE =
   "http://auth0.com/oauth/token-type/federated-connection-access-token";
-const TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange";
+// Auth0-specific grant type for federated-connection token exchange (Token Vault).
+// Distinct from the RFC 8693 OBO grant used for MCP token exchange.
+const TOKEN_EXCHANGE_GRANT =
+  "urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token";
 
 function vaultKey(userId, provider) {
   return `${userId}:${provider}`;
