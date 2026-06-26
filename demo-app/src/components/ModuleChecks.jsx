@@ -103,7 +103,7 @@ function useRuntimeConfigSafe() {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useRuntimeConfig();
   } catch {
-    return { audience: "" };
+    return { audience: window.__nexusAuth?.audience || "" };
   }
 }
 

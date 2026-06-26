@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useRuntimeConfig } from "./config/runtimeConfig";
 import { Chat } from "./components/Chat";
 import { MCPStatus } from "./components/MCPStatus";
 import { ToolLogs } from "./components/ToolLogs";
@@ -19,16 +20,17 @@ const TABS = [
 // so the same build works across every demo tenant.
 export default function App() {
   const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently } = useAuth0();
+  const { audience } = useRuntimeConfig();
   const [activeTab, setActiveTab] = useState("chat");
 
-  // Expose auth state to window so ProgressTracker (mounted outside Auth0Provider)
-  // can reach real auth context for Module 02 checks.
+  // Expose auth state + audience to window so ProgressTracker (mounted outside
+  // Auth0Provider / RuntimeConfigProvider) can run Module 02 checks correctly.
   useEffect(() => {
     window.__nexusAuth = isAuthenticated
-      ? { isAuthenticated: true, getAccessTokenSilently }
-      : { isAuthenticated: false, getAccessTokenSilently: null };
+      ? { isAuthenticated: true, getAccessTokenSilently, audience }
+      : { isAuthenticated: false, getAccessTokenSilently: null, audience };
     return () => { window.__nexusAuth = null; };
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, [isAuthenticated, getAccessTokenSilently, audience]);
 
   if (isLoading) {
     return (
