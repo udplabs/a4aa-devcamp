@@ -95,6 +95,7 @@ export class MCPClient {
     // claim (rep's user id) is preserved from the subject_token
     // by Auth0, giving the MCP server end-to-end user attribution
     // without the agent ever forging identity.
+    console.log("test, ", userAccessToken);
     const response = await fetch(
       `https://${cfg.auth0Domain}/oauth/token`,
       {
@@ -106,8 +107,8 @@ export class MCPClient {
           subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
           requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
           audience: cfg.audience,
-          client_id: cfg.clientId,         // M2M confidential client (opaque UUID)
-          client_secret: cfg.clientSecret, // M2M client secret for OBO exchange
+          client_id: cfg.clientId,
+          client_secret: cfg.clientSecret,
         }),
       }
     );
