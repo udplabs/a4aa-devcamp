@@ -31,7 +31,7 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
       });
       if (isAuthenticated) {
         try {
-          const token = await getAccessTokenSilently({ authorizationParams: { audience } });
+          const token = await getAccessTokenSilently({ authorizationParams: { audience, scope: "chat:send" } });
           const [, payloadB64] = token.split(".");
           const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
           const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, "=");
