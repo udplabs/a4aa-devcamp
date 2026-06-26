@@ -382,21 +382,9 @@ app.get("/api/verify/module03", async (req, res) => {
     });
     const connData = await connR.json();
     const conn = connData?.[0] || {};
-    const opts = conn?.options || {};
-    console.log(`[verify/module03] full connection:`, JSON.stringify(conn));
-    // Auth0 may use different field shapes depending on tenant version — check all known ones.
-    const vaultEnabled =
-      opts?.federated_connections_access_tokens?.active === true ||
-      opts?.token_vault?.active === true ||
-      opts?.purpose === "connected_accounts" ||
-      opts?.purpose === "authentication_and_connected_accounts" ||
-      opts?.token_storage === "connected_accounts" ||
-      conn?.show_as_button === true ||
-      conn?.metadata?.token_vault === "true" ||
-      conn?.is_domain_connection === true ||
-      // Check top-level fields that may carry the purpose setting
-      conn?.purpose === "connected_accounts" ||
-      conn?.purpose === "authentication_and_connected_accounts";
+    // connected_accounts.active is the top-level field Auth0 sets when Purpose is
+    // "Connected Accounts for Token Vault" or "Authentication and Connected Accounts for Token Vault".
+    const vaultEnabled = conn?.connected_accounts?.active === true;
     checks.push({
       id: "token_vault_connection",
       name: "Token Vault enabled on CRM connection",
