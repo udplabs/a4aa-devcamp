@@ -49,7 +49,7 @@ export async function getManagementToken(creds, issuer) {
   return { domain, token: data.access_token };
 }
 
-async function mgmt(ctx, method, path, body) {
+async function mgmt(ctx, method, path, body, attempt = 0) {
   const res = await fetch(`https://${ctx.domain}/api/v2${path}`, {
     method,
     headers: {
@@ -58,6 +58,11 @@ async function mgmt(ctx, method, path, body) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 429 && attempt < 4) {
+    const wait = (attempt + 1) * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+    return mgmt(ctx, method, path, body, attempt + 1);
+  }
   if (!res.ok) {
     throw new Error(`Management ${method} ${path} failed: ${res.status} ${await res.text()}`);
   }
