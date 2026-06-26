@@ -106,7 +106,6 @@ export class MCPClient {
           subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
           requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
           audience: cfg.audience,
-          scope: "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share",
           client_id: cfg.clientId,         // M2M confidential client (opaque UUID)
           client_secret: cfg.clientSecret, // M2M client secret for OBO exchange
         }),
