@@ -78,7 +78,7 @@ curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>
 
 ### Missing scope
 
-- In the Auth0 Dashboard, navigate to **Applications → Applications → docagent-mcp-m2m-`{{demoName}}`→ APIs tab → `devcamp-mcp-server`** and deselect `mcp:docs:share`.
+- In the Auth0 Dashboard, navigate to **Applications → Applications → `docagent-mcp-obo` → APIs tab → Nexus MCP Server** and deselect `mcp:docs:share`.
 - Prompt: *"Share the Q3 roadmap with external@partner.com."*
 - A **Device Approval Required** card appears — approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
 - Expected after approval: `403 { "error": "Insufficient scope", "required": "mcp:docs:share" }`.

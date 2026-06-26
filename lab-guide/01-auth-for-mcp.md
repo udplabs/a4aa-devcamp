@@ -110,12 +110,12 @@ Auth0 needs to fetch the metadata document to register the agent. Port 3001 is p
 
 ### Part C: Create the M2M client for OBO token exchange
 
-The OBO exchange requires a confidential **Custom API client** (`app_type: resource_server`) authorized against the MCP API with a user-delegated grant. Create it from the resource server screen.
+The OBO exchange requires a confidential client authorized against the MCP API with both user-delegated and direct client access. Create it from the resource server screen.
 
-1. Auth0 Dashboard → **APIs → `devcamp-mcp-server` → Applications tab**
-2. Click **Create & Authorize New Application**
-3. Name it `docagent-mcp-m2m` and select **Custom API Client**
-4. Authorize it with all four `mcp:*` scopes
+1. Auth0 Dashboard → **APIs → Nexus MCP Server
+2. Click **Add Application**
+3. Name it `docagent-mcp-obo`
+4. In **API Access** tab, authorize all four `mcp:*` scopes for both **user-delegated access** and **client access**
 
 *You should see: a new application listed in the API's Applications tab with all four scopes granted.*
 
@@ -124,7 +124,7 @@ The OBO exchange requires a confidential **Custom API client** (`app_type: resou
 >
 > This toggle is a security posture choice and must be opted in explicitly — it is not enabled by default.
 >
-> 1. Auth0 Dashboard → **Applications → Applications** → open **`docagent-mcp-m2m`**
+> 1. Still on **`docagent-mcp-obo`**
 > 2. Scroll to the **Token Exchange** section
 >
 > *You should see: the Token Exchange section with the On-Behalf-Of toggle off.*
@@ -135,7 +135,7 @@ The OBO exchange requires a confidential **Custom API client** (`app_type: resou
 
 **Step 3: Add the M2M credentials to `.env`**
 
-From the `docagent-mcp-m2m` application settings, copy the **Client ID** and **Client Secret**. Open `demo-app/.env` and add:
+From the `docagent-mcp-obo` application settings, copy the **Client ID** and **Client Secret**. Open `demo-app/.env` and add:
 
 ```
 AUTH0_OBO_CLIENT_ID=<client-id-from-dashboard>

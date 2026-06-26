@@ -343,7 +343,7 @@ app.get("/api/verify/module01", async (req, res) => {
       const body = await r.json();
       const toggled = body.error !== "unauthorized_client";
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
-        message: toggled ? `Auth0 accepted the grant (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-m2m" });
+        message: toggled ? `Auth0 accepted the grant (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
     } catch (e) {
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false, message: e.message });
     }

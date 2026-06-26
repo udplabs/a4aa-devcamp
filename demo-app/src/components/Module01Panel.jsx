@@ -92,9 +92,9 @@ export function Module01Panel({ onReady }) {
           <li>
             <strong>Create the M2M client for OBO exchange</strong>
             <ul>
-              <li>Auth0 Dashboard → <strong>APIs → devcamp-mcp-server → Applications tab</strong></li>
-              <li>Click <strong>Create &amp; Authorize New Application</strong> → Custom API Client</li>
-              <li>Name it <code>docagent-mcp-m2m</code> and authorize all four <code>mcp:*</code> scopes</li>
+              <li>Auth0 Dashboard → <strong>APIs → Nexus MCP Server → Applications tab</strong></li>
+              <li>Click <strong>Add Application</strong></li>
+              <li>Name it <code>docagent-mcp-obo</code> and authorize all four <code>mcp:*</code> scopes for user-delegated and client access</li>
               <li>Open the new application → scroll to <strong>Token Exchange</strong></li>
               <li>Enable <strong>On-Behalf-Of Token Exchange</strong> → <strong>Save</strong></li>
             </ul>
