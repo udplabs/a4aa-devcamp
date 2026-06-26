@@ -6,7 +6,6 @@ Not every tool call should execute without confirmation. This module wires CIBA 
 
 In this module you will:
 
-- Enable the CIBA grant type at the tenant level in the Auth0 Dashboard.
 - Understand how `share_document` triggers CIBA before calling the MCP server.
 - See how the binding message ties the push notification to the exact action being approved.
 - Observe the in-memory approve/deny fallback vs. the live Guardian push path.
@@ -30,22 +29,10 @@ The agent backend initiates an authorization request with a human-readable bindi
 
 ## What's provisioned for you
 
-The CREATE hook provisioned a CIBA client on your tenant (a regular web app with the `urn:openid:params:grant-type:ciba` grant, authorized against the backend API and the MCP API for `mcp:docs:share`). One setting was not automated: you must enable CIBA at the tenant level via the Dashboard.
+Provision Resources created a CIBA client on your tenant (`docagent-ciba-codespace`) — a confidential regular web app with the `urn:openid:params:grant-type:ciba` grant already enabled, authorized against the backend API and the MCP API for `mcp:docs:share`. There are no required Dashboard steps to complete this module.
 
-> [!IMPORTANT]
-> **Dashboard Step: Enable CIBA at the tenant level**
->
-> 1. Auth0 Dashboard → **Settings → Advanced**
->
-> *You should see: the Advanced settings page with a Grant Types section.*
->
-> 2. Scroll to **Grant Types** → enable **CIBA** → **Save**
->
-> *You should see: the CIBA toggle enabled.*
->
-> 3. Verify: **Applications → docagent-ciba-`{{demoName}}`** → **Advanced Settings → Grant Types** → confirm **CIBA** is checked
->
-> Without this toggle, the app falls back to an in-memory approve/deny simulation with the same state machine and UI. The full flow still runs, but no real push fires. Enable it and `POST /bc-authorize` triggers a real Guardian push notification to any enrolled device.
+> [!NOTE]
+> CIBA is configured at the **application level** only. There is no tenant-level CIBA toggle in Auth0. The provisioned client already has everything set.
 
 **Device enrollment** is required for the live push path. If you skip it, the in-memory fallback runs the complete flow offline — all checkpoint steps work either way.
 
@@ -60,7 +47,7 @@ To enroll your device for the live path:
 > Most participants skip enrollment and use the in-memory fallback — it runs the same approval flow without device setup overhead. Only enroll if you have a spare few minutes and want to see the Guardian push in action.
 
 > [!NOTE]
-> Self-hosting `starter/`? Enable the CIBA grant on your tenant (**Settings → Advanced → Grant Types**) and on the CIBA client you create (**Advanced Settings → Grant Types → CIBA**). The in-memory simulator below covers approval if you skip device enrollment.
+> Self-hosting `starter/`? Create a confidential Regular Web Application, add the `urn:openid:params:grant-type:ciba` grant in **Advanced Settings → Grant Types**, and authorize it against your backend and MCP APIs. The in-memory simulator below covers approval if you skip device enrollment.
 
 ## Code Steps
 
@@ -208,7 +195,7 @@ app.get("/api/ciba/pending", (_req, res) => {
 
 ## Checkpoint
 
-**Step 1 — Verify setup.** Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms CIBA is enabled at the tenant level and the grant is active on your CIBA client.
+**Step 1 — Verify setup.** Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms the CIBA grant is active on your provisioned CIBA client.
 
 **Step 2 — Run the demo scenario.**
 

@@ -459,8 +459,9 @@ app.get("/api/verify/module04", async (req, res) => {
   const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
   const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
 
-  if (!domain || !clientId || !secret) {
-    checks.push({ id: "ciba_tenant", name: "CIBA enabled at tenant level", pass: false, message: "Management credentials not set" });
+  if (!domain || !clientId || !secret || !cibaClientId) {
+    checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false,
+      message: !cibaClientId ? "AUTH0_CIBA_CLIENT_ID not set — re-provision resources" : "Management credentials not set" });
     return res.json({ module: "04", checks, allPassed: false });
   }
 
@@ -468,28 +469,25 @@ app.get("/api/verify/module04", async (req, res) => {
     const { getManagementToken } = await import("./platform/auth0Management.js");
     const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
 
-    // Check tenant grant types
-    const tr = await fetch(`https://${ctx.domain}/api/v2/tenants/settings`, {
-      headers: { Authorization: `Bearer ${ctx.token}` },
+    // CIBA is configured at the application level only (no tenant-level toggle).
+    // Check that the provisioned CIBA client has the grant and notification channels.
+    const cr = await fetch(
+      `https://${ctx.domain}/api/v2/clients/${cibaClientId}?fields=grant_types,async_approval_notification_channels,name&include_fields=true`,
+      { headers: { Authorization: `Bearer ${ctx.token}` } }
+    );
+    const cibaApp = await cr.json();
+    const hasGrant = cibaApp?.grant_types?.includes("urn:openid:params:grant-type:ciba");
+    const channels = cibaApp?.async_approval_notification_channels || [];
+    checks.push({
+      id: "ciba_client",
+      name: "CIBA grant on docagent-ciba application",
+      pass: !!hasGrant,
+      message: hasGrant
+        ? `CIBA grant present on ${cibaApp.name} (channels: ${channels.join(", ") || "none"})`
+        : `CIBA grant type missing on ${cibaApp.name || cibaClientId} — check provisioning`,
     });
-    const tenant = await tr.json();
-    const cibaEnabled = tenant?.flags?.enable_ciba === true ||
-                        tenant?.grant_types?.includes("urn:openid:params:grant-type:ciba");
-    checks.push({ id: "ciba_tenant", name: "CIBA enabled at tenant level", pass: !!cibaEnabled,
-      message: cibaEnabled ? "CIBA grant enabled" : "Enable CIBA under Settings → Advanced → Grant Types" });
-
-    // Check CIBA client has the grant
-    if (cibaClientId) {
-      const cr = await fetch(`https://${ctx.domain}/api/v2/clients/${cibaClientId}?fields=grant_types`, {
-        headers: { Authorization: `Bearer ${ctx.token}` },
-      });
-      const cibaApp = await cr.json();
-      const hasGrant = cibaApp?.grant_types?.includes("urn:openid:params:grant-type:ciba");
-      checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: !!hasGrant,
-        message: hasGrant ? "CIBA grant type present on client" : "Enable CIBA on the docagent-ciba application" });
-    }
   } catch (e) {
-    checks.push({ id: "ciba_tenant", name: "CIBA enabled at tenant level", pass: false, message: e.message });
+    checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false, message: e.message });
   }
 
   res.json({ module: "04", checks, allPassed: checks.every((c) => c.pass) });
