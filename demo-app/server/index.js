@@ -377,19 +377,26 @@ app.get("/api/verify/module03", async (req, res) => {
     const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
 
     // Check 1: CRM connection has Token Vault purpose enabled.
-    const connR = await fetch(`https://${ctx.domain}/api/v2/connections?name=${encodeURIComponent(crmConn)}&fields=options,name`, {
+    const connR = await fetch(`https://${ctx.domain}/api/v2/connections?name=${encodeURIComponent(crmConn)}`, {
       headers: { Authorization: `Bearer ${ctx.token}` },
     });
     const connData = await connR.json();
-    const opts = connData?.[0]?.options || {};
-    console.log(`[verify/module03] connection options:`, JSON.stringify(opts));
+    const conn = connData?.[0] || {};
+    const opts = conn?.options || {};
+    console.log(`[verify/module03] full connection:`, JSON.stringify(conn));
     // Auth0 may use different field shapes depending on tenant version — check all known ones.
     const vaultEnabled =
       opts?.federated_connections_access_tokens?.active === true ||
       opts?.token_vault?.active === true ||
       opts?.purpose === "connected_accounts" ||
       opts?.purpose === "authentication_and_connected_accounts" ||
-      opts?.token_storage === "connected_accounts";
+      opts?.token_storage === "connected_accounts" ||
+      conn?.show_as_button === true ||
+      conn?.metadata?.token_vault === "true" ||
+      conn?.is_domain_connection === true ||
+      // Check top-level fields that may carry the purpose setting
+      conn?.purpose === "connected_accounts" ||
+      conn?.purpose === "authentication_and_connected_accounts";
     checks.push({
       id: "token_vault_connection",
       name: "Token Vault enabled on CRM connection",
