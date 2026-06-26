@@ -349,69 +349,40 @@ app.get("/api/verify/module01", async (req, res) => {
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
         message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
 
-      // 5b. Custom API Client must have resource_server_identifier pointing to the MCP API.
-      // Without this association Auth0 rejects OBO regardless of the grant.
+      // 5b. Nexus User role must have all four MCP permissions. OBO respects RBAC — if the
+      // user has no permissions for the target API Auth0 blocks the exchange entirely.
       if (domain && mgmtId && mgmtSecret) {
         try {
           const { getManagementToken } = await import("./platform/auth0Management.js");
           const { token: mgmtToken } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
-          const clientR = await fetch(
-            `https://${domain}/api/v2/clients/${oboId}`,
-            { headers: { Authorization: `Bearer ${mgmtToken}` } }
-          );
-          const clientData = await clientR.json();
-          console.log("[verify/module01] obo client fields:", JSON.stringify({
-            app_type: clientData?.app_type,
-            resource_server_identifier: clientData?.resource_server_identifier,
-            grant_types: clientData?.grant_types,
-            token_exchange: clientData?.token_exchange,
-          }));
-
-          // Try to enable OBO via token_exchange field if not set
-          if (!clientData?.token_exchange?.allow_any_profile_of_type?.includes("on_behalf_of_token_exchange")) {
-            try {
-              const patchCR = await fetch(`https://${domain}/api/v2/clients/${oboId}`, {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${mgmtToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ token_exchange: { allow_any_profile_of_type: ["on_behalf_of_token_exchange"] } }),
-              });
-              const patchCBody = await patchCR.text();
-              console.log("[verify/module01] patch token_exchange status=%d body=%s", patchCR.status, patchCBody);
-            } catch (patchCErr) {
-              console.error("[verify/module01] failed to patch token_exchange:", patchCErr.message);
-            }
-          }
-          const rsId = clientData?.resource_server_identifier;
-          const hasRsAssoc = rsId === mcpAudience;
-
-          // If the OBO grant type is missing from grant_types, add it. Auth0's Dashboard
-          // OBO toggle doesn't always populate grant_types correctly for Custom API Clients.
-          const OBO_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange";
-          const existingGrants = clientData?.grant_types || [];
-          if (!existingGrants.includes(OBO_GRANT)) {
-            try {
-              const patchCR = await fetch(`https://${domain}/api/v2/clients/${oboId}`, {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${mgmtToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ grant_types: [...existingGrants, OBO_GRANT] }),
-              });
-              const patchCBody = await patchCR.text();
-              console.log("[verify/module01] patch client grant_types status=%d body=%s", patchCR.status, patchCBody);
-            } catch (patchCErr) {
-              console.error("[verify/module01] failed to patch client grant_types:", patchCErr.message);
-            }
-          }
-
-          checks.push({
-            id: "obo_client_assoc",
-            name: "docagent-mcp-obo associated with Nexus MCP Server",
-            pass: hasRsAssoc,
-            message: hasRsAssoc
-              ? `resource_server_identifier: ${rsId}${existingGrants.includes(OBO_GRANT) ? "" : " (auto-added OBO grant type)"}`
-              : `resource_server_identifier is "${rsId || "not set"}" — expected "${mcpAudience}". This association is required for OBO.`,
+          const rolesR = await fetch(`https://${domain}/api/v2/roles?name_filter=Nexus%20User`, {
+            headers: { Authorization: `Bearer ${mgmtToken}` },
           });
+          const roles = await rolesR.json();
+          const nexusRole = Array.isArray(roles) && roles.find((r) => r.name === "Nexus User");
+          if (nexusRole) {
+            const permsR = await fetch(`https://${domain}/api/v2/roles/${nexusRole.id}/permissions`, {
+              headers: { Authorization: `Bearer ${mgmtToken}` },
+            });
+            const perms = await permsR.json();
+            const mcpPerms = (perms || []).filter((p) => p.resource_server_identifier === mcpAudience).map((p) => p.permission_name);
+            const requiredPerms = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
+            const missingPerms = requiredPerms.filter((p) => !mcpPerms.includes(p));
+            console.log("[verify/module01] Nexus User role MCP perms:", mcpPerms);
+            checks.push({
+              id: "nexus_role_perms",
+              name: "Nexus User role has MCP permissions",
+              pass: missingPerms.length === 0,
+              message: missingPerms.length === 0
+                ? `Role has all MCP permissions (${mcpPerms.join(", ")})`
+                : `Role missing: ${missingPerms.join(", ")} — re-provision or add these permissions to the Nexus User role`,
+            });
+          } else {
+            checks.push({ id: "nexus_role_perms", name: "Nexus User role has MCP permissions", pass: false,
+              message: "Nexus User role not found — re-provision resources" });
+          }
         } catch (e) {
-          checks.push({ id: "obo_client_assoc", name: "docagent-mcp-obo associated with Nexus MCP Server", pass: false, message: e.message });
+          checks.push({ id: "nexus_role_perms", name: "Nexus User role has MCP permissions", pass: false, message: e.message });
         }
       }
 
