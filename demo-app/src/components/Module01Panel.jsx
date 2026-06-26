@@ -1,6 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+function deriveCimdUrl() {
+  const origin = window.location.origin;
+  // GitHub Codespace: swap the frontend port for the MCP server port (3001)
+  if (origin.includes(".app.github.dev")) {
+    return origin.replace(/-\d+(\.app\.github\.dev)/, "-3001$1") + "/.well-known/client-metadata";
+  }
+  // Local dev: replace whatever port Vite is on with 3001
+  const mcpOrigin = origin.replace(/:\d+$/, ":3001");
+  return mcpOrigin + "/.well-known/client-metadata";
+}
 
 export function Module01Panel({ onReady }) {
+  const [copied, setCopied] = useState(false);
+  const cimdUrl = deriveCimdUrl();
+
   useEffect(() => {
     const id = setInterval(async () => {
       try {
@@ -16,6 +30,12 @@ export function Module01Panel({ onReady }) {
     }, 3000);
     return () => clearInterval(id);
   }, [onReady]);
+
+  function copyCimdUrl() {
+    navigator.clipboard.writeText(cimdUrl).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <div className="setup-screen">
@@ -41,7 +61,15 @@ export function Module01Panel({ onReady }) {
             <ul>
               <li>Auth0 Dashboard → <strong>Applications → Applications → Create Application</strong></li>
               <li>Select <strong>Import from URL</strong></li>
-              <li>Paste your MCP server's <code>/.well-known/client-metadata</code> URL and click <strong>Preview</strong></li>
+              <li>
+                Paste your agent's metadata URL and click <strong>Preview</strong>:
+                <div className="setup-code-block" style={{ marginTop: "8px" }}>
+                  <code>{cimdUrl}</code>
+                  <button className="setup-copy-btn" onClick={copyCimdUrl}>
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </li>
               <li>Click <strong>Create</strong></li>
             </ul>
           </li>
@@ -61,7 +89,7 @@ export function Module01Panel({ onReady }) {
               <li>Copy the client ID and secret from the application settings</li>
               <li>
                 Add to <code>demo-app/.env</code>:
-                <div className="setup-code-block">
+                <div className="setup-code-block" style={{ marginTop: "8px" }}>
                   <code>
                     AUTH0_CLIENT_ID_M2M=&lt;client-id&gt;{"\n"}
                     AUTH0_CLIENT_SECRET_M2M=&lt;client-secret&gt;
