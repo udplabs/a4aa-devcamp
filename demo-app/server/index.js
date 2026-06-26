@@ -350,6 +350,8 @@ app.get("/api/verify/module01", async (req, res) => {
         message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
 
       // 5b. User-delegated grant — client must have subject_type: "user" grant against MCP API
+      // with all four per-tool scopes. A grant with an empty scope array causes Auth0 to
+      // return "This client cannot exchange access tokens for this audience" at exchange time.
       if (toggled && domain && mgmtId && mgmtSecret) {
         try {
           const { getManagementToken } = await import("./platform/auth0Management.js");
@@ -360,10 +362,20 @@ app.get("/api/verify/module01", async (req, res) => {
           );
           const grants = await grantsR.json();
           const userGrant = Array.isArray(grants) && grants.find((g) => g.subject_type === "user");
-          checks.push({ id: "obo_user_grant", name: "User-delegated grant on docagent-mcp-obo", pass: !!userGrant,
-            message: userGrant
-              ? "User-delegated access grant exists for Nexus MCP Server"
-              : "Missing user-delegated grant — in docagent-mcp-obo → API Access → Nexus MCP Server, enable user-delegated access for all mcp:* scopes" });
+          const grantScopes = userGrant?.scope || [];
+          const required = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
+          const missing = required.filter((s) => !grantScopes.includes(s));
+          const pass = !!userGrant && missing.length === 0;
+          checks.push({
+            id: "obo_user_grant",
+            name: "User-delegated grant on docagent-mcp-obo",
+            pass,
+            message: !userGrant
+              ? "Missing user-delegated grant — in Nexus MCP Server API → Applications → docagent-mcp-obo, enable user-delegated access for all mcp:* scopes"
+              : missing.length > 0
+                ? `Grant found but missing scopes: ${missing.join(", ")} — in Nexus MCP Server API → Applications → docagent-mcp-obo, add all mcp:* scopes to the user-delegated access grant`
+                : `User-delegated access grant exists with all scopes (${grantScopes.join(", ")})`,
+          });
         } catch (e) {
           checks.push({ id: "obo_user_grant", name: "User-delegated grant on docagent-mcp-obo", pass: false, message: e.message });
         }
