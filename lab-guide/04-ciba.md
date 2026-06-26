@@ -34,14 +34,16 @@ Provision Resources created a CIBA client on your tenant (`docagent-ciba-codespa
 > [!NOTE]
 > CIBA is configured at the **application level** only. There is no tenant-level CIBA toggle in Auth0. The provisioned client already has everything set.
 
-**Device enrollment** is required for the live push path. If you skip it, the in-memory fallback runs the complete flow offline — all checkpoint steps work either way.
+### Enroll alice in Guardian push MFA
 
-To enroll your device for the live path:
+For CIBA push notifications to fire on a real device, the logged-in user must be enrolled in Guardian.
 
-1. In the Auth0 Dashboard, go to **Security → Multi-factor Auth** and ensure Guardian is enabled.
-2. Log in to Nexus as `alice@docagent.demo`.
-3. On next login, Auth0 will prompt to enroll a second factor. Open the Guardian app and scan the QR code shown.
-4. Once enrolled, triggering a document share sends a real push notification to your device.
+1. In the Auth0 Dashboard, go to **Security → Multi-factor Auth** and confirm Guardian is enabled.
+2. Log out of Nexus and log back in as `alice@docagent.demo`.
+3. Auth0 will prompt to enroll a second factor — open the **Auth0 Guardian** app and scan the QR code shown.
+4. Once enrolled, triggering a document share sends a real Guardian push notification to your device.
+
+The checkpoint verifier checks that `alice@docagent.demo` has a confirmed Guardian enrollment.
 
 > [!TIP]
 > Most participants skip enrollment and use the in-memory fallback — it runs the same approval flow without device setup overhead. Only enroll if you have a spare few minutes and want to see the Guardian push in action.

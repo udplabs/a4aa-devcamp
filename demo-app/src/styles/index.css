@@ -1571,7 +1571,7 @@ body {
   top: 50%;
   transform: translateY(-50%);
   z-index: 900;
-  width: 232px;
+  width: 500px;
   background: #1A0E27;
   border: 1px solid #3A2856;
   border-left: none;
@@ -1768,3 +1768,102 @@ body {
   padding: 7px 10px;
   margin-top: 8px;
 }
+
+/* ---- Lab locked screen ----------------------------------------- */
+.lab-locked {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.lab-locked-card {
+  background: #1a1a2e;
+  border: 1px solid #2d2d4e;
+  border-radius: 12px;
+  padding: 40px 48px;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+}
+
+.lab-locked-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #e8e8f0;
+  margin: 0 0 12px;
+}
+
+.lab-locked-desc {
+  color: #9090b0;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+.lab-locked-modules {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.lab-locked-pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #2d2d4e;
+  color: #9090b0;
+}
+
+.lab-locked-pill--pass {
+  border-color: #2a6b3c;
+  color: #4caf70;
+  background: #0d2016;
+}
+
+/* ---- FGA quiz --------------------------------------------------- */
+.fga-quiz-question {
+  font-size: 13px;
+  color: #c8c8e0;
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.fga-quiz-options {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fga-quiz-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #9090b0;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #2d2d4e;
+  line-height: 1.4;
+}
+
+.fga-quiz-option input { margin-top: 2px; flex-shrink: 0; }
+.fga-quiz-option.correct { border-color: #2a6b3c; color: #4caf70; background: #0d2016; }
+.fga-quiz-option.wrong   { border-color: #6b2a2a; color: #cf6679; background: #200d0d; }
+
+.fga-quiz-feedback {
+  font-size: 12px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.fga-quiz-feedback--correct { color: #4caf70; background: #0d2016; }
+.fga-quiz-feedback--wrong   { color: #cf6679; background: #200d0d; }

@@ -61,14 +61,9 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
       return await r.json();
     }
 
-    case "05": {
-      return {
-        checks: [
-          { id: "observed", name: "FGA demo observed", pass: true,
-            message: "Mark as complete when you have run through the demo scenarios" },
-        ],
-      };
-    }
+    case "05":
+      // Quiz handled inline — runChecks is not called for this module.
+      return { checks: [] };
 
     case "06": {
       return {
@@ -107,12 +102,76 @@ function useRuntimeConfigSafe() {
   }
 }
 
+const FGA_QUIZ = {
+  question: "Why can Alice read the Q3 Roadmap but Bob cannot?",
+  options: [
+    { id: "a", label: "Alice has the 'engineer' role in Auth0 RBAC; Bob has 'employee' only" },
+    { id: "b", label: "Alice is a member of department:engineering, which has viewer on document:q3-roadmap — Bob has no department membership" },
+    { id: "c", label: "Alice's JWT contains mcp:docs:read; Bob's token is missing that scope" },
+    { id: "d", label: "Alice is listed as owner in the FGA model definition; Bob is not" },
+  ],
+  correct: "b",
+};
+
+function FGAQuiz({ onPass }) {
+  const [selected, setSelected] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const correct = submitted && selected === FGA_QUIZ.correct;
+  const wrong = submitted && selected !== FGA_QUIZ.correct;
+
+  function handleSubmit() {
+    setSubmitted(true);
+    if (selected === FGA_QUIZ.correct) onPass();
+  }
+
+  return (
+    <div className="module-checks">
+      <div className="module-checks-header">
+        <h3 className="module-checks-title">{correct ? "✓ Module complete" : "Verify your setup"}</h3>
+      </div>
+      <p className="fga-quiz-question">{FGA_QUIZ.question}</p>
+      <ul className="fga-quiz-options">
+        {FGA_QUIZ.options.map((opt) => (
+          <li key={opt.id}>
+            <label className={`fga-quiz-option${submitted && opt.id === FGA_QUIZ.correct ? " correct" : ""}${submitted && selected === opt.id && opt.id !== FGA_QUIZ.correct ? " wrong" : ""}`}>
+              <input
+                type="radio"
+                name="fga-quiz"
+                value={opt.id}
+                disabled={correct}
+                checked={selected === opt.id}
+                onChange={() => { setSelected(opt.id); setSubmitted(false); }}
+              />
+              {opt.label}
+            </label>
+          </li>
+        ))}
+      </ul>
+      {!correct && (
+        <button
+          className="module-checks-run-btn"
+          disabled={!selected}
+          onClick={handleSubmit}
+        >
+          Submit
+        </button>
+      )}
+      {wrong && <p className="fga-quiz-feedback fga-quiz-feedback--wrong">Incorrect — review the authorization model and try again.</p>}
+      {correct && <p className="fga-quiz-feedback fga-quiz-feedback--correct">Correct. Department-membership inheritance is the key FGA concept in this module.</p>}
+    </div>
+  );
+}
+
 export function ModuleChecks({ moduleId, onComplete }) {
   const [state, setState] = useState("idle"); // idle | running | done
   const [checks, setChecks] = useState([]);
   const [allPassed, setAllPassed] = useState(false);
   const { isAuthenticated, getAccessTokenSilently } = useAuth0Safe();
   const { audience } = useRuntimeConfigSafe();
+
+  if (moduleId === "05") {
+    return <FGAQuiz onPass={() => { if (onComplete) onComplete("05"); }} />;
+  }
 
   async function handleRun() {
     setState("running");

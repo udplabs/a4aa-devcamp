@@ -495,6 +495,39 @@ app.get("/api/verify/module04", async (req, res) => {
         ? `Guardian push channel active (channels: ${channels.join(", ")})`
         : `Guardian push not enabled — open ${cibaApp.name || "docagent-ciba"} → Notification Channels → enable Guardian Push → Save`,
     });
+
+    // Check that the demo user (alice) is enrolled in Guardian push MFA.
+    // CIBA push notifications only fire to enrolled devices.
+    try {
+      const usersR = await fetch(
+        `https://${ctx.domain}/api/v2/users-by-email?email=alice%40docagent.demo`,
+        { headers: { Authorization: `Bearer ${ctx.token}` } }
+      );
+      const users = await usersR.json();
+      const alice = Array.isArray(users) && users[0];
+      if (alice) {
+        const enrollR = await fetch(
+          `https://${ctx.domain}/api/v2/users/${encodeURIComponent(alice.user_id)}/enrollments`,
+          { headers: { Authorization: `Bearer ${ctx.token}` } }
+        );
+        const enrollments = await enrollR.json();
+        const guardianEnrollment = Array.isArray(enrollments) &&
+          enrollments.find((e) => e.type === "guardian" && e.status === "confirmed");
+        checks.push({
+          id: "ciba_guardian_enrollment",
+          name: "alice@docagent.demo enrolled in Guardian push",
+          pass: !!guardianEnrollment,
+          message: guardianEnrollment
+            ? `Guardian push enrollment confirmed (${guardianEnrollment.name || guardianEnrollment.identifier || "device"})`
+            : "alice@docagent.demo has no confirmed Guardian enrollment — log in as alice and enroll the Guardian app when prompted for MFA",
+        });
+      } else {
+        checks.push({ id: "ciba_guardian_enrollment", name: "alice@docagent.demo enrolled in Guardian push", pass: false,
+          message: "alice@docagent.demo not found — re-provision resources" });
+      }
+    } catch (e) {
+      checks.push({ id: "ciba_guardian_enrollment", name: "alice@docagent.demo enrolled in Guardian push", pass: false, message: e.message });
+    }
   } catch (e) {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false, message: e.message });
   }

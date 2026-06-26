@@ -52,6 +52,47 @@ type document
     define can_share: owner or editor
 ```
 
+### The SDK operations
+
+All three FGA operations use the `@openfga/sdk` client initialized with the tenant's FGA store and credentials. The object format is always `type:id` and the user format is always `user:auth0_sub`.
+
+**Write a tuple (grant access)**
+
+```js
+await fgaClient.write({
+  writes: [
+    { user: "user:auth0|abc123", relation: "editor", object: "document:q3-roadmap" },
+  ],
+});
+```
+
+`writes` is an array so multiple tuples can be created in one call. Writing a tuple that already exists is silently ignored.
+
+**Check a relationship (authorization decision)**
+
+```js
+const { allowed } = await fgaClient.check({
+  user: "user:auth0|abc123",
+  relation: "can_read",
+  object: "document:q3-roadmap",
+});
+// allowed: true | false
+```
+
+`can_read` is a computed relation — the store evaluates it against all direct and inherited paths in the model (owner, editor, viewer, department member). The call is point-in-time and non-caching.
+
+**Delete a tuple (revoke access)**
+
+```js
+await fgaClient.write({
+  deletes: [
+    { user: "user:auth0|abc123", relation: "editor", object: "document:q3-roadmap" },
+  ],
+});
+```
+
+`writes` and `deletes` can appear in the same call for atomic grant-and-revoke operations.
+
 ### The seeded relationships
 
 All demo users are seeded as **viewer** on `document:handbook` and `document:security-policy` (all-company public docs). The table shows the additional tuples that differentiate alice and bob:
