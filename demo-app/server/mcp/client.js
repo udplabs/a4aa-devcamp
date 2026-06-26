@@ -86,6 +86,7 @@ export class MCPClient {
     console.log("[MCP Client] Exchanging user token for MCP-scoped token...");
     console.log("[MCP Client] Exchange params: domain=%s audience=%s clientId=%s subjectToken(last16)=%s",
       cfg.auth0Domain, cfg.audience, cfg.clientId, userAccessToken?.slice(-16));
+    console.log("[MCP Client] Subject token (full):", userAccessToken);
 
     // Lab 05 -- On-Behalf-Of token exchange.
     // The `audience` and `resource` parameters both name the MCP
