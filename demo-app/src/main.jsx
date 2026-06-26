@@ -7,6 +7,7 @@ import { SetupBanner } from "./components/SetupBanner";
 import { ProvisionPanel } from "./components/ProvisionPanel";
 import { Module01Panel } from "./components/Module01Panel";
 import { RestartLabButton } from "./components/RestartLabButton";
+import { ProgressTracker } from "./components/ProgressTracker";
 import "./styles/index.css";
 import "./styles/lab-guide.css";
 
@@ -70,5 +71,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       </RuntimeConfigProvider>
     </ConfigGate>
     <RestartLabButton />
+    <ProgressTracker />
   </React.StrictMode>
 );

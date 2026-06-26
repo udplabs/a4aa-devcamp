@@ -5,7 +5,6 @@ import { MCPStatus } from "./components/MCPStatus";
 import { ToolLogs } from "./components/ToolLogs";
 import { ToolTester } from "./components/ToolTester";
 import { LoginScreen } from "./components/LoginScreen";
-import { ProgressTracker } from "./components/ProgressTracker";
 
 const TABS = [
   { id: "chat",   label: "Chat" },
@@ -32,13 +31,13 @@ export default function App() {
   }
 
   // Lab 01 -- unauthenticated users land on the login screen.
+  // ProgressTracker renders outside the auth gate so it's visible from Module 01 onwards.
   if (!isAuthenticated) {
     return <LoginScreen />;
   }
 
   return (
     <div className="app">
-      <ProgressTracker />
       <header className="app-header">
         <h1>Nexus</h1>
         <div className="user-info">

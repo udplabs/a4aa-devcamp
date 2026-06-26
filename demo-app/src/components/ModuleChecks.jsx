@@ -82,12 +82,32 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
   }
 }
 
+// Safe wrappers — these hooks throw when called outside their provider trees,
+// which happens when ModuleChecks renders during setup (Module01Panel).
+function useAuth0Safe() {
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useAuth0();
+  } catch {
+    return { isAuthenticated: false, getAccessTokenSilently: null };
+  }
+}
+
+function useRuntimeConfigSafe() {
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useRuntimeConfig();
+  } catch {
+    return { audience: "" };
+  }
+}
+
 export function ModuleChecks({ moduleId, onComplete }) {
   const [state, setState] = useState("idle"); // idle | running | done
   const [checks, setChecks] = useState([]);
   const [allPassed, setAllPassed] = useState(false);
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
-  const { audience } = useRuntimeConfig();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0Safe();
+  const { audience } = useRuntimeConfigSafe();
 
   async function handleRun() {
     setState("running");
