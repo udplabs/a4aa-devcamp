@@ -326,6 +326,14 @@ async function executeToolLogic(name, args, userSub, tenant, userAccessToken) {
   }
 }
 
+// express-oauth2-jwt-bearer sets err.status = 401 on auth failures.
+// Without this handler Express would fall back to a 500, breaking the
+// Module 01 check that expects a clean 401 from /mcp/tools.
+app.use((err, req, res, _next) => {
+  const status = err.status || 500;
+  res.status(status).json({ error: err.message || "Internal server error" });
+});
+
 export async function startMCPServer() {
   const preferredPort = parseInt(process.env.MCP_SERVER_PORT || "3001");
   const port = await findAvailablePort(preferredPort, "MCP Server");

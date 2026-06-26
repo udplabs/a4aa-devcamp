@@ -238,13 +238,15 @@ app.get("/api/verify/module01", async (req, res) => {
   // Derive the public CIMD URL from the incoming request's forwarded host,
   // swapping the API port for the MCP port. This matches what Auth0 sees
   // when the participant imports the metadata URL in the Dashboard.
-  const apiPort = String(PORT);
   const mcpPortStr = String(mcpPort);
   const reqProto = req.headers["x-forwarded-proto"] || req.protocol || "http";
   const reqHost  = req.headers["x-forwarded-host"]  || req.headers.host || `localhost:${mcpPort}`;
+  // Replace whatever port is in the host with the MCP port — the x-forwarded-host
+  // carries the browser-facing port (e.g. 5173 for Vite, or 3000 for the API direct),
+  // but the CIMD URL that was registered in Auth0 uses the MCP port.
   const publicMcpHost = reqHost.includes(".app.github.dev")
-    ? reqHost.replace(new RegExp(`-${apiPort}(\\.app\\.github\\.dev)$`), `-${mcpPortStr}$1`)
-    : reqHost.replace(new RegExp(`:${apiPort}$`), `:${mcpPortStr}`);
+    ? reqHost.replace(/-\d+(\.app\.github\.dev)$/, `-${mcpPortStr}$1`)
+    : reqHost.replace(/:\d+$/, `:${mcpPortStr}`);
   const publicCimdUrl = `${reqProto}://${publicMcpHost}/.well-known/client-metadata`;
 
   // 1. CIMD metadata document (verify endpoint is responding locally)
