@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+const OBO_CREDS_SNIPPET = "AUTH0_OBO_CLIENT_ID=\nAUTH0_OBO_CLIENT_SECRET=";
+
 function deriveCimdUrl() {
   const origin = window.location.origin;
   // GitHub Codespace: swap the frontend port for the MCP server port (3001)
@@ -12,7 +14,8 @@ function deriveCimdUrl() {
 }
 
 export function Module01Panel({ onReady }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedCimd, setCopiedCimd] = useState(false);
+  const [copiedCreds, setCopiedCreds] = useState(false);
   const cimdUrl = deriveCimdUrl();
 
   useEffect(() => {
@@ -33,8 +36,14 @@ export function Module01Panel({ onReady }) {
 
   function copyCimdUrl() {
     navigator.clipboard.writeText(cimdUrl).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedCimd(true);
+    setTimeout(() => setCopiedCimd(false), 2000);
+  }
+
+  function copyCreds() {
+    navigator.clipboard.writeText(OBO_CREDS_SNIPPET).catch(() => {});
+    setCopiedCreds(true);
+    setTimeout(() => setCopiedCreds(false), 2000);
   }
 
   return (
@@ -73,7 +82,7 @@ export function Module01Panel({ onReady }) {
                 <div className="setup-code-block" style={{ marginTop: "8px" }}>
                   <code>{cimdUrl}</code>
                   <button className="setup-copy-btn" onClick={copyCimdUrl}>
-                    {copied ? "Copied" : "Copy"}
+                    {copiedCimd ? "Copied" : "Copy"}
                   </button>
                 </div>
               </li>
@@ -93,14 +102,14 @@ export function Module01Panel({ onReady }) {
           <li>
             <strong>Add credentials to <code>.env</code></strong>
             <ul>
-              <li>Copy the client ID and secret from the application settings</li>
+              <li>Copy the Client ID and Client Secret from the application settings</li>
               <li>
-                Add to <code>demo-app/.env</code>:
+                Add these keys to <code>demo-app/.env</code> and fill in the values:
                 <div className="setup-code-block" style={{ marginTop: "8px" }}>
-                  <code>
-                    AUTH0_CLIENT_ID_M2M=&lt;client-id&gt;{"\n"}
-                    AUTH0_CLIENT_SECRET_M2M=&lt;client-secret&gt;
-                  </code>
+                  <code>{OBO_CREDS_SNIPPET}</code>
+                  <button className="setup-copy-btn" onClick={copyCreds}>
+                    {copiedCreds ? "Copied" : "Copy keys"}
+                  </button>
                 </div>
               </li>
             </ul>

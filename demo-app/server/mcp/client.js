@@ -60,12 +60,12 @@ export class MCPClient {
         audience: tenant.mcpAudience || this.config.audience,
       };
     }
-    // Local path: AUTH0_CLIENT_ID_M2M and AUTH0_CLIENT_SECRET_M2M are
+    // Local path: AUTH0_OBO_CLIENT_ID and AUTH0_OBO_CLIENT_SECRET are
     // set manually in Module 01 after the participant creates the M2M
     // confidential client from the MCP API resource server screen.
     if (!this.config.clientId) {
       console.warn(
-        "[MCP Client] AUTH0_CLIENT_ID_M2M is not set. " +
+        "[MCP Client] AUTH0_OBO_CLIENT_ID is not set. " +
         "Complete Module 01 to create the M2M client from the " +
         "devcamp-mcp-server API screen and add credentials to .env."
       );
@@ -177,8 +177,8 @@ export function createMCPClient() {
   return new MCPClient({
     serverUrl: `http://localhost:${process.env.MCP_SERVER_PORT || 3001}`,
     auth0Domain: process.env.AUTH0_DOMAIN,
-    clientId: process.env.AUTH0_CLIENT_ID_M2M,
-    clientSecret: process.env.AUTH0_CLIENT_SECRET_M2M,
+    clientId: process.env.AUTH0_OBO_CLIENT_ID,
+    clientSecret: process.env.AUTH0_OBO_CLIENT_SECRET,
     audience: process.env.MCP_AUTH0_AUDIENCE,
   });
 }

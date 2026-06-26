@@ -138,8 +138,8 @@ The OBO exchange requires a confidential **Custom API client** (`app_type: resou
 From the `docagent-mcp-m2m` application settings, copy the **Client ID** and **Client Secret**. Open `demo-app/.env` and add:
 
 ```
-AUTH0_CLIENT_ID_M2M=<client-id-from-dashboard>
-AUTH0_CLIENT_SECRET_M2M=<client-secret-from-dashboard>
+AUTH0_OBO_CLIENT_ID=<client-id-from-dashboard>
+AUTH0_OBO_CLIENT_SECRET=<client-secret-from-dashboard>
 ```
 
 **Step 4: Restart the app**

@@ -29,7 +29,7 @@ import { tenantResolver } from "./platform/tenantResolver.js";
 
 const PROVISIONED_ENV_KEYS = [
   "VITE_AUTH0_CLIENT_ID", "AUTH0_AUDIENCE", "MCP_AUTH0_AUDIENCE",
-  "AUTH0_CLIENT_ID_M2M", "AUTH0_CLIENT_SECRET_M2M",
+  "AUTH0_OBO_CLIENT_ID", "AUTH0_OBO_CLIENT_SECRET",
   "AUTH0_CIBA_CLIENT_ID", "AUTH0_CIBA_CLIENT_SECRET",
   "VAULT_CONN_CRM", "FGA_STORE_ID", "FGA_MODEL_ID",
 ];
@@ -116,7 +116,7 @@ app.get("/api/setup/status", (_req, res) => {
   res.json({
     hasBaseConfig: !!(process.env.AUTH0_DOMAIN && process.env.AUTH0_MGMT_CLIENT_ID),
     isProvisioned: !!(process.env.VITE_AUTH0_CLIENT_ID),
-    hasMCPConfig:  !!(process.env.AUTH0_CLIENT_ID_M2M && process.env.AUTH0_CLIENT_SECRET_M2M),
+    hasMCPConfig:  !!(process.env.AUTH0_OBO_CLIENT_ID && process.env.AUTH0_OBO_CLIENT_SECRET),
   });
 });
 

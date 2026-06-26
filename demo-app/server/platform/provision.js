@@ -185,7 +185,7 @@ export async function runProvision(
 // clients first (so grants are removed), then connections, then resource servers.
 export async function runDeprovision(ctx) {
   const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
-  const m2mClientId = process.env.AUTH0_CLIENT_ID_M2M;
+  const m2mClientId = process.env.AUTH0_OBO_CLIENT_ID;
   const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
   const crmConnName = process.env.VAULT_CONN_CRM;
   const fgaStoreId = process.env.FGA_STORE_ID;
@@ -209,8 +209,8 @@ export function deploymentDataToEnvVars(dd) {
   if (dd.spa_client_id) vars.VITE_AUTH0_CLIENT_ID = dd.spa_client_id;
   if (dd.backend_audience) vars.AUTH0_AUDIENCE = dd.backend_audience;
   if (dd.mcp_audience) vars.MCP_AUTH0_AUDIENCE = dd.mcp_audience;
-  if (dd.m2m_client_id) vars.AUTH0_CLIENT_ID_M2M = dd.m2m_client_id;
-  if (dd.m2m_client_secret) vars.AUTH0_CLIENT_SECRET_M2M = dd.m2m_client_secret;
+  if (dd.m2m_client_id) vars.AUTH0_OBO_CLIENT_ID = dd.m2m_client_id;
+  if (dd.m2m_client_secret) vars.AUTH0_OBO_CLIENT_SECRET = dd.m2m_client_secret;
   if (dd.ciba_client_id) vars.AUTH0_CIBA_CLIENT_ID = dd.ciba_client_id;
   if (dd.ciba_client_secret) vars.AUTH0_CIBA_CLIENT_SECRET = dd.ciba_client_secret;
   if (dd.vault_connections?.crm) vars.VAULT_CONN_CRM = dd.vault_connections.crm;
