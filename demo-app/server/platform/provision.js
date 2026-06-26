@@ -21,6 +21,9 @@ import {
   deleteClient,
   deleteConnectionByName,
   deleteResourceServerByIdentifier,
+  createDemoUser,
+  deleteDemoUser,
+  deleteCimdApp,
 } from "./auth0Management.js";
 import { provisionFgaStore, deleteFgaStore, fgaSettingsFromEnvOrRecord } from "./fgaProvision.js";
 
@@ -146,7 +149,26 @@ export async function runProvision(
   );
   if (crmName) vault_connections.crm = crmName;
 
-  // 6. FGA store + model (optional; only if FGA credentials are provided)
+  // 6. Demo users — alice (engineering access) and bob (all-company only).
+  // Password is shown in the lab guide; email_verified is set so they can
+  // log in immediately without an invitation email.
+  const DEMO_PASSWORD = process.env.DEMO_USER_PASSWORD || "DevCamp1!";
+  await safe("demo user alice", () =>
+    createDemoUser(ctx, {
+      email: "alice@docagent.demo",
+      password: DEMO_PASSWORD,
+      name: "Alice (Engineering)",
+    })
+  );
+  await safe("demo user bob", () =>
+    createDemoUser(ctx, {
+      email: "bob@docagent.demo",
+      password: DEMO_PASSWORD,
+      name: "Bob (All-Company)",
+    })
+  );
+
+  // 7. FGA store + model (optional; only if FGA credentials are provided)
   let fga = null;
   if (fgaSettings) {
     fga = await safe("fga store", () => provisionFgaStore(fgaSettings, demoName));
@@ -191,11 +213,14 @@ export async function runDeprovision(ctx) {
   const fgaStoreId = process.env.FGA_STORE_ID;
 
   if (spaClientId) await safe("del spa client", () => deleteClient(ctx, spaClientId));
-  if (m2mClientId) await safe("del m2m client", () => deleteClient(ctx, m2mClientId));
+  if (m2mClientId) await safe("del obo m2m client", () => deleteClient(ctx, m2mClientId));
   if (cibaClientId) await safe("del ciba client", () => deleteClient(ctx, cibaClientId));
+  await safe("del cimd app", () => deleteCimdApp(ctx));
   if (crmConnName) await safe("del crm connection", () => deleteConnectionByName(ctx, crmConnName));
   await safe("del backend api", () => deleteResourceServerByIdentifier(ctx, BACKEND_API_IDENTIFIER));
   await safe("del mcp api", () => deleteResourceServerByIdentifier(ctx, MCP_API_IDENTIFIER));
+  await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
+  await safe("del demo user bob",   () => deleteDemoUser(ctx, "bob@docagent.demo"));
   if (fgaStoreId) {
     const fgaSettings = fgaSettingsFromEnvOrRecord({});
     if (fgaSettings) await safe("del fga store", () => deleteFgaStore(fgaSettings, fgaStoreId));

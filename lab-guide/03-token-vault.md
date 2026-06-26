@@ -110,14 +110,16 @@ The `userId: userSub` in the request body is the user's Auth0 subject, so the CR
 
 ## Checkpoint
 
-> [!IMPORTANT]
-> Confirm each of the following before moving on:
->
-> 1. Log in and send any non-CRM message first (e.g. *"Find the Q3 roadmap"*). This seeds the in-memory CRM credential on your first tool call, so `log_crm_activity` works immediately without needing to enable Token Vault yet.
-> 2. In the chat, send: *"Log that I viewed the Q3 roadmap in the CRM."* The response confirms the activity was logged with an activity ID.
-> 3. **Enable Token Vault** on the CRM connection in the Dashboard (step above). Send the same message again. This time the server log shows `[Token Vault] (live) federated token for …` instead of the seeded mock.
-> 4. Confirm the CRM requires authentication: `curl -H "Authorization: Bearer bogus123" http://localhost:3002/crm/activities` → `401 { "error": "Invalid or expired CRM access token" }`.
-> 5. The `userId` in the CRM activity record matches the Auth0 `sub` of the logged-in user — not a service account.
+Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
+
+Before running checks, complete the interactive steps:
+
+1. Log in and send any non-CRM message first (e.g. *"Find the Q3 roadmap"*). This seeds the in-memory CRM credential.
+2. Send: *"Log that I viewed the Q3 roadmap in the CRM."* The response includes a logged activity ID.
+3. Enable Token Vault on the CRM connection in the Dashboard, then send the same message again. The server log switches from the seeded mock to `[Token Vault] (live) federated token for …`.
+
+> [!TIP]
+> The `userId` in the CRM activity record should match the Auth0 `sub` of the logged-in user — not a service account. That's the confirmation the credential is scoped per-user.
 
 ## What you learned
 

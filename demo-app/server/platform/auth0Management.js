@@ -111,6 +111,44 @@ export async function deleteClient(ctx, clientId) {
   await mgmt(ctx, "DELETE", `/clients/${clientId}`);
 }
 
+// ---- Demo users -------------------------------------------------
+
+export async function createDemoUser(ctx, { email, password, name }) {
+  const existing = await mgmt(ctx, "GET", `/users-by-email?email=${encodeURIComponent(email)}`);
+  if (existing?.length > 0) {
+    console.log(`[provision] user ${email} already exists, skipping`);
+    return existing[0];
+  }
+  const user = await mgmt(ctx, "POST", "/users", {
+    email,
+    password,
+    name,
+    connection: "Username-Password-Authentication",
+    email_verified: true,
+  });
+  console.log(`[provision] created demo user: ${email}`);
+  return user;
+}
+
+export async function deleteDemoUser(ctx, email) {
+  const users = await mgmt(ctx, "GET", `/users-by-email?email=${encodeURIComponent(email)}`).catch(() => []);
+  for (const u of users || []) {
+    await mgmt(ctx, "DELETE", `/users/${u.user_id}`);
+    console.log(`[provision] deleted demo user: ${email}`);
+  }
+}
+
+// Find and delete any CIMD native app registered for this lab by name.
+// The client_id is a URL so we look it up by client_name instead.
+export async function deleteCimdApp(ctx) {
+  const clients = await mgmt(ctx, "GET", "/clients?fields=client_id,name&page=0&per_page=100").catch(() => []);
+  const cimd = (clients || []).find(c => c.name === "Nexus Agent (DevCamp)");
+  if (cimd) {
+    await mgmt(ctx, "DELETE", `/clients/${encodeURIComponent(cimd.client_id)}`);
+    console.log(`[provision] deleted CIMD app: ${cimd.client_id}`);
+  }
+}
+
 // Authorize a client (by client_id) to request tokens for an API.
 // Pass subject_type: "user" for user-delegated (OBO) grants.
 export async function grantClientToApi(ctx, clientId, audience, scopes, opts = {}) {

@@ -1476,3 +1476,89 @@ body {
   color: #6E5A8A;
   margin-bottom: 20px;
 }
+
+/* ---- Restart Lab floating button -------------------------------- */
+
+.restart-lab-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 9999;
+}
+
+.restart-lab-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #1F132C;
+  border: 1px solid #3A2856;
+  color: #6E5A8A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+
+.restart-lab-btn:hover {
+  background: #2A1A3E;
+  border-color: #6E5A8A;
+  color: #BFA9D6;
+}
+
+.restart-lab-btn.restarting {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.restart-lab-confirm {
+  background: #1F132C;
+  border: 1px solid #3A2856;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 220px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.restart-lab-confirm span {
+  font-size: 13px;
+  color: #BFA9D6;
+  line-height: 1.5;
+}
+
+.restart-lab-confirm-yes {
+  padding: 8px 14px;
+  background: #7C3AED;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.restart-lab-confirm-yes:hover { background: #6D28D9; }
+
+.restart-lab-confirm-no {
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid #3A2856;
+  border-radius: 6px;
+  color: #6E5A8A;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.restart-lab-confirm-no:hover {
+  border-color: #6E5A8A;
+  color: #BFA9D6;
+}

@@ -33,7 +33,7 @@ When you clicked **Provision Resources**, the app created everything Nexus needs
   - `alice@docagent.demo` — engineering team member, can read and share engineering documents
   - `bob@docagent.demo` — all-company access only, denied on engineering, HR, and executive documents
   
-  Their passwords are in the **Demo Users** section of your Launch Pad.
+  Both use the password **`DevCamp1!`**
 
 The SPA pulls its Auth0 domain, client ID, and audience at runtime from `GET /api/config`, so the same build works for your tenant. There are no `VITE_AUTH0_*` values for you to copy.
 
@@ -181,17 +181,14 @@ There is no mock `anonymous` user: a request without a valid token never reaches
 
 ## Checkpoint
 
-> [!IMPORTANT]
-> Confirm each of the following before moving on:
->
-> - If you are not already logged in from Module 01, click **Sign In** — it should take you to Auth0 Universal Login and back.
-> - The header shows `alice@docagent.demo` and a Log Out button.
-> - Open the browser Network tab and send a chat message — confirm `Authorization: Bearer eyJ...` appears on `/api/chat`.
-> - The backend terminal shows `Authenticated request from user: auth0|...` for the `sub` value.
-> - Requests without a token return `401 Unauthorized` (confirm by running `curl -X POST http://localhost:3000/api/chat -H "Content-Type: application/json" -d '{}'` with no auth header).
+Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms:
+
+- You are logged in as `alice@docagent.demo`.
+- The access token includes the Nexus API audience (`https://devcamp-docagent-api`).
+- The token carries the `chat:send` scope.
 
 > [!TIP]
-> Decode the JWT at [jwt.io](https://jwt.io). Confirm `aud` contains `https://devcamp-docagent-api` and `scope` contains `chat:send`.
+> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the `aud`, `sub`, and `scope` claims directly. The backend terminal shows `Authenticated request from user: auth0|...` on every chat call — the `sub` there matches the `sub` in the token.
 
 ## What you learned
 

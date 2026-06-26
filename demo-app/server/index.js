@@ -184,10 +184,193 @@ app.post("/api/setup/deprovision", async (req, res) => {
   }
 });
 
+// Restart lab -- deletes Auth0 resources (best effort) and clears ALL managed
+// env keys including base config, returning the app to the initial SetupBanner state.
+app.post("/api/setup/restart", async (req, res) => {
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
+  const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
+  if (domain && clientId && secret) {
+    try {
+      const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
+      await runDeprovision(ctx);
+    } catch (err) {
+      // Best effort — log but don't fail the restart
+      console.error("[restart] deprovision failed (continuing):", err.message);
+    }
+  }
+  clearEnvKeys([
+    "AUTH0_DOMAIN", "AUTH0_MGMT_CLIENT_ID", "AUTH0_MGMT_CLIENT_SECRET",
+    ...PROVISIONED_ENV_KEYS,
+  ]);
+  res.json({ ok: true });
+});
+
 // CIMD: client metadata document. The URL of this endpoint IS the
 // agent's client_id — self-referential per the CIMD spec.
 app.get("/.well-known/client-metadata", (req, res) => {
   res.json(getClientMetadata(req));
+});
+
+// ---- Module verification endpoints ----------------------------------
+// Each endpoint runs the setup checks for a module and returns
+// { checks: [{ id, name, pass, message }] }. Used by the in-app
+// ModuleChecks component so participants never need to run curl.
+
+app.get("/api/verify/module01", async (req, res) => {
+  const mcpPort = process.env.MCP_SERVER_PORT || 3001;
+  const mcpBase = `http://localhost:${mcpPort}`;
+  const checks = [];
+
+  // 1. CIMD metadata document
+  try {
+    const r = await fetch(`${mcpBase}/.well-known/client-metadata`);
+    const body = await r.json();
+    const isUrl = typeof body.client_id === "string" && body.client_id.startsWith("http");
+    checks.push({ id: "cimd", name: "CIMD identity document", pass: isUrl,
+      message: isUrl ? `client_id: ${body.client_id}` : "client_id is not a URL" });
+  } catch (e) {
+    checks.push({ id: "cimd", name: "CIMD identity document", pass: false, message: e.message });
+  }
+
+  // 2. Protected Resource Metadata
+  try {
+    const r = await fetch(`${mcpBase}/.well-known/oauth-protected-resource`);
+    const body = await r.json();
+    const ok = !!(body.resource && body.authorization_servers && body.scopes_supported);
+    checks.push({ id: "prm", name: "Protected Resource Metadata (RFC 9728)", pass: ok,
+      message: ok ? "resource, authorization_servers, scopes_supported present" : "missing required fields" });
+  } catch (e) {
+    checks.push({ id: "prm", name: "Protected Resource Metadata (RFC 9728)", pass: false, message: e.message });
+  }
+
+  // 3. Authorization Server Metadata
+  try {
+    const r = await fetch(`${mcpBase}/.well-known/oauth-authorization-server`);
+    const body = await r.json();
+    const hasTokenExchange = body.grant_types_supported?.includes("urn:ietf:params:oauth:grant-type:token-exchange");
+    checks.push({ id: "as_meta", name: "Authorization Server Metadata (RFC 8414)", pass: !!(body.issuer && hasTokenExchange),
+      message: body.issuer ? "issuer and token-exchange grant present" : "missing issuer or token-exchange grant" });
+  } catch (e) {
+    checks.push({ id: "as_meta", name: "Authorization Server Metadata (RFC 8414)", pass: false, message: e.message });
+  }
+
+  // 4. MCP tools returns 401 without bearer
+  try {
+    const r = await fetch(`${mcpBase}/mcp/tools`);
+    checks.push({ id: "mcp_401", name: "MCP server requires bearer token", pass: r.status === 401,
+      message: r.status === 401 ? "401 Unauthorized (correct)" : `Expected 401, got ${r.status}` });
+  } catch (e) {
+    checks.push({ id: "mcp_401", name: "MCP server requires bearer token", pass: false, message: e.message });
+  }
+
+  // 5. OBO toggle — send a test exchange; expect access_denied not unauthorized_client
+  const domain = process.env.AUTH0_DOMAIN;
+  const oboId = process.env.AUTH0_OBO_CLIENT_ID;
+  const oboSecret = process.env.AUTH0_OBO_CLIENT_SECRET;
+  if (domain && oboId && oboSecret) {
+    try {
+      const r = await fetch(`https://${domain}/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: "test",
+          subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          audience: process.env.MCP_AUTH0_AUDIENCE || "https://devcamp-mcp-server",
+          resource: process.env.MCP_AUTH0_AUDIENCE || "https://devcamp-mcp-server",
+          client_id: oboId,
+          client_secret: oboSecret,
+        }),
+      });
+      const body = await r.json();
+      const toggled = body.error !== "unauthorized_client";
+      checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
+        message: toggled ? `Auth0 accepted the grant (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-m2m" });
+    } catch (e) {
+      checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false, message: e.message });
+    }
+  } else {
+    checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false,
+      message: "AUTH0_OBO_CLIENT_ID or AUTH0_OBO_CLIENT_SECRET not set in .env" });
+  }
+
+  res.json({ module: "01", checks, allPassed: checks.every((c) => c.pass) });
+});
+
+app.get("/api/verify/module03", async (req, res) => {
+  const checks = [];
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
+  const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
+  const crmConn = process.env.VAULT_CONN_CRM;
+
+  if (!domain || !clientId || !secret || !crmConn) {
+    checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: false,
+      message: "Management credentials or CRM connection name not set" });
+    return res.json({ module: "03", checks, allPassed: false });
+  }
+
+  try {
+    const { getManagementToken } = await import("./platform/auth0Management.js");
+    const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
+    const r = await fetch(`https://${ctx.domain}/api/v2/connections?name=${encodeURIComponent(crmConn)}&fields=options`, {
+      headers: { Authorization: `Bearer ${ctx.token}` },
+    });
+    const data = await r.json();
+    const conn = data?.[0];
+    const enabled = conn?.options?.federated_connections_access_tokens?.active === true ||
+                    conn?.options?.token_vault?.active === true;
+    checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: enabled,
+      message: enabled ? "Store user access tokens is ON" : "Enable Token Vault on the CRM connection in Auth0 Dashboard" });
+  } catch (e) {
+    checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: false, message: e.message });
+  }
+
+  res.json({ module: "03", checks, allPassed: checks.every((c) => c.pass) });
+});
+
+app.get("/api/verify/module04", async (req, res) => {
+  const checks = [];
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
+  const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
+  const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
+
+  if (!domain || !clientId || !secret) {
+    checks.push({ id: "ciba_tenant", name: "CIBA enabled at tenant level", pass: false, message: "Management credentials not set" });
+    return res.json({ module: "04", checks, allPassed: false });
+  }
+
+  try {
+    const { getManagementToken } = await import("./platform/auth0Management.js");
+    const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
+
+    // Check tenant grant types
+    const tr = await fetch(`https://${ctx.domain}/api/v2/tenants/settings`, {
+      headers: { Authorization: `Bearer ${ctx.token}` },
+    });
+    const tenant = await tr.json();
+    const cibaEnabled = tenant?.flags?.enable_ciba === true ||
+                        tenant?.grant_types?.includes("urn:openid:params:grant-type:ciba");
+    checks.push({ id: "ciba_tenant", name: "CIBA enabled at tenant level", pass: !!cibaEnabled,
+      message: cibaEnabled ? "CIBA grant enabled" : "Enable CIBA under Settings → Advanced → Grant Types" });
+
+    // Check CIBA client has the grant
+    if (cibaClientId) {
+      const cr = await fetch(`https://${ctx.domain}/api/v2/clients/${cibaClientId}?fields=grant_types`, {
+        headers: { Authorization: `Bearer ${ctx.token}` },
+      });
+      const cibaApp = await cr.json();
+      const hasGrant = cibaApp?.grant_types?.includes("urn:openid:params:grant-type:ciba");
+      checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: !!hasGrant,
+        message: hasGrant ? "CIBA grant type present on client" : "Enable CIBA on the docagent-ciba application" });
+    }
+  } catch (e) {
+    checks.push({ id: "ciba_tenant", name: "CIBA enabled at tenant level", pass: false, message: e.message });
+  }
+
+  res.json({ module: "04", checks, allPassed: checks.every((c) => c.pass) });
 });
 
 // Resolve the tenant for every /api request from the request

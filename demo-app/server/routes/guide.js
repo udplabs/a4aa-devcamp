@@ -8,17 +8,17 @@ const __dirname = path.dirname(__filename);
 
 const router = Router();
 
-const LABS = [
-  { id: "overview", title: "Overview" },
-  { id: "introduction", title: "Introduction" },
-  { id: "00-prerequisites", title: "Module 00: Prerequisites" },
-  { id: "01-user-authentication", title: "Module 01: User Authentication" },
-  { id: "02-fine-grained-authorization", title: "Module 02: Fine-Grained Authorization" },
-  { id: "03-token-vault", title: "Module 03: Token Vault" },
-  { id: "04-auth-for-mcp", title: "Module 04: Auth for MCP" },
-  { id: "bonus-async-authorization-ciba", title: "Bonus: Async Authorization (CIBA)" },
-  { id: "05-end-to-end", title: "Module 05: End-to-End" },
-  { id: "conclusion", title: "Conclusion" },
+export const LABS = [
+  { id: "overview",                      title: "Overview",                   module: null },
+  { id: "introduction",                  title: "Introduction",               module: null },
+  { id: "00-prerequisites",              title: "Module 00: Prerequisites",   module: "00" },
+  { id: "01-auth-for-mcp",              title: "Module 01: Auth for MCP",    module: "01" },
+  { id: "02-user-authentication",        title: "Module 02: User Auth",       module: "02" },
+  { id: "03-token-vault",               title: "Module 03: Token Vault",     module: "03" },
+  { id: "04-ciba",                       title: "Module 04: CIBA",            module: "04" },
+  { id: "05-fine-grained-authorization", title: "Module 05: FGA",             module: "05" },
+  { id: "06-end-to-end",                title: "Module 06: End-to-End",      module: "06" },
+  { id: "conclusion",                    title: "Conclusion",                 module: null },
 ];
 
 function getLabGuidePath() {
@@ -34,25 +34,21 @@ function getLabGuidePath() {
   return candidates[1];
 }
 
-// List all labs
 router.get("/api/guide", (_req, res) => {
   res.json({ labs: LABS });
 });
 
-// Get a specific lab's markdown content
 router.get("/api/guide/:labId", (req, res) => {
   const { labId } = req.params;
   const lab = LABS.find((l) => l.id === labId);
-  if (!lab) {
-    return res.status(404).json({ error: "Lab not found" });
-  }
+  if (!lab) return res.status(404).json({ error: "Lab not found" });
 
   const guideDir = getLabGuidePath();
   const filePath = path.join(guideDir, `${labId}.md`);
 
   try {
     const content = fs.readFileSync(filePath, "utf-8");
-    res.json({ id: lab.id, title: lab.title, content });
+    res.json({ id: lab.id, title: lab.title, module: lab.module, content });
   } catch {
     res.status(404).json({ error: `Lab guide file not found: ${labId}.md` });
   }

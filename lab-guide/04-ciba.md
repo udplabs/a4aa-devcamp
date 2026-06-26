@@ -208,17 +208,18 @@ app.get("/api/ciba/pending", (_req, res) => {
 
 ## Checkpoint
 
-> [!IMPORTANT]
-> Confirm each of the following before moving on:
->
-> 1. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."*
-> 2. The response should include a **Device Approval Required** card showing `Nexus: share "Q3 Product Roadmap" with external@partner.com — approve?`. The exact document title in the message comes from the document metadata — you may see slight variation depending on how Nexus extracted the title from your prompt.
-> 3. `curl http://localhost:3000/api/ciba/pending` shows the pending request.
-> 4. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
-> 5. The UI flips; the share executes.
+**Step 1 — Verify setup.** Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms CIBA is enabled at the tenant level and the grant is active on your CIBA client.
+
+**Step 2 — Run the demo scenario.**
+
+1. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."*
+2. The response includes a **Device Approval Required** card: `Nexus: share "Q3 Product Roadmap" with external@partner.com — approve?`
+3. In the terminal, run `curl http://localhost:3000/api/ciba/pending` to see the pending request and copy the `authReqId`.
+4. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`
+5. The UI updates and the share executes.
 
 > [!TIP]
-> The approval window is 300 seconds. You do not need to wait — just note that if you initiate a share and do nothing, `/api/ciba/status/:id` will return `denied` after 5 minutes and the share is silently aborted.
+> The approval window is 300 seconds. If you initiate a share and do nothing, `/api/ciba/status/:id` returns `denied` after 5 minutes and the share is silently aborted.
 
 ## What you learned
 

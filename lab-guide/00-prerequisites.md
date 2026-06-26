@@ -154,11 +154,11 @@ When provisioning completes, the server restarts automatically and the app reloa
 After the reload, you should see the Nexus chat interface. You are now ready to start Module 01.
 
 > [!NOTE]
-> Your Auth0 tenant comes pre-loaded with two demo employees. You will use both throughout the lab to observe access decisions:
+> Provisioning creates two demo employees in your Auth0 tenant. You will use both throughout the lab to observe access decisions:
 > - **`alice@docagent.demo`** — engineering team member with access to engineering documents
 > - **`bob@docagent.demo`** — all-company viewer only, denied on engineering and confidential documents
 >
-> These users exist in your tenant already. Their passwords are shown in the **Demo Users** section of your Launch Pad.
+> Both users are created with the password **`DevCamp1!`**
 
 ## Confirm access to your Auth0 tenant
 

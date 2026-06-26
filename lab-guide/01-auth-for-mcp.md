@@ -168,10 +168,14 @@ app.get("/.well-known/client-metadata", (req, res) => {
   const proto = req.headers["x-forwarded-proto"] || req.protocol;
   const host  = req.headers["x-forwarded-host"]  || req.headers.host;
   const clientId = `${proto}://${host}/.well-known/client-metadata`;
+  const frontendOrigin = /* derived from host, swapping 3001 → 5173 */;
   res.json({
-    client_id: clientId,   // the URL is the identity
+    client_id:   clientId,   // the URL is the identity
     client_name: "Nexus Agent (DevCamp)",
-    allowed_scopes: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"],
+    grant_types: ["authorization_code"],
+    redirect_uris: [frontendOrigin, `${frontendOrigin}/`],
+    token_endpoint_auth_method: "none",
+    scope: "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share",
   });
 });
 ```
@@ -249,23 +253,19 @@ result = await executeTool(toolName, parameters, user.accessToken);
 
 ## Checkpoint
 
+Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms all five conditions automatically:
+
+- The CIMD metadata document is reachable and `client_id` equals the URL itself.
+- The Protected Resource Metadata endpoint returns `resource`, `authorization_servers`, and `scopes_supported`.
+- The AS Metadata endpoint returns `issuer`, `token_endpoint`, the four scopes, and `"metadata"` in `client_registration_types_supported`.
+- An unauthenticated `GET /mcp/tools` returns `401` with a `WWW-Authenticate` header.
+- The On-Behalf-Of Token Exchange toggle is active on your M2M client.
+
 > [!IMPORTANT]
-> Confirm each of the following before moving on:
->
-> 1. `curl https://<your-codespace>-3001.app.github.dev/.well-known/client-metadata` returns JSON where `client_id` is the URL itself.
-> 2. `curl https://<your-codespace>-3001.app.github.dev/.well-known/oauth-protected-resource` returns JSON with `resource`, `authorization_servers`, `scopes_supported`.
-> 3. `curl https://<your-codespace>-3001.app.github.dev/.well-known/oauth-authorization-server` returns JSON with `issuer`, `token_endpoint`, the four scopes, and `"metadata"` in `client_registration_types_supported`.
-> 4. `curl -i https://<your-codespace>-3001.app.github.dev/mcp/tools` without a bearer returns 401 with a `WWW-Authenticate` header.
+> One step requires manual confirmation in the Dashboard: **Applications → Applications → Nexus Agent (DevCamp)**. Confirm the `client_id` shown is the metadata document URL — not an opaque UUID. This confirms the CIMD registration succeeded.
 
-> [!NOTE]
-> Auth0 Universal Login is already wired in the app. Module 02 explains how it works. For now, just click **Log In** and use `alice@docagent.demo` to proceed with steps 5 and 6.
-
-> 5. Log in and send a document search. Confirm the backend log emits:
->    - `[MCP Client] Exchanging user token for MCP-scoped token...`
->    - `[MCP Client] Token exchange successful -- MCP token acquired`
->    - `[MCP Server] Tool call: search_documents, sub=auth0|...`
->    - `[FGA] Check: user:auth0|... can_read document:... -> ALLOWED`
-> 6. In the Auth0 Dashboard, navigate to **Applications → Applications → docagent-mcp-m2m → APIs tab → `devcamp-mcp-server`** and deselect `mcp:docs:share`. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."* A **Device Approval Required** card will appear. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`. After approval, the MCP server should respond with `403 { "error": "Insufficient scope", "required": "mcp:docs:share" }`. Re-enable the scope when done.
+> [!TIP]
+> If a check fails, the result row shows the exact reason. Fix the flagged item and click **Re-run checks**.
 
 ## What you learned
 
