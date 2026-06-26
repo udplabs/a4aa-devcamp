@@ -49,6 +49,21 @@ To enroll your device for the live path:
 > [!NOTE]
 > Self-hosting `starter/`? Create a confidential Regular Web Application, add the `urn:openid:params:grant-type:ciba` grant in **Advanced Settings → Grant Types**, and authorize it against your backend and MCP APIs. The in-memory simulator below covers approval if you skip device enrollment.
 
+## Dashboard Steps
+
+### Enable Guardian push notifications on the CIBA client
+
+The CIBA client is provisioned with email as its notification channel. Enable Guardian push so the in-app approval request can trigger a real device notification.
+
+1. Auth0 Dashboard → **Applications → Applications → docagent-ciba-codespace**
+2. Scroll to **Notification Channels**
+3. Toggle on **Guardian Push** → **Save**
+
+*You should see: Guardian Push listed as an active notification channel.*
+
+> [!NOTE]
+> Guardian push requires the user to be enrolled in Auth0 Guardian MFA. If you skip enrollment the flow still runs via the in-memory approve/deny fallback — the checkpoint verifier only checks that the channel is enabled on the client, not that a device is enrolled.
+
 ## Code Steps
 
 > [!NOTE]

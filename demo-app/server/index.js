@@ -478,13 +478,22 @@ app.get("/api/verify/module04", async (req, res) => {
     const cibaApp = await cr.json();
     const hasGrant = cibaApp?.grant_types?.includes("urn:openid:params:grant-type:ciba");
     const channels = cibaApp?.async_approval_notification_channels || [];
+    const hasPush = channels.includes("push");
     checks.push({
       id: "ciba_client",
       name: "CIBA grant on docagent-ciba application",
       pass: !!hasGrant,
       message: hasGrant
-        ? `CIBA grant present on ${cibaApp.name} (channels: ${channels.join(", ") || "none"})`
+        ? `CIBA grant present on ${cibaApp.name}`
         : `CIBA grant type missing on ${cibaApp.name || cibaClientId} — check provisioning`,
+    });
+    checks.push({
+      id: "ciba_push_channel",
+      name: "Guardian push notification channel enabled",
+      pass: hasPush,
+      message: hasPush
+        ? `Guardian push channel active (channels: ${channels.join(", ")})`
+        : `Guardian push not enabled — open ${cibaApp.name || "docagent-ciba"} → Notification Channels → enable Guardian Push → Save`,
     });
   } catch (e) {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false, message: e.message });
