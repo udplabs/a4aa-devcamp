@@ -5,6 +5,7 @@ import { RuntimeConfigProvider } from "./config/runtimeConfig";
 import App from "./App";
 import { SetupBanner } from "./components/SetupBanner";
 import { ProvisionPanel } from "./components/ProvisionPanel";
+import { Module01Panel } from "./components/Module01Panel";
 import "./styles/index.css";
 import "./styles/lab-guide.css";
 
@@ -19,7 +20,7 @@ function ConfigGate({ children }) {
     fetch("/api/setup/status")
       .then((r) => r.json())
       .then(setSetupStatus)
-      .catch(() => setSetupStatus({ hasBaseConfig: false, isProvisioned: false }));
+      .catch(() => setSetupStatus({ hasBaseConfig: false, isProvisioned: false, hasMCPConfig: false }));
   }, []);
 
   if (!setupStatus) {
@@ -43,6 +44,14 @@ function ConfigGate({ children }) {
     return (
       <ProvisionPanel
         onProvisioned={() => window.location.reload()}
+      />
+    );
+  }
+
+  if (!setupStatus.hasMCPConfig) {
+    return (
+      <Module01Panel
+        onReady={() => window.location.reload()}
       />
     );
   }

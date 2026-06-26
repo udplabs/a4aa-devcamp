@@ -106,12 +106,17 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Setup status -- tells the frontend which of the three states the app is in
-// (unconfigured / configured-but-not-provisioned / ready). No auth required.
+// Setup status -- tells the frontend which setup stage the app is in.
+// Stages (in order):
+//   1. !hasBaseConfig    → SetupBanner   (enter Auth0 credentials)
+//   2. !isProvisioned    → ProvisionPanel (provision Auth0 resources)
+//   3. !hasMCPConfig     → Module01Panel  (complete Module 01 Dashboard steps)
+//   4. ready             → LoginScreen    (authenticate and use the app)
 app.get("/api/setup/status", (_req, res) => {
   res.json({
     hasBaseConfig: !!(process.env.AUTH0_DOMAIN && process.env.AUTH0_MGMT_CLIENT_ID),
     isProvisioned: !!(process.env.VITE_AUTH0_CLIENT_ID),
+    hasMCPConfig:  !!(process.env.AUTH0_CLIENT_ID_M2M && process.env.AUTH0_CLIENT_SECRET_M2M),
   });
 });
 
