@@ -13,8 +13,6 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
         checks: [
           { id: "provisioned", name: "Auth0 resources provisioned", pass: !!d.isProvisioned,
             message: d.isProvisioned ? "Resources provisioned" : "Click Provision Resources to set up Auth0" },
-          { id: "mcp_config", name: "Module 01 credentials set", pass: !!d.hasMCPConfig,
-            message: d.hasMCPConfig ? "AUTH0_OBO_CLIENT_ID and AUTH0_OBO_CLIENT_SECRET are set" : "Complete Module 01 first" },
         ],
       };
     }
@@ -62,11 +60,19 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
     }
 
     case "05": {
-      // FGA is a watched demo — manual confirmation only
       return {
         checks: [
           { id: "observed", name: "FGA demo observed", pass: true,
             message: "Mark as complete when you have run through the demo scenarios" },
+        ],
+      };
+    }
+
+    case "06": {
+      return {
+        checks: [
+          { id: "completed", name: "End-to-end flow completed", pass: true,
+            message: "Mark as complete once you have run the full scenario from login to document share" },
         ],
       };
     }
