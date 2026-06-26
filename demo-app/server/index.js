@@ -362,11 +362,34 @@ app.get("/api/verify/module01", async (req, res) => {
           );
           const grants = await grantsR.json();
           const userGrant = Array.isArray(grants) && grants.find((g) => g.subject_type === "user");
-          const grantScopes = userGrant?.scope || [];
+          let grantScopes = userGrant?.scope || [];
           const required = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
-          const missing = required.filter((s) => !grantScopes.includes(s));
-          const pass = !!userGrant && missing.length === 0;
+          let missing = required.filter((s) => !grantScopes.includes(s));
+          let autoPatched = false;
+
           console.log("[verify/module01] raw user-delegated grant:", JSON.stringify(userGrant));
+
+          // Auth0's "All permissions granted" toggle sets allow_all_scopes: true but leaves
+          // the scope array empty. OBO exchange requires explicit scopes in the grant — patch it.
+          if (missing.length > 0 && userGrant?.allow_all_scopes) {
+            try {
+              const patchR = await fetch(`https://${domain}/api/v2/client-grants/${userGrant.id}`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${mgmtToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ scope: required }),
+              });
+              if (patchR.ok) {
+                grantScopes = required;
+                missing = [];
+                autoPatched = true;
+                console.log("[verify/module01] auto-patched OBO grant with explicit MCP scopes");
+              }
+            } catch (patchErr) {
+              console.error("[verify/module01] failed to patch OBO grant:", patchErr.message);
+            }
+          }
+
+          const pass = !!userGrant && missing.length === 0;
           checks.push({
             id: "obo_user_grant",
             name: "User-delegated grant on docagent-mcp-obo",
@@ -374,8 +397,10 @@ app.get("/api/verify/module01", async (req, res) => {
             message: !userGrant
               ? "Missing user-delegated grant — in Nexus MCP Server API → Applications → docagent-mcp-obo, enable user-delegated access for all mcp:* scopes"
               : missing.length > 0
-                ? `Grant found but missing scopes: ${missing.join(", ")} — raw grant scope: [${grantScopes.join(", ")}]`
-                : `User-delegated access grant exists with all scopes (${grantScopes.join(", ")})`,
+                ? `Grant found but missing scopes: ${missing.join(", ")} — grant scope array is empty (try re-running checks to auto-fix)`
+                : autoPatched
+                  ? `Auto-fixed: OBO grant patched with explicit MCP scopes (Auth0 'All permissions' toggle doesn't populate scope array for OBO exchange)`
+                  : `User-delegated access grant exists with all scopes (${grantScopes.join(", ")})`,
           });
         } catch (e) {
           checks.push({ id: "obo_user_grant", name: "User-delegated grant on docagent-mcp-obo", pass: false, message: e.message });
