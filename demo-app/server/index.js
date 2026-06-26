@@ -222,15 +222,43 @@ app.get("/api/verify/module01", async (req, res) => {
   const mcpBase = `http://localhost:${mcpPort}`;
   const checks = [];
 
-  // 1. CIMD metadata document
+  // 1. CIMD metadata document + Auth0 client registration
+  let cimdUrl = null;
   try {
     const r = await fetch(`${mcpBase}/.well-known/client-metadata`);
     const body = await r.json();
     const isUrl = typeof body.client_id === "string" && body.client_id.startsWith("http");
-    checks.push({ id: "cimd", name: "CIMD identity document", pass: isUrl,
-      message: isUrl ? `client_id: ${body.client_id}` : "client_id is not a URL" });
+    cimdUrl = isUrl ? body.client_id : null;
+    checks.push({ id: "cimd", name: "CIMD identity document reachable", pass: isUrl,
+      message: isUrl ? `client_id: ${body.client_id}` : "client_id is not a URL — is port 3001 public?" });
   } catch (e) {
-    checks.push({ id: "cimd", name: "CIMD identity document", pass: false, message: e.message });
+    checks.push({ id: "cimd", name: "CIMD identity document reachable", pass: false, message: e.message });
+  }
+
+  // 1b. Verify Auth0 has a client registered with the CIMD URL as its client_id
+  const domain = process.env.AUTH0_DOMAIN;
+  const mgmtId = process.env.AUTH0_MGMT_CLIENT_ID;
+  const mgmtSecret = process.env.AUTH0_MGMT_CLIENT_SECRET;
+  if (cimdUrl && domain && mgmtId && mgmtSecret) {
+    try {
+      const { getManagementToken } = await import("./platform/auth0Management.js");
+      const token = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
+      const clientsR = await fetch(
+        `https://${domain}/api/v2/clients?fields=client_id,name&include_fields=true&per_page=100`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const clients = await clientsR.json();
+      const found = Array.isArray(clients) && clients.find((c) => c.client_id === cimdUrl);
+      checks.push({ id: "cimd_registered", name: "CIMD client registered in Auth0", pass: !!found,
+        message: found
+          ? `Found: ${found.name} (${cimdUrl})`
+          : `No Auth0 client with client_id = ${cimdUrl} — import the metadata URL in the Dashboard` });
+    } catch (e) {
+      checks.push({ id: "cimd_registered", name: "CIMD client registered in Auth0", pass: false, message: e.message });
+    }
+  } else if (cimdUrl) {
+    checks.push({ id: "cimd_registered", name: "CIMD client registered in Auth0", pass: false,
+      message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
   }
 
   // 2. Protected Resource Metadata
