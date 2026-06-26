@@ -349,8 +349,7 @@ app.get("/api/verify/module01", async (req, res) => {
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
         message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
 
-      // 5b. Nexus User role must have all four MCP permissions. OBO respects RBAC — if the
-      // user has no permissions for the target API Auth0 blocks the exchange entirely.
+      // 5b. Nexus User role must exist, have all four MCP permissions, and be assigned to demo users.
       if (domain && mgmtId && mgmtSecret) {
         try {
           const { getManagementToken } = await import("./platform/auth0Management.js");
@@ -369,12 +368,21 @@ app.get("/api/verify/module01", async (req, res) => {
             const requiredPerms = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
             const missingPerms = requiredPerms.filter((p) => !mcpPerms.includes(p));
             console.log("[verify/module01] Nexus User role MCP perms:", mcpPerms);
+
+            // Check that demo users are assigned to the role
+            const usersR = await fetch(`https://${domain}/api/v2/roles/${nexusRole.id}/users`, {
+              headers: { Authorization: `Bearer ${mgmtToken}` },
+            });
+            const roleUsers = await usersR.json();
+            const roleUserIds = (roleUsers || []).map((u) => u.user_id);
+            console.log("[verify/module01] Nexus User role assigned to:", roleUserIds);
+
             checks.push({
               id: "nexus_role_perms",
               name: "Nexus User role has MCP permissions",
               pass: missingPerms.length === 0,
               message: missingPerms.length === 0
-                ? `Role has all MCP permissions (${mcpPerms.join(", ")})`
+                ? `Role has all MCP permissions. Assigned to ${roleUserIds.length} user(s): ${roleUserIds.join(", ")}`
                 : `Role missing: ${missingPerms.join(", ")} — re-provision or add these permissions to the Nexus User role`,
             });
           } else {
