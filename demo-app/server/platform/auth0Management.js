@@ -149,6 +149,31 @@ export async function deleteCimdApp(ctx) {
   }
 }
 
+// ---- Roles & permissions ----------------------------------------
+
+export async function createRole(ctx, { name, description }) {
+  const existing = await mgmt(ctx, "GET", `/roles?name_filter=${encodeURIComponent(name)}`);
+  const found = (existing || []).find((r) => r.name === name);
+  if (found) return found;
+  return mgmt(ctx, "POST", "/roles", { name, description });
+}
+
+export async function addPermissionsToRole(ctx, roleId, permissions) {
+  // permissions: [{ resource_server_identifier, permission_name }]
+  await mgmt(ctx, "POST", `/roles/${roleId}/permissions`, { permissions });
+}
+
+export async function assignRoleToUser(ctx, userId, roleId) {
+  await mgmt(ctx, "POST", `/users/${userId}/roles`, { roles: [roleId] });
+}
+
+export async function deleteRoleByName(ctx, name) {
+  const list = await mgmt(ctx, "GET", `/roles?name_filter=${encodeURIComponent(name)}`).catch(() => []);
+  for (const r of list || []) {
+    if (r.name === name) await mgmt(ctx, "DELETE", `/roles/${r.id}`);
+  }
+}
+
 // Authorize a client (by client_id) to request tokens for an API.
 // Pass subject_type: "user" for user-delegated (OBO) grants.
 export async function grantClientToApi(ctx, clientId, audience, scopes, opts = {}) {

@@ -17,6 +17,10 @@ import {
   createClient,
   updateClient,
   grantClientToApi,
+  createRole,
+  addPermissionsToRole,
+  assignRoleToUser,
+  deleteRoleByName,
   createVaultConnection,
   deleteClient,
   deleteConnectionByName,
@@ -168,7 +172,34 @@ export async function runProvision(
     })
   );
 
-  // 7. FGA store + model (optional; only if FGA credentials are provided)
+  // 7. Role: "Nexus User" — grants chat:send on the backend API.
+  // Required because the backend API has RBAC enforced; without this role
+  // the scope is withheld from the token even when the SPA requests it.
+  const nexusRole = await safe("nexus user role", () =>
+    createRole(ctx, { name: "Nexus User", description: "Standard Nexus app access" })
+  );
+  if (nexusRole) {
+    await safe("role permissions", () =>
+      addPermissionsToRole(ctx, nexusRole.id, [
+        { resource_server_identifier: BACKEND_API_IDENTIFIER, permission_name: "chat:send" },
+      ])
+    );
+    for (const email of ["alice@docagent.demo", "bob@docagent.demo"]) {
+      const users = await safe(`lookup ${email}`, () =>
+        fetch(`https://${ctx.domain}/api/v2/users-by-email?email=${encodeURIComponent(email)}`, {
+          headers: { Authorization: `Bearer ${ctx.token}` },
+        }).then((r) => r.json())
+      );
+      const user = Array.isArray(users) ? users[0] : null;
+      if (user) {
+        await safe(`assign role -> ${email}`, () =>
+          assignRoleToUser(ctx, user.user_id, nexusRole.id)
+        );
+      }
+    }
+  }
+
+  // 8. FGA store + model (optional; only if FGA credentials are provided)
   let fga = null;
   if (fgaSettings) {
     fga = await safe("fga store", () => provisionFgaStore(fgaSettings, demoName));
@@ -212,6 +243,7 @@ export async function runDeprovision(ctx) {
   const crmConnName = process.env.VAULT_CONN_CRM;
   const fgaStoreId = process.env.FGA_STORE_ID;
 
+  await safe("del nexus user role", () => deleteRoleByName(ctx, "Nexus User"));
   if (spaClientId) await safe("del spa client", () => deleteClient(ctx, spaClientId));
   if (m2mClientId) await safe("del obo m2m client", () => deleteClient(ctx, m2mClientId));
   if (cibaClientId) await safe("del ciba client", () => deleteClient(ctx, cibaClientId));
