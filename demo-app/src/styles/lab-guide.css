@@ -118,7 +118,6 @@
 .guide-nav-item.active {
   background: #2D1D40;
   color: #9921FE;
-  border-left: 3px solid #9921FE;
   font-weight: 600;
 }
 
@@ -253,7 +252,6 @@
 /* --- GitHub-style alert callouts --- */
 
 .gh-alert {
-  border-left: 4px solid #3A2856;
   border-radius: 6px;
   padding: 12px 16px;
   margin: 16px 0;
@@ -329,7 +327,6 @@
 }
 
 .guide-markdown blockquote {
-  border-left: 3px solid #3A2856;
   margin: 12px 0;
   padding: 4px 16px;
   color: #BFA9D6;

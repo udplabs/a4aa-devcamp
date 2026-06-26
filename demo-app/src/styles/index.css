@@ -9,7 +9,7 @@
 }
 
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "DM Sans", sans-serif;
   background: #14091E;
   color: #FBFBFA;
   height: 100vh;
@@ -411,18 +411,6 @@ body {
   padding: 4px 8px;
   border-radius: 6px;
   background: #1F132C;
-}
-
-.tool-call.success {
-  border-left: 3px solid #34D399;
-}
-
-.tool-call.error {
-  border-left: 3px solid #F87171;
-}
-
-.tool-call.pending_consent {
-  border-left: 3px solid #BC6DFF;
 }
 
 .tool-call-icon {
@@ -957,9 +945,6 @@ body {
   overflow: hidden;
 }
 
-.log-entry--success { border-left: 3px solid #34D399; }
-.log-entry--error   { border-left: 3px solid #F87171; }
-
 .log-entry-header {
   display: flex;
   align-items: center;
@@ -1131,7 +1116,6 @@ body {
   background: #1A0F28;
   border-radius: 8px;
   padding: 10px 12px;
-  border-left: 3px solid #3A2856;
 }
 
 .tester-submit {
@@ -1173,9 +1157,6 @@ body {
   background: #1F132C;
   border: 1px solid #3A2856;
 }
-
-.tester-result-success { border-left: 3px solid #34D399; }
-.tester-result-error   { border-left: 3px solid #F87171; }
 
 .tester-result-icon {
   font-size: 13px;
