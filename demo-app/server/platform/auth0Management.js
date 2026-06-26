@@ -224,6 +224,24 @@ export async function createVaultConnection(ctx, opts) {
   return created.name;
 }
 
+// ---- Guardian / MFA -----------------------------------------
+
+export async function enableGuardianPush(ctx) {
+  await mgmt(ctx, "PUT", "/guardian/factors/push-notification", { enabled: true });
+}
+
+export async function disableGuardianPush(ctx) {
+  await mgmt(ctx, "PUT", "/guardian/factors/push-notification", { enabled: false });
+}
+
+export async function setMfaPolicyAlways(ctx) {
+  await mgmt(ctx, "PUT", "/guardian/policies", ["all-applications"]);
+}
+
+export async function resetMfaPolicy(ctx) {
+  await mgmt(ctx, "PUT", "/guardian/policies", []);
+}
+
 export async function deleteConnectionByName(ctx, name) {
   const list = await mgmt(ctx, "GET", `/connections?name=${encodeURIComponent(name)}`);
   for (const c of list || []) {

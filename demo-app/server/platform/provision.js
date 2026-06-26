@@ -28,6 +28,10 @@ import {
   createDemoUser,
   deleteDemoUser,
   deleteCimdApp,
+  enableGuardianPush,
+  disableGuardianPush,
+  setMfaPolicyAlways,
+  resetMfaPolicy,
 } from "./auth0Management.js";
 import { provisionFgaStore, deleteFgaStore, fgaSettingsFromEnvOrRecord } from "./fgaProvision.js";
 
@@ -198,7 +202,11 @@ export async function runProvision(
     }
   }
 
-  // 8. FGA store + model (optional; only if FGA credentials are provided)
+  // 8. Guardian push + MFA policy — required for CIBA push notifications.
+  await safe("enable guardian push factor", () => enableGuardianPush(ctx));
+  await safe("set mfa policy to always", () => setMfaPolicyAlways(ctx));
+
+  // 9. FGA store + model (optional; only if FGA credentials are provided)
   let fga = null;
   if (fgaSettings) {
     fga = await safe("fga store", () => provisionFgaStore(fgaSettings, demoName));
@@ -252,6 +260,8 @@ export async function runDeprovision(ctx) {
   await safe("del mcp api", () => deleteResourceServerByIdentifier(ctx, MCP_API_IDENTIFIER));
   await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
   await safe("del demo user bob",   () => deleteDemoUser(ctx, "bob@docagent.demo"));
+  await safe("disable guardian push", () => disableGuardianPush(ctx));
+  await safe("reset mfa policy", () => resetMfaPolicy(ctx));
   if (fgaStoreId) {
     const fgaSettings = fgaSettingsFromEnvOrRecord({});
     if (fgaSettings) await safe("del fga store", () => deleteFgaStore(fgaSettings, fgaStoreId));
