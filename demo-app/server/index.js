@@ -356,11 +356,31 @@ app.get("/api/verify/module01", async (req, res) => {
           const { getManagementToken } = await import("./platform/auth0Management.js");
           const { token: mgmtToken } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
           const clientR = await fetch(
-            `https://${domain}/api/v2/clients/${oboId}?fields=resource_server_identifier,grant_types,app_type,token_exchange&include_fields=true`,
+            `https://${domain}/api/v2/clients/${oboId}`,
             { headers: { Authorization: `Bearer ${mgmtToken}` } }
           );
           const clientData = await clientR.json();
-          console.log("[verify/module01] obo client fields:", JSON.stringify(clientData));
+          console.log("[verify/module01] obo client fields:", JSON.stringify({
+            app_type: clientData?.app_type,
+            resource_server_identifier: clientData?.resource_server_identifier,
+            grant_types: clientData?.grant_types,
+            token_exchange: clientData?.token_exchange,
+          }));
+
+          // Try to enable OBO via token_exchange field if not set
+          if (!clientData?.token_exchange?.allow_any_profile_of_type?.includes("on_behalf_of_token_exchange")) {
+            try {
+              const patchCR = await fetch(`https://${domain}/api/v2/clients/${oboId}`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${mgmtToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ token_exchange: { allow_any_profile_of_type: ["on_behalf_of_token_exchange"] } }),
+              });
+              const patchCBody = await patchCR.text();
+              console.log("[verify/module01] patch token_exchange status=%d body=%s", patchCR.status, patchCBody);
+            } catch (patchCErr) {
+              console.error("[verify/module01] failed to patch token_exchange:", patchCErr.message);
+            }
+          }
           const rsId = clientData?.resource_server_identifier;
           const hasRsAssoc = rsId === mcpAudience;
 
