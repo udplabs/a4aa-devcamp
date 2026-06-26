@@ -364,6 +364,8 @@ app.get("/api/verify/module03", async (req, res) => {
   const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
   const crmConn = process.env.VAULT_CONN_CRM;
 
+  const oboClientId = process.env.AUTH0_OBO_CLIENT_ID;
+
   if (!domain || !clientId || !secret || !crmConn) {
     checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: false,
       message: "Management credentials or CRM connection name not set" });
@@ -373,17 +375,51 @@ app.get("/api/verify/module03", async (req, res) => {
   try {
     const { getManagementToken } = await import("./platform/auth0Management.js");
     const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
-    const r = await fetch(`https://${ctx.domain}/api/v2/connections?name=${encodeURIComponent(crmConn)}&fields=options`, {
+
+    // Check 1: CRM connection has Token Vault purpose enabled.
+    const connR = await fetch(`https://${ctx.domain}/api/v2/connections?name=${encodeURIComponent(crmConn)}&fields=options,name`, {
       headers: { Authorization: `Bearer ${ctx.token}` },
     });
-    const data = await r.json();
-    const conn = data?.[0];
-    const enabled = conn?.options?.federated_connections_access_tokens?.active === true ||
-                    conn?.options?.token_vault?.active === true;
-    checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: enabled,
-      message: enabled ? "Store user access tokens is ON" : "Enable Token Vault on the CRM connection in Auth0 Dashboard" });
+    const connData = await connR.json();
+    const opts = connData?.[0]?.options || {};
+    console.log(`[verify/module03] connection options:`, JSON.stringify(opts));
+    // Auth0 may use different field shapes depending on tenant version — check all known ones.
+    const vaultEnabled =
+      opts?.federated_connections_access_tokens?.active === true ||
+      opts?.token_vault?.active === true ||
+      opts?.purpose === "connected_accounts" ||
+      opts?.purpose === "authentication_and_connected_accounts" ||
+      opts?.token_storage === "connected_accounts";
+    checks.push({
+      id: "token_vault_connection",
+      name: "Token Vault enabled on CRM connection",
+      pass: vaultEnabled,
+      message: vaultEnabled
+        ? "CRM connection Purpose is set to Token Vault"
+        : "Open crm-codespace in Auth0 Dashboard → Settings → Purpose → select 'Authentication and Connected Accounts for Token Vault'",
+    });
+
+    // Check 2: docagent-mcp-obo client has the Token Vault grant type.
+    if (oboClientId) {
+      const clientR = await fetch(`https://${ctx.domain}/api/v2/clients/${oboClientId}?fields=grant_types,name`, {
+        headers: { Authorization: `Bearer ${ctx.token}` },
+      });
+      const clientData = await clientR.json();
+      const grants = clientData?.grant_types || [];
+      const hasVaultGrant = grants.includes(
+        "urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token"
+      );
+      checks.push({
+        id: "token_vault_grant",
+        name: "Token Vault grant enabled on docagent-mcp-obo",
+        pass: hasVaultGrant,
+        message: hasVaultGrant
+          ? "Token Vault grant type is active"
+          : "Open docagent-mcp-obo in Auth0 Dashboard → Advanced Settings → Grant Types → check Token Vault",
+      });
+    }
   } catch (e) {
-    checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: false, message: e.message });
+    checks.push({ id: "token_vault_connection", name: "Token Vault enabled on CRM connection", pass: false, message: e.message });
   }
 
   res.json({ module: "03", checks, allPassed: checks.every((c) => c.pass) });

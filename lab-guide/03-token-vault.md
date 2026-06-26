@@ -26,6 +26,8 @@ The commercial consequence: Token Vault removes the bot token management lifecyc
 
 The CREATE hook provisioned a CRM OAuth2 connection on your tenant — it points to the CRM mock running on port 3002 of your Codespace. The provisioning step derived the connection URL from your Codespace's public address, so Auth0 can reach it. Token storage (Token Vault) is **disabled by default** so you experience the exact setting that makes the live exchange possible.
 
+The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client** in Auth0. Custom API Clients have the **Token Vault** grant type enabled by default under Advanced Settings → Grant Types. This means the same client that performs OBO token exchange for the MCP server also performs the Token Vault federated credential exchange for the CRM — no additional client is required.
+
 > [!WARNING]
 > If you restart your Codespace, it gets a new public URL. The CRM connection registered in Auth0 will point to the old URL and the live Token Vault path will fail. To fix this, click **Provision Resources** again from the Nexus setup screen to re-register the connection with the new URL.
 

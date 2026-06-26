@@ -75,7 +75,7 @@ export async function runProvision(
     })
   );
 
-  // 2. M2M confidential client — NOT auto-provisioned.
+  // 2. M2M confidential client (OBO) — NOT auto-provisioned.
   // Participants create this manually in Module 01 from the MCP API
   // resource server screen (APIs → devcamp-mcp-server → Applications).
   // They also register a separate CIMD native app (public) via
@@ -84,7 +84,7 @@ export async function runProvision(
   // establishes the agent's published identity document.
   const m2m = null;
 
-  // 3. SPA client — reconfigure if the platform created one, otherwise create new.
+  // 4. SPA client — reconfigure if the platform created one, otherwise create new.
   const appOrigin = (appUrl || "").replace(/\/$/, "");
   let spa = null;
   if (oidcClientId) {
