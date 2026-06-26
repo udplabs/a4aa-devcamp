@@ -170,13 +170,7 @@ body {
 }
 
 .login-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #9921FE, #BC6DFF);
+  display: none;
 }
 
 .login-card h1 {
@@ -1195,13 +1189,7 @@ body {
 }
 
 .setup-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #9921FE, #BC6DFF);
+  display: none;
 }
 
 .setup-header {
