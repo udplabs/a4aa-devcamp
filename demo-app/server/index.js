@@ -369,15 +369,17 @@ app.get("/api/verify/module01", async (req, res) => {
 
           console.log("[verify/module01] raw user-delegated grant:", JSON.stringify(userGrant));
 
-          // Auth0's "All permissions granted" toggle sets allow_all_scopes: true but leaves
-          // the scope array empty. OBO exchange requires explicit scopes in the grant — patch it.
-          if (missing.length > 0 && userGrant?.allow_all_scopes) {
+          // Auth0's Dashboard doesn't always populate the scope array on user-delegated grants.
+          // OBO exchange requires explicit scopes — auto-patch whenever the array is incomplete.
+          if (userGrant && missing.length > 0) {
             try {
               const patchR = await fetch(`https://${domain}/api/v2/client-grants/${userGrant.id}`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${mgmtToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ scope: required }),
+                body: JSON.stringify({ scope: required, allow_all_scopes: false }),
               });
+              const patchBody = await patchR.text();
+              console.log("[verify/module01] patch OBO grant status=%d body=%s", patchR.status, patchBody);
               if (patchR.ok) {
                 grantScopes = required;
                 missing = [];
