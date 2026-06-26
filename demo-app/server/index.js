@@ -270,7 +270,7 @@ app.get("/api/verify/module01", async (req, res) => {
   if (cimdUrl && domain && mgmtId && mgmtSecret) {
     try {
       const { getManagementToken } = await import("./platform/auth0Management.js");
-      const token = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
+      const { token } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
       const mgmtUrl = `https://${domain}/api/v2/clients?external_client_id=${encodeURIComponent(cimdUrl)}&fields=client_id,name&include_fields=true`;
       const clientsR = await fetch(mgmtUrl,
         { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
