@@ -84,9 +84,6 @@ export class MCPClient {
     if (cached) cachedTokens.delete(cacheKey);
 
     console.log("[MCP Client] Exchanging user token for MCP-scoped token...");
-    console.log("[MCP Client] Exchange params: domain=%s audience=%s clientId=%s subjectToken(last16)=%s",
-      cfg.auth0Domain, cfg.audience, cfg.clientId, userAccessToken?.slice(-16));
-    console.log("[MCP Client] Subject token (full):", userAccessToken);
 
     // Lab 05 -- On-Behalf-Of token exchange.
     // The `audience` and `resource` parameters both name the MCP
@@ -95,7 +92,6 @@ export class MCPClient {
     // claim (rep's user id) is preserved from the subject_token
     // by Auth0, giving the MCP server end-to-end user attribution
     // without the agent ever forging identity.
-    console.log("test, ", userAccessToken);
     const response = await fetch(
       `https://${cfg.auth0Domain}/oauth/token`,
       {
