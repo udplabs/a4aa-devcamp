@@ -235,20 +235,33 @@ app.get("/api/verify/module01", async (req, res) => {
   const mcpBase = `http://localhost:${mcpPort}`;
   const checks = [];
 
-  // 1. CIMD metadata document + Auth0 client registration
-  let cimdUrl = null;
+  // Derive the public CIMD URL from the incoming request's forwarded host,
+  // swapping the API port for the MCP port. This matches what Auth0 sees
+  // when the participant imports the metadata URL in the Dashboard.
+  const apiPort = String(PORT);
+  const mcpPortStr = String(mcpPort);
+  const reqProto = req.headers["x-forwarded-proto"] || req.protocol || "http";
+  const reqHost  = req.headers["x-forwarded-host"]  || req.headers.host || `localhost:${mcpPort}`;
+  const publicMcpHost = reqHost.includes(".app.github.dev")
+    ? reqHost.replace(new RegExp(`-${apiPort}(\\.app\\.github\\.dev)$`), `-${mcpPortStr}$1`)
+    : reqHost.replace(new RegExp(`:${apiPort}$`), `:${mcpPortStr}`);
+  const publicCimdUrl = `${reqProto}://${publicMcpHost}/.well-known/client-metadata`;
+
+  // 1. CIMD metadata document (verify endpoint is responding locally)
+  let cimdUrl = publicCimdUrl;
   try {
     const r = await fetch(`${mcpBase}/.well-known/client-metadata`);
     const body = await r.json();
     const isUrl = typeof body.client_id === "string" && body.client_id.startsWith("http");
-    cimdUrl = isUrl ? body.client_id : null;
     checks.push({ id: "cimd", name: "CIMD identity document reachable", pass: isUrl,
-      message: isUrl ? `client_id: ${body.client_id}` : "client_id is not a URL — is port 3001 public?" });
+      message: isUrl ? `client_id: ${publicCimdUrl}` : "client_id is not a URL — is port 3001 public?" });
+    if (!isUrl) cimdUrl = null;
   } catch (e) {
     checks.push({ id: "cimd", name: "CIMD identity document reachable", pass: false, message: e.message });
+    cimdUrl = null;
   }
 
-  // 1b. Verify Auth0 has a client registered with the CIMD URL as its client_id
+  // 1b. Verify Auth0 has a client registered with the public CIMD URL as its client_id
   const domain = process.env.AUTH0_DOMAIN;
   const mgmtId = process.env.AUTH0_MGMT_CLIENT_ID;
   const mgmtSecret = process.env.AUTH0_MGMT_CLIENT_SECRET;
