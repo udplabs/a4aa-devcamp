@@ -59,7 +59,7 @@ The CIBA client is provisioned with email as its notification channel. Enable Gu
 2. Scroll to **Notification Channels**
 3. Toggle on **Guardian Push** → **Save**
 
-*You should see: Guardian Push listed as an active notification channel.*
+*You should see: `guardian-push` listed as an active notification channel.*
 
 > [!NOTE]
 > Guardian push requires the user to be enrolled in Auth0 Guardian MFA. If you skip enrollment the flow still runs via the in-memory approve/deny fallback — the checkpoint verifier only checks that the channel is enabled on the client, not that a device is enrolled.
