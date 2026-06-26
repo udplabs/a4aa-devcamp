@@ -496,38 +496,79 @@ app.get("/api/verify/module04", async (req, res) => {
         : `Guardian push not enabled — open ${cibaApp.name || "docagent-ciba"} → Notification Channels → enable Guardian Push → Save`,
     });
 
-    // Check that the demo user (alice) is enrolled in Guardian push MFA.
-    // CIBA push notifications only fire to enrolled devices.
-    try {
-      const usersR = await fetch(
-        `https://${ctx.domain}/api/v2/users-by-email?email=alice%40docagent.demo`,
-        { headers: { Authorization: `Bearer ${ctx.token}` } }
-      );
-      const users = await usersR.json();
-      const alice = Array.isArray(users) && users[0];
-      if (alice) {
-        const enrollR = await fetch(
-          `https://${ctx.domain}/api/v2/users/${encodeURIComponent(alice.user_id)}/enrollments`,
-          { headers: { Authorization: `Bearer ${ctx.token}` } }
-        );
-        const enrollments = await enrollR.json();
-        const guardianEnrollment = Array.isArray(enrollments) &&
-          enrollments.find((e) => e.type === "guardian" && e.status === "confirmed");
-        checks.push({
-          id: "ciba_guardian_enrollment",
-          name: "alice@docagent.demo enrolled in Guardian push",
-          pass: !!guardianEnrollment,
-          message: guardianEnrollment
-            ? `Guardian push enrollment confirmed (${guardianEnrollment.name || guardianEnrollment.identifier || "device"})`
-            : "alice@docagent.demo has no confirmed Guardian enrollment — log in as alice and enroll the Guardian app when prompted for MFA",
-        });
-      } else {
-        checks.push({ id: "ciba_guardian_enrollment", name: "alice@docagent.demo enrolled in Guardian push", pass: false,
-          message: "alice@docagent.demo not found — re-provision resources" });
-      }
-    } catch (e) {
-      checks.push({ id: "ciba_guardian_enrollment", name: "alice@docagent.demo enrolled in Guardian push", pass: false, message: e.message });
-    }
+    // Commented out: alice Guardian push enrollment check
+    // Re-enable when device enrollment is part of the workshop flow.
+    // try {
+    //   const usersR = await fetch(
+    //     `https://${ctx.domain}/api/v2/users-by-email?email=alice%40docagent.demo`,
+    //     { headers: { Authorization: `Bearer ${ctx.token}` } }
+    //   );
+    //   const users = await usersR.json();
+    //   const alice = Array.isArray(users) && users[0];
+    //   if (alice) {
+    //     const enrollR = await fetch(
+    //       `https://${ctx.domain}/api/v2/users/${encodeURIComponent(alice.user_id)}/enrollments`,
+    //       { headers: { Authorization: `Bearer ${ctx.token}` } }
+    //     );
+    //     const enrollments = await enrollR.json();
+    //     const guardianEnrollment = Array.isArray(enrollments) &&
+    //       enrollments.find((e) => e.type === "guardian" && e.status === "confirmed");
+    //     checks.push({
+    //       id: "ciba_guardian_enrollment",
+    //       name: "alice@docagent.demo enrolled in Guardian push",
+    //       pass: !!guardianEnrollment,
+    //       message: guardianEnrollment
+    //         ? `Guardian push enrollment confirmed (${guardianEnrollment.name || guardianEnrollment.identifier || "device"})`
+    //         : "alice@docagent.demo has no confirmed Guardian enrollment — log in as alice and enroll the Guardian app when prompted for MFA",
+    //     });
+    //   } else {
+    //     checks.push({ id: "ciba_guardian_enrollment", name: "alice@docagent.demo enrolled in Guardian push", pass: false,
+    //       message: "alice@docagent.demo not found — re-provision resources" });
+    //   }
+    // } catch (e) {
+    //   checks.push({ id: "ciba_guardian_enrollment", name: "alice@docagent.demo enrolled in Guardian push", pass: false, message: e.message });
+    // }
+
+    // Commented out: tenant-level Guardian push MFA factor enabled check.
+    // Re-enable when Guardian push is a required setup step.
+    // try {
+    //   const factorsR = await fetch(`https://${ctx.domain}/api/v2/guardian/factors`, {
+    //     headers: { Authorization: `Bearer ${ctx.token}` },
+    //   });
+    //   const factors = await factorsR.json();
+    //   const pushFactor = Array.isArray(factors) && factors.find((f) => f.name === "push-notification");
+    //   const pushEnabled = pushFactor?.enabled === true;
+    //   checks.push({
+    //     id: "guardian_push_factor",
+    //     name: "Guardian push notification factor enabled at tenant level",
+    //     pass: pushEnabled,
+    //     message: pushEnabled
+    //       ? "Guardian push factor is enabled"
+    //       : "Enable Guardian push: Security → Multi-factor Auth → Push Notifications → Enable",
+    //   });
+    // } catch (e) {
+    //   checks.push({ id: "guardian_push_factor", name: "Guardian push factor enabled", pass: false, message: e.message });
+    // }
+
+    // Commented out: MFA policy set to "always" check.
+    // Re-enable when always-on MFA is required for the workshop.
+    // try {
+    //   const policyR = await fetch(`https://${ctx.domain}/api/v2/guardian/policies`, {
+    //     headers: { Authorization: `Bearer ${ctx.token}` },
+    //   });
+    //   const policy = await policyR.json();
+    //   const isAlways = Array.isArray(policy) && policy.includes("all-applications");
+    //   checks.push({
+    //     id: "mfa_policy_always",
+    //     name: "MFA policy set to always",
+    //     pass: isAlways,
+    //     message: isAlways
+    //       ? "MFA is enforced for all applications"
+    //       : "Set MFA to always: Security → Multi-factor Auth → Policy → Always",
+    //   });
+    // } catch (e) {
+    //   checks.push({ id: "mfa_policy_always", name: "MFA policy set to always", pass: false, message: e.message });
+    // }
   } catch (e) {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false, message: e.message });
   }
