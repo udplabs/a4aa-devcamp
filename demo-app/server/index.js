@@ -366,6 +366,7 @@ app.get("/api/verify/module01", async (req, res) => {
           const required = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
           const missing = required.filter((s) => !grantScopes.includes(s));
           const pass = !!userGrant && missing.length === 0;
+          console.log("[verify/module01] raw user-delegated grant:", JSON.stringify(userGrant));
           checks.push({
             id: "obo_user_grant",
             name: "User-delegated grant on docagent-mcp-obo",
@@ -373,7 +374,7 @@ app.get("/api/verify/module01", async (req, res) => {
             message: !userGrant
               ? "Missing user-delegated grant — in Nexus MCP Server API → Applications → docagent-mcp-obo, enable user-delegated access for all mcp:* scopes"
               : missing.length > 0
-                ? `Grant found but missing scopes: ${missing.join(", ")} — in Nexus MCP Server API → Applications → docagent-mcp-obo, add all mcp:* scopes to the user-delegated access grant`
+                ? `Grant found but missing scopes: ${missing.join(", ")} — raw grant scope: [${grantScopes.join(", ")}]`
                 : `User-delegated access grant exists with all scopes (${grantScopes.join(", ")})`,
           });
         } catch (e) {
