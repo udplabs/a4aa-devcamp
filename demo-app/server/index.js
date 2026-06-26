@@ -476,6 +476,11 @@ app.get("/api/verify/module04", async (req, res) => {
       { headers: { Authorization: `Bearer ${ctx.token}` } }
     );
     const cibaApp = await cr.json();
+    console.log("[verify/module04] ciba client:", JSON.stringify({
+      name: cibaApp?.name,
+      grant_types: cibaApp?.grant_types,
+      async_approval_notification_channels: cibaApp?.async_approval_notification_channels,
+    }));
     const hasGrant = cibaApp?.grant_types?.includes("urn:openid:params:grant-type:ciba");
     const channels = cibaApp?.async_approval_notification_channels || [];
     const hasPush = channels.includes("push");
