@@ -349,7 +349,34 @@ app.get("/api/verify/module01", async (req, res) => {
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
         message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
 
-      // 5b. User-delegated grant — client must have subject_type: "user" grant against MCP API
+      // 5b. Custom API Client must have resource_server_identifier pointing to the MCP API.
+      // Without this association Auth0 rejects OBO regardless of the grant.
+      if (domain && mgmtId && mgmtSecret) {
+        try {
+          const { getManagementToken } = await import("./platform/auth0Management.js");
+          const { token: mgmtToken } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
+          const clientR = await fetch(
+            `https://${domain}/api/v2/clients/${oboId}?fields=resource_server_identifier,grant_types,app_type&include_fields=true`,
+            { headers: { Authorization: `Bearer ${mgmtToken}` } }
+          );
+          const clientData = await clientR.json();
+          console.log("[verify/module01] obo client fields:", JSON.stringify(clientData));
+          const rsId = clientData?.resource_server_identifier;
+          const hasRsAssoc = rsId === mcpAudience;
+          checks.push({
+            id: "obo_client_assoc",
+            name: "docagent-mcp-obo associated with Nexus MCP Server",
+            pass: hasRsAssoc,
+            message: hasRsAssoc
+              ? `resource_server_identifier: ${rsId}`
+              : `resource_server_identifier is "${rsId || "not set"}" — expected "${mcpAudience}". This association is required for OBO.`,
+          });
+        } catch (e) {
+          checks.push({ id: "obo_client_assoc", name: "docagent-mcp-obo associated with Nexus MCP Server", pass: false, message: e.message });
+        }
+      }
+
+      // 5d. User-delegated grant — client must have subject_type: "user" grant against MCP API
       // with all four per-tool scopes. A grant with an empty scope array causes Auth0 to
       // return "This client cannot exchange access tokens for this audience" at exchange time.
       if (toggled && domain && mgmtId && mgmtSecret) {
