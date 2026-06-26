@@ -34,14 +34,8 @@ export function checkToolAuthorization(userId, userScopes, toolName) {
     return { authorized: false, reason: `Unknown tool: ${toolName}` };
   }
 
-  // Check if user has required scopes
-  const hasScopes = tool.requiredScopes.every((s) => userScopes.includes(s));
-  if (!hasScopes) {
-    return {
-      authorized: false,
-      reason: `Missing required scopes: ${tool.requiredScopes.join(", ")}`,
-    };
-  }
+  // Per-tool MCP scope enforcement is handled by the MCP server via the OBO token.
+  // The backend API only needs chat:send (already validated by validateAccessToken).
 
   // Check if tool requires consent and whether user has consented
   if (tool.requiresConsent && !hasUserConsented(userId, toolName)) {
