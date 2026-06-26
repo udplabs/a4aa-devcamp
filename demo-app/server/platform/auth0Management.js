@@ -199,6 +199,14 @@ export async function createVaultConnection(ctx, opts) {
     client_secret: opts.clientSecret,
     scope: opts.scopes.join(" "),
     token_endpoint_auth_method: "client_secret_post",
+    // Required by Auth0 for the oauth2 strategy even when used purely for Token Vault.
+    scripts: {
+      fetchUserProfile: [
+        "function(accessToken, ctx, cb) {",
+        "  cb(null, { user_id: ctx.connection + '|vault', name: 'Token Vault' });",
+        "}",
+      ].join(" "),
+    },
   };
   if (opts.tokenVault) {
     options.federated_connections_access_tokens = { active: true };
