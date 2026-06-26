@@ -179,11 +179,15 @@ export async function runProvision(
     createRole(ctx, { name: "Nexus User", description: "Standard Nexus app access" })
   );
   if (nexusRole) {
-    await safe("role permissions", () =>
+    await safe("role backend permissions", () =>
       addPermissionsToRole(ctx, nexusRole.id, [
         { resource_server_identifier: BACKEND_API_IDENTIFIER, permission_name: "chat:send" },
-        ...MCP_SCOPES.map((s) => ({ resource_server_identifier: MCP_API_IDENTIFIER, permission_name: s })),
       ])
+    );
+    await safe("role mcp permissions", () =>
+      addPermissionsToRole(ctx, nexusRole.id,
+        MCP_SCOPES.map((s) => ({ resource_server_identifier: MCP_API_IDENTIFIER, permission_name: s }))
+      )
     );
     for (const demoUser of [alice, bob]) {
       if (demoUser?.user_id) {
