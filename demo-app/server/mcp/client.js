@@ -58,7 +58,8 @@ export class MCPClient {
         clientId: tenant.deploymentData.m2m_client_id,
         clientSecret: tenant.deploymentData.m2m_client_secret || this.config.clientSecret,
         // OBO target is the backend/tool API (fine-grained per-tool scopes).
-        audience: tenant.deploymentData.tool_audience || this.config.audience,
+        // tenant.backendAudience reads deploymentData.backend_audience with env fallback.
+        audience: tenant.backendAudience || this.config.audience,
       };
     }
     // Local path: AUTH0_OBO_CLIENT_ID and AUTH0_OBO_CLIENT_SECRET are
