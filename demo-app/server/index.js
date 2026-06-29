@@ -1,4 +1,5 @@
 import "dotenv/config";
+import dotenv from "dotenv";
 import fs from "fs";
 
 // Load pre-claimed ports written by find-port.js so servers don't re-scan
@@ -676,5 +677,15 @@ app.listen(PORT, () => {
 
 startMCPServer();
 startCRMServer();
+
+// Hot-reload .env when it changes so new credentials are picked up
+// on the next request without restarting the server.
+const envPath = path.resolve(process.cwd(), ".env");
+try {
+  fs.watch(envPath, () => {
+    dotenv.config({ override: true });
+    console.log("[Server] .env reloaded");
+  });
+} catch { /* .env may not exist yet */ }
 
 export default app;
