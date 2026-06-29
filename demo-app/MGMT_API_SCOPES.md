@@ -54,7 +54,7 @@ read:clients
 create:clients
 update:clients
 delete:clients
-read:client_grants
+read:client_grants          # required for obo_user_grant verify check
 create:client_grants
 update:client_grants
 read:connections
