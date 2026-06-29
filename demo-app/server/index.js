@@ -42,7 +42,7 @@ import hooksRouter from "./platform/hooks.js";
 import { tenantResolver } from "./platform/tenantResolver.js";
 
 const PROVISIONED_ENV_KEYS = [
-  "VITE_AUTH0_CLIENT_ID", "AUTH0_AUDIENCE", "MCP_AUTH0_AUDIENCE",
+  "VITE_AUTH0_CLIENT_ID", "AUTH0_AUDIENCE", "AUTH0_TOOL_AUDIENCE",
   "AUTH0_OBO_CLIENT_ID", "AUTH0_OBO_CLIENT_SECRET",
   "AUTH0_CIBA_CLIENT_ID", "AUTH0_CIBA_CLIENT_SECRET",
   "VAULT_CONN_CRM", "FGA_STORE_ID", "FGA_MODEL_ID",
@@ -328,7 +328,10 @@ app.get("/api/verify/module01", async (req, res) => {
   // 5. OBO toggle + user-delegated grant
   const oboId = process.env.AUTH0_OBO_CLIENT_ID;
   const oboSecret = process.env.AUTH0_OBO_CLIENT_SECRET;
-  const mcpAudience = process.env.MCP_AUTH0_AUDIENCE || "https://devcamp-mcp-server";
+  // OBO grant is now on the backend/tool API (fine-grained per-tool scopes).
+  // The MCP server audience is the user login audience; the tool audience
+  // is the OBO target that docagent-mcp-obo exchanges into.
+  const mcpAudience = process.env.AUTH0_TOOL_AUDIENCE || "https://devcamp-docagent-api";
   if (domain && oboId && oboSecret) {
     try {
       // 5a. OBO toggle — test exchange returns access_denied (bad token), not unauthorized_client (toggle off)

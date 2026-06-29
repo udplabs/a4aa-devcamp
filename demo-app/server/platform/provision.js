@@ -39,13 +39,21 @@ export const BACKEND_API_IDENTIFIER =
   process.env.BACKEND_API_IDENTIFIER || "https://devcamp-docagent-api";
 export const MCP_API_IDENTIFIER =
   process.env.MCP_API_IDENTIFIER || "https://devcamp-mcp-server";
-export const MCP_SCOPES = [
+// MCP API: coarse-grained — proves the user can access the AI chat interface.
+// This is the user-facing login audience; docagent-mcp-obo has
+// resource_server_identifier = MCP_API_IDENTIFIER so the subject_token
+// (audience = MCP) matches, enabling OBO exchange to the backend API.
+export const MCP_SCOPES = ["chat:send"];
+
+// Backend API: fine-grained per-tool scopes — enforced on each tool call
+// via OBO. The MCP server validates OBO-issued backend API tokens and
+// checks the specific scope before executing the tool.
+export const BACKEND_SCOPES = [
   "mcp:docs:search",
   "mcp:docs:read",
   "mcp:crm:log",
   "mcp:docs:share",
 ];
-export const BACKEND_SCOPES = ["chat:send"];
 const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
 
 export async function safe(label, fn) {
@@ -115,8 +123,8 @@ export async function runProvision(
       })
     );
     if (spa) {
-      await safe("grant spa -> backend api", () =>
-        grantClientToApi(ctx, spa.client_id, BACKEND_API_IDENTIFIER, BACKEND_SCOPES)
+      await safe("grant spa -> mcp api", () =>
+        grantClientToApi(ctx, spa.client_id, MCP_API_IDENTIFIER, MCP_SCOPES)
       );
     }
   }
@@ -131,11 +139,11 @@ export async function runProvision(
     })
   );
   if (ciba) {
-    await safe("grant ciba -> backend api", () =>
-      grantClientToApi(ctx, ciba.client_id, BACKEND_API_IDENTIFIER, BACKEND_SCOPES)
+    await safe("grant ciba -> mcp api", () =>
+      grantClientToApi(ctx, ciba.client_id, MCP_API_IDENTIFIER, MCP_SCOPES)
     );
-    await safe("grant ciba -> mcp api (share scope)", () =>
-      grantClientToApi(ctx, ciba.client_id, MCP_API_IDENTIFIER, ["mcp:docs:share"])
+    await safe("grant ciba -> backend api (share scope)", () =>
+      grantClientToApi(ctx, ciba.client_id, BACKEND_API_IDENTIFIER, ["mcp:docs:share"])
     );
   }
 
@@ -183,14 +191,14 @@ export async function runProvision(
     createRole(ctx, { name: "Nexus User", description: "Standard Nexus app access" })
   );
   if (nexusRole) {
-    await safe("role backend permissions", () =>
-      addPermissionsToRole(ctx, nexusRole.id, [
-        { resource_server_identifier: BACKEND_API_IDENTIFIER, permission_name: "chat:send" },
-      ])
-    );
     await safe("role mcp permissions", () =>
       addPermissionsToRole(ctx, nexusRole.id,
         MCP_SCOPES.map((s) => ({ resource_server_identifier: MCP_API_IDENTIFIER, permission_name: s }))
+      )
+    );
+    await safe("role backend permissions", () =>
+      addPermissionsToRole(ctx, nexusRole.id,
+        BACKEND_SCOPES.map((s) => ({ resource_server_identifier: BACKEND_API_IDENTIFIER, permission_name: s }))
       )
     );
     for (const demoUser of [alice, bob]) {
@@ -271,8 +279,10 @@ export async function runDeprovision(ctx) {
 export function deploymentDataToEnvVars(dd) {
   const vars = {};
   if (dd.spa_client_id) vars.VITE_AUTH0_CLIENT_ID = dd.spa_client_id;
-  if (dd.backend_audience) vars.AUTH0_AUDIENCE = dd.backend_audience;
-  if (dd.mcp_audience) vars.MCP_AUTH0_AUDIENCE = dd.mcp_audience;
+  // AUTH0_AUDIENCE is the user-facing login audience (MCP server).
+  // AUTH0_TOOL_AUDIENCE is the OBO target (backend API, per-tool scopes).
+  if (dd.mcp_audience) vars.AUTH0_AUDIENCE = dd.mcp_audience;
+  if (dd.backend_audience) vars.AUTH0_TOOL_AUDIENCE = dd.backend_audience;
   if (dd.m2m_client_id) vars.AUTH0_OBO_CLIENT_ID = dd.m2m_client_id;
   if (dd.m2m_client_secret) vars.AUTH0_OBO_CLIENT_SECRET = dd.m2m_client_secret;
   if (dd.ciba_client_id) vars.AUTH0_CIBA_CLIENT_ID = dd.ciba_client_id;

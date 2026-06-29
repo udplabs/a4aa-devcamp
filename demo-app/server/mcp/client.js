@@ -57,7 +57,8 @@ export class MCPClient {
         auth0Domain: tenant.domain,
         clientId: tenant.deploymentData.m2m_client_id,
         clientSecret: tenant.deploymentData.m2m_client_secret || this.config.clientSecret,
-        audience: tenant.mcpAudience || this.config.audience,
+        // OBO target is the backend/tool API (fine-grained per-tool scopes).
+        audience: tenant.deploymentData.tool_audience || this.config.audience,
       };
     }
     // Local path: AUTH0_OBO_CLIENT_ID and AUTH0_OBO_CLIENT_SECRET are
@@ -179,6 +180,7 @@ export function createMCPClient() {
     auth0Domain: process.env.AUTH0_DOMAIN,
     clientId: process.env.AUTH0_OBO_CLIENT_ID,
     clientSecret: process.env.AUTH0_OBO_CLIENT_SECRET,
-    audience: process.env.MCP_AUTH0_AUDIENCE,
+    // OBO target: backend/tool API with fine-grained per-tool scopes.
+    audience: process.env.AUTH0_TOOL_AUDIENCE,
   });
 }

@@ -37,9 +37,9 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
           const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, "=");
           const payload = JSON.parse(atob(padded));
           const hasAud = Array.isArray(payload.aud)
-            ? payload.aud.some((a) => a.includes("docagent"))
-            : payload.aud?.includes("docagent");
-          checks.push({ id: "jwt_aud", name: "JWT contains Nexus API audience",
+            ? payload.aud.some((a) => a.includes("devcamp-mcp-server"))
+            : payload.aud?.includes("devcamp-mcp-server");
+          checks.push({ id: "jwt_aud", name: "JWT contains Nexus MCP audience",
             pass: !!hasAud, message: hasAud ? `aud: ${JSON.stringify(payload.aud)}` : "Audience missing — check SPA configuration" });
           const hasScope = payload.scope?.includes("chat:send");
           checks.push({ id: "jwt_scope", name: "JWT contains chat:send scope",

@@ -51,24 +51,24 @@ import { addLog } from "./toolLog.js";
 const app = express();
 app.use(express.json());
 
-// OAuth 2.0 token validation -- audience enforcement means only
-// tokens minted via OBO for the MCP audience are accepted (see
-// ../mcp/client.js). Multi-tenant: each demo has its own Auth0
-// issuer + MCP audience, so we pick the verifier per request from
-// the token's `iss` claim (tenant resolved from the shared cache),
-// falling back to env for local single-tenant runs.
+// OAuth 2.0 token validation -- validates OBO-issued backend API tokens.
+// The MCP server accepts tokens with audience = AUTH0_TOOL_AUDIENCE
+// (the backend/tool API), which are minted by docagent-mcp-obo via OBO
+// from the user's MCP token. Per-tool scopes on those tokens enforce
+// least-privilege at the tool boundary.
 const validateMCPToken = (req, res, next) => {
   const token = bearerFromHeader(req);
   const payload = token ? decodeUnverified(token) : null;
   let issuer = `https://${process.env.AUTH0_DOMAIN}`;
-  let audience = process.env.MCP_AUTH0_AUDIENCE || "";
+  let audience = process.env.AUTH0_TOOL_AUDIENCE || "";
 
   if (payload?.iss) {
     try {
       const tenant = tenantResolver.getByDomain(new URL(payload.iss).host);
       if (tenant) {
         issuer = tenant.issuer;
-        audience = tenant.mcpAudience || audience;
+        // backendAudience is the OBO target (tool API with fine-grained scopes)
+        audience = tenant.backendAudience || audience;
         req.tenant = tenant;
       }
     } catch {
@@ -95,6 +95,9 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
     authorization_endpoint: `https://${process.env.AUTH0_DOMAIN}/authorize`,
     token_endpoint: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
     jwks_uri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+    // Per-tool scopes live on the backend/tool API (AUTH0_TOOL_AUDIENCE).
+    // OBO exchanges the user's MCP token for a backend API token carrying
+    // one of these scopes, which the MCP server then enforces per tool call.
     scopes_supported: [
       "mcp:docs:search",
       "mcp:docs:read",

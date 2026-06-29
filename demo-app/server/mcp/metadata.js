@@ -29,9 +29,10 @@ export function protectedResourceMetadata(_req, res) {
   const authDomain = process.env.AUTH0_DOMAIN;
 
   res.json({
-    // Lab 04 -- audience: this is the value the OBO exchange
-    // sends in both `audience` and `resource` (RFC 8707).
-    resource: process.env.MCP_AUTH0_AUDIENCE,
+    // The MCP server validates OBO-issued tokens for AUTH0_TOOL_AUDIENCE
+    // (the backend/tool API). The `resource` here advertises that audience
+    // so compliant clients know what to request via OBO.
+    resource: process.env.AUTH0_TOOL_AUDIENCE,
     // Lab 04 -- points to the Auth0 tenant AS metadata document.
     authorization_servers: [
       `https://${authDomain}`,
