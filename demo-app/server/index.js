@@ -359,6 +359,7 @@ app.get("/api/verify/module01", async (req, res) => {
             { headers: { Authorization: `Bearer ${mgmtToken}` } }
           );
           const grants = await grantsR.json();
+          console.log("[verify/module01] client-grants:", JSON.stringify(grants));
           const userGrant = Array.isArray(grants) && grants.find((g) => g.subject_type === "user");
           const grantScopes = userGrant?.scope || [];
           const required = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
