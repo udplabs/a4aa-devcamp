@@ -34,7 +34,7 @@ export class Tenant {
       this.clientSecret = undefined;
       this.idpType = "default";
       this.deploymentData = {
-        backend_audience: process.env.AUTH0_TOOL_AUDIENCE,
+        backend_audience: process.env.AUTH0_AUDIENCE,
         mcp_audience: process.env.AUTH0_AUDIENCE,
         m2m_client_id: process.env.AUTH0_OBO_CLIENT_ID,
         m2m_client_secret: process.env.AUTH0_OBO_CLIENT_SECRET,
