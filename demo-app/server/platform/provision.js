@@ -202,9 +202,8 @@ export async function runProvision(
     }
   }
 
-  // 8. Guardian push + MFA policy — required for CIBA push notifications.
+  // 8. Guardian push — required for CIBA push notifications.
   await safe("enable guardian push factor", () => enableGuardianPush(ctx));
-  await safe("set mfa policy to always", () => setMfaPolicyAlways(ctx));
 
   // 9. FGA store + model (optional; only if FGA credentials are provided)
   let fga = null;
@@ -261,7 +260,6 @@ export async function runDeprovision(ctx) {
   await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
   await safe("del demo user bob",   () => deleteDemoUser(ctx, "bob@docagent.demo"));
   await safe("disable guardian push", () => disableGuardianPush(ctx));
-  await safe("reset mfa policy", () => resetMfaPolicy(ctx));
   if (fgaStoreId) {
     const fgaSettings = fgaSettingsFromEnvOrRecord({});
     if (fgaSettings) await safe("del fga store", () => deleteFgaStore(fgaSettings, fgaStoreId));
