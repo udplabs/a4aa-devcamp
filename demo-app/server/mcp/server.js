@@ -67,8 +67,9 @@ const validateMCPToken = (req, res, next) => {
       const tenant = tenantResolver.getByDomain(new URL(payload.iss).host);
       if (tenant) {
         issuer = tenant.issuer;
-        // backendAudience is the OBO target (tool API with fine-grained scopes)
-        audience = tenant.backendAudience || audience;
+        // Use deploymentData.backend_audience directly — backendAudience getter
+        // falls back to AUTH0_AUDIENCE which now points to the MCP server, not the tool API.
+        audience = tenant.deploymentData.backend_audience || process.env.AUTH0_TOOL_AUDIENCE || audience;
         req.tenant = tenant;
       }
     } catch {
