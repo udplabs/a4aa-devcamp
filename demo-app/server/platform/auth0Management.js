@@ -257,7 +257,7 @@ export async function createPostLoginAction(ctx, { name, code, secrets = [] }) {
 }
 
 export async function deployAction(ctx, actionId) {
-  return await mgmt(ctx, "POST", `/actions/actions/${actionId}/deploy`, {});
+  return await mgmt(ctx, "POST", `/actions/actions/${actionId}/deploy`);
 }
 
 export async function bindActionToPostLogin(ctx, actionId, displayName) {

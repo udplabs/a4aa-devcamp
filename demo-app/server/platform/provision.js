@@ -222,8 +222,8 @@ export async function runProvision(
   const MFA_ACTION_NAME = `enforce-guardian-push-${demoName}`;
   const mfaActionCode = `exports.onExecutePostLogin = async (event, api) => {
   if (event.client.client_id !== event.secrets.SPA_CLIENT_ID) return;
-  const enrolled = event.user.multifactor || [];
-  const hasPush = enrolled.includes("guardian");
+  const enrolledFactors = event.user.enrolledFactors || [];
+  const hasPush = enrolledFactors.some((f) => f.type === "push-notification");
   if (hasPush) {
     api.authentication.challengeWith({ type: "push-notification" });
   } else {
