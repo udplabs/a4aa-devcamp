@@ -91,6 +91,8 @@ export class MCPClient {
     if (cached) cachedTokens.delete(cacheKey);
 
     console.log("[MCP Client] Exchanging user token for MCP-scoped token...");
+    console.log("[MCP Client] OBO cfg: domain=%s clientId=%s audience=%s AUTH0_TOOL_AUDIENCE=%s",
+      cfg.auth0Domain, cfg.clientId, cfg.audience, process.env.AUTH0_TOOL_AUDIENCE);
 
     // Lab 05 -- On-Behalf-Of token exchange.
     // The `audience` and `resource` parameters both name the MCP
