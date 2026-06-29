@@ -363,16 +363,17 @@ app.get("/api/verify/module01", async (req, res) => {
           const grantScopes = userGrant?.scope || [];
           const required = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
           const missing = required.filter((s) => !grantScopes.includes(s));
-          const pass = !!userGrant && missing.length === 0;
+          const allScopesGranted = userGrant?.allow_all_scopes === true;
+          const pass = !!userGrant && (missing.length === 0 || allScopesGranted);
           checks.push({
             id: "obo_user_grant",
             name: "User-delegated grant on docagent-mcp-obo",
             pass,
             message: !userGrant
               ? "Missing user-delegated grant — in Nexus MCP Server API → Applications → docagent-mcp-obo, enable user-delegated access for all mcp:* scopes"
-              : missing.length > 0
-                ? `Grant found but missing scopes: ${missing.join(", ")} — select individual scopes (not 'All permissions') in the user-delegated access panel`
-                : `User-delegated access grant exists with all scopes (${grantScopes.join(", ")})`,
+              : pass
+                ? `User-delegated access grant exists${allScopesGranted ? " (all permissions)" : ` (${grantScopes.join(", ")})`}`
+                : `Grant found but missing scopes: ${missing.join(", ")} — enable user-delegated access for all mcp:* scopes`,
           });
         } catch (e) {
           checks.push({ id: "obo_user_grant", name: "User-delegated grant on docagent-mcp-obo", pass: false, message: e.message });
