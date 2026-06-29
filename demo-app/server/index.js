@@ -504,6 +504,39 @@ app.get("/api/verify/module04", async (req, res) => {
         : `Guardian push not enabled — open ${cibaApp.name || "docagent-ciba"} → Notification Channels → enable Guardian Push → Save`,
     });
 
+    // Check that alice is enrolled in Guardian push
+    const aliceRes = await fetch(
+      `https://${ctx.domain}/api/v2/users-by-email?email=${encodeURIComponent("alice@docagent.demo")}`,
+      { headers: { Authorization: `Bearer ${ctx.token}` } }
+    );
+    const aliceUsers = await aliceRes.json();
+    const alice = Array.isArray(aliceUsers) ? aliceUsers[0] : null;
+
+    if (!alice) {
+      checks.push({
+        id: "alice_guardian_enrollment",
+        name: "alice@docagent.demo enrolled in Guardian push",
+        pass: false,
+        message: "alice@docagent.demo not found — re-provision resources",
+      });
+    } else {
+      const enrollRes = await fetch(
+        `https://${ctx.domain}/api/v2/users/${encodeURIComponent(alice.user_id)}/enrollments`,
+        { headers: { Authorization: `Bearer ${ctx.token}` } }
+      );
+      const enrollments = await enrollRes.json();
+      const hasGuardianEnrollment = Array.isArray(enrollments) &&
+        enrollments.some((e) => e.type === "push-notification" && e.status === "confirmed");
+      checks.push({
+        id: "alice_guardian_enrollment",
+        name: "alice@docagent.demo enrolled in Guardian push",
+        pass: hasGuardianEnrollment,
+        message: hasGuardianEnrollment
+          ? "alice@docagent.demo has a confirmed Guardian push enrollment"
+          : "alice@docagent.demo is not enrolled in Guardian push — log in as alice and complete Guardian push enrollment",
+      });
+    }
+
   } catch (e) {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false, message: e.message });
   }
