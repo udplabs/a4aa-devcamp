@@ -135,7 +135,7 @@ export async function runProvision(
       name: `docagent-ciba-${demoName}`,
       app_type: "regular_web",
       grant_types: [CIBA_GRANT],
-      async_approval_notification_channels: ["email"],
+      async_approval_notification_channels: ["guardian-push"],
     })
   );
   if (ciba) {
