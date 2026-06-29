@@ -244,6 +244,10 @@ export function listPendingCIBA() {
 export function buildDocShareBindingMessage(params) {
   const title = params.documentTitle || params.documentId || "document";
   const recipient = params.recipientEmail || "external recipient";
-  const msg = `Share "${title}" with ${recipient}?`;
+  // Auth0 allows only: alphanumerics, whitespace, +-_.,:#
+  // Replace @ (common in emails) with " at ", then strip remaining disallowed chars.
+  const safeTitle = title.replace(/[^a-zA-Z0-9 +\-_.,:#]/g, " ").trim();
+  const safeRecipient = recipient.replace("@", " at ").replace(/[^a-zA-Z0-9 +\-_.,:#]/g, " ").trim();
+  const msg = `Approve: share ${safeTitle} to ${safeRecipient}`;
   return msg.length > 64 ? msg.substring(0, 61) + "..." : msg;
 }
