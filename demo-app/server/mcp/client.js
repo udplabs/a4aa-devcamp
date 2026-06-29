@@ -112,6 +112,7 @@ export class MCPClient {
           subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
           requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
           audience: process.env.AUTH0_TOOL_AUDIENCE || cfg.audience,
+          scope: "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share",
           client_id: cfg.clientId,
           client_secret: cfg.clientSecret,
         }),

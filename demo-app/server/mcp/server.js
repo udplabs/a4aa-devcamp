@@ -69,7 +69,7 @@ const validateMCPToken = (req, res, next) => {
         issuer = tenant.issuer;
         // Use deploymentData.backend_audience directly — backendAudience getter
         // falls back to AUTH0_AUDIENCE which now points to the MCP server, not the tool API.
-        audience = tenant.deploymentData.backend_audience || process.env.AUTH0_TOOL_AUDIENCE || audience;
+        audience = process.env.AUTH0_TOOL_AUDIENCE || audience;
         req.tenant = tenant;
       }
     } catch {
