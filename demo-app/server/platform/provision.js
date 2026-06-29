@@ -32,6 +32,10 @@ import {
   disableGuardianPush,
   setMfaPolicyAlways,
   resetMfaPolicy,
+  createPostLoginAction,
+  deployAction,
+  bindActionToPostLogin,
+  unbindAndDeleteAction,
 } from "./auth0Management.js";
 import { provisionFgaStore, deleteFgaStore, fgaSettingsFromEnvOrRecord } from "./fgaProvision.js";
 
@@ -213,7 +217,34 @@ export async function runProvision(
   // 8. Guardian push — required for CIBA push notifications.
   await safe("enable guardian push factor", () => enableGuardianPush(ctx));
 
-  // 9. FGA store + model (optional; only if FGA credentials are provided)
+  // 9. Post-login Action: enforce Guardian push MFA for the SPA.
+  // New users are redirected to enroll; returning users are challenged.
+  const MFA_ACTION_NAME = `enforce-guardian-push-${demoName}`;
+  const mfaActionCode = `exports.onExecutePostLogin = async (event, api) => {
+  if (event.client.client_id !== event.secrets.SPA_CLIENT_ID) return;
+  const enrolled = event.user.multifactor || [];
+  const hasPush = enrolled.includes("guardian");
+  if (hasPush) {
+    api.authentication.challengeWith({ type: "push-notification" });
+  } else {
+    api.authentication.enrollWith({ type: "push-notification" });
+  }
+};`;
+  const mfaAction = await safe("mfa action create", () =>
+    createPostLoginAction(ctx, {
+      name: MFA_ACTION_NAME,
+      code: mfaActionCode,
+      secrets: [{ name: "SPA_CLIENT_ID", value: spa?.client_id || "" }],
+    })
+  );
+  if (mfaAction?.id) {
+    await safe("mfa action deploy", () => deployAction(ctx, mfaAction.id));
+    await safe("mfa action bind", () =>
+      bindActionToPostLogin(ctx, mfaAction.id, "Enforce Guardian Push MFA")
+    );
+  }
+
+  // 10. FGA store + model (optional; only if FGA credentials are provided)
   let fga = null;
   if (fgaSettings) {
     fga = await safe("fga store", () => provisionFgaStore(fgaSettings, demoName));
@@ -230,6 +261,7 @@ export async function runProvision(
     m2m_client_secret: m2m?.client_secret,
     ciba_client_id: ciba?.client_id,
     ciba_client_secret: ciba?.client_secret,
+    mfa_action_id: mfaAction?.id,
     vault_connections,
     ...(fga
       ? {
@@ -254,9 +286,11 @@ export async function runDeprovision(ctx) {
   const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
   const m2mClientId = process.env.AUTH0_OBO_CLIENT_ID;
   const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
+  const mfaActionId = process.env.AUTH0_MFA_ACTION_ID;
   const crmConnName = process.env.VAULT_CONN_CRM;
   const fgaStoreId = process.env.FGA_STORE_ID;
 
+  if (mfaActionId) await safe("del mfa action", () => unbindAndDeleteAction(ctx, mfaActionId));
   await safe("del nexus user role", () => deleteRoleByName(ctx, "Nexus User"));
   if (spaClientId) await safe("del spa client", () => deleteClient(ctx, spaClientId));
   if (m2mClientId) await safe("del obo m2m client", () => deleteClient(ctx, m2mClientId));
@@ -288,6 +322,7 @@ export function deploymentDataToEnvVars(dd) {
   if (dd.ciba_client_id) vars.AUTH0_CIBA_CLIENT_ID = dd.ciba_client_id;
   if (dd.ciba_client_secret) vars.AUTH0_CIBA_CLIENT_SECRET = dd.ciba_client_secret;
   if (dd.vault_connections?.crm) vars.VAULT_CONN_CRM = dd.vault_connections.crm;
+  if (dd.mfa_action_id) vars.AUTH0_MFA_ACTION_ID = dd.mfa_action_id;
   if (dd.fga_store_id) vars.FGA_STORE_ID = dd.fga_store_id;
   if (dd.fga_model_id) vars.FGA_MODEL_ID = dd.fga_model_id;
   return vars;

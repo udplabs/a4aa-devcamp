@@ -28,6 +28,10 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 | `delete:roles` | `DELETE /roles/{id}` | Teardown Nexus User role |
 | `read:role_members` | `GET /roles/{id}/users`, `GET /roles/{id}/permissions` | Verify role assignments + permissions |
 | `create:role_members` | `POST /users/{id}/roles` | Assign Nexus User role to alice + bob |
+| `read:actions` | `GET /actions/actions`, `GET /actions/triggers/post-login/bindings` | Check if action exists; read current bindings |
+| `create:actions` | `POST /actions/actions`, `POST /actions/actions/{id}/deploy` | Create + deploy post-login MFA action |
+| `update:actions` | `PATCH /actions/triggers/post-login/bindings` | Bind/unbind action from post-login trigger |
+| `delete:actions` | `DELETE /actions/actions/{id}` | Teardown MFA action |
 
 ## Verification endpoints (`server/index.js`)
 
@@ -40,9 +44,9 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 | `update:client_grants` | `PATCH /client-grants/{id}` | Module 01: auto-fix OBO grant scope array |
 | `read:connections` | `GET /connections?name=...` | Module 03: verify Token Vault purpose on CRM connection |
 | `read:roles` | `GET /roles`, `GET /roles/{id}/permissions`, `GET /roles/{id}/users` | Module 01: verify Nexus User role has MCP permissions + is assigned |
-| `read:users` | `GET /users-by-email` | Module 04: look up alice for Guardian enrollment check |
+| `read:users` | `GET /users-by-email`, `GET /users/{id}/enrollments` | Module 04: look up alice + check her Guardian push enrollments |
 | `update:guardian_factors` | `PUT /guardian/factors/push-notification` | Provisioning: enable Guardian push factor |
-| `update:guardian_policies` | `PUT /guardian/policies` | Provisioning: set MFA policy to always |
+| `update:mfa_policies` | `PUT /guardian/policies` | Provisioning: set MFA policy to always |
 
 ## Full scope list (copy-paste for M2M client configuration)
 
@@ -69,6 +73,10 @@ update:roles
 delete:roles
 read:role_members
 create:role_members
+read:actions
+create:actions
+update:actions
+delete:actions
 update:guardian_factors
-update:guardian_policies
+update:mfa_policies
 ```

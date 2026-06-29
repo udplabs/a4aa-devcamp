@@ -242,6 +242,45 @@ export async function resetMfaPolicy(ctx) {
   await mgmt(ctx, "PUT", "/guardian/policies", []);
 }
 
+// ---- Actions ----------------------------------------------------
+
+export async function createPostLoginAction(ctx, { name, code, secrets = [] }) {
+  const list = await mgmt(ctx, "GET", "/actions/actions?triggerId=post-login&per_page=100");
+  const existing = (list?.actions || []).find((a) => a.name === name);
+  if (existing) return existing;
+  return await mgmt(ctx, "POST", "/actions/actions", {
+    name,
+    supported_triggers: [{ id: "post-login", version: "v3" }],
+    code,
+    secrets,
+  });
+}
+
+export async function deployAction(ctx, actionId) {
+  return await mgmt(ctx, "POST", `/actions/actions/${actionId}/deploy`, {});
+}
+
+export async function bindActionToPostLogin(ctx, actionId, displayName) {
+  const current = await mgmt(ctx, "GET", "/actions/triggers/post-login/bindings");
+  const bindings = (current?.bindings || []).map((b) => ({
+    ref: { type: "action_id", value: b.action.id },
+    display_name: b.display_name,
+  }));
+  if (!bindings.some((b) => b.ref.value === actionId)) {
+    bindings.push({ ref: { type: "action_id", value: actionId }, display_name: displayName });
+  }
+  await mgmt(ctx, "PATCH", "/actions/triggers/post-login/bindings", { bindings });
+}
+
+export async function unbindAndDeleteAction(ctx, actionId) {
+  const current = await mgmt(ctx, "GET", "/actions/triggers/post-login/bindings");
+  const bindings = (current?.bindings || [])
+    .filter((b) => b.action.id !== actionId)
+    .map((b) => ({ ref: { type: "action_id", value: b.action.id }, display_name: b.display_name }));
+  await mgmt(ctx, "PATCH", "/actions/triggers/post-login/bindings", { bindings });
+  await mgmt(ctx, "DELETE", `/actions/actions/${actionId}`);
+}
+
 export async function deleteConnectionByName(ctx, name) {
   const list = await mgmt(ctx, "GET", `/connections?name=${encodeURIComponent(name)}`);
   for (const c of list || []) {

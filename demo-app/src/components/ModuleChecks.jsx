@@ -4,7 +4,7 @@ import { useRuntimeConfig } from "../config/runtimeConfig";
 
 // Run the verification checks for a given module.
 // Returns { checks, allPassed } or throws.
-async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, audience }) {
+async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, getIdTokenClaims, audience }) {
   switch (moduleId) {
     case "00": {
       const r = await fetch("/api/setup/status");
@@ -44,6 +44,18 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, au
           const hasScope = payload.scope?.includes("chat:send");
           checks.push({ id: "jwt_scope", name: "JWT contains chat:send scope",
             pass: !!hasScope, message: hasScope ? "scope includes chat:send" : "chat:send scope missing" });
+
+          const idToken = await getIdTokenClaims();
+          const amr = idToken?.amr || [];
+          const hasMfa = amr.some((m) => ["mfa", "otp", "push", "guardian"].includes(m));
+          checks.push({
+            id: "mfa_enforced",
+            name: "Guardian push MFA completed at login",
+            pass: hasMfa,
+            message: hasMfa
+              ? `MFA verified (amr: ${JSON.stringify(amr)})`
+              : "MFA not detected — log out and log back in to trigger the Guardian push enrollment",
+          });
         } catch (e) {
           checks.push({ id: "jwt_aud", name: "JWT contains Nexus API audience", pass: false, message: e.message });
         }
@@ -166,7 +178,7 @@ export function ModuleChecks({ moduleId, onComplete }) {
   const [state, setState] = useState("idle"); // idle | running | done
   const [checks, setChecks] = useState([]);
   const [allPassed, setAllPassed] = useState(false);
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0Safe();
+  const { isAuthenticated, getAccessTokenSilently, getIdTokenClaims } = useAuth0Safe();
   const { audience } = useRuntimeConfigSafe();
 
   if (moduleId === "05") {
@@ -176,7 +188,7 @@ export function ModuleChecks({ moduleId, onComplete }) {
   async function handleRun() {
     setState("running");
     try {
-      const result = await runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, audience });
+      const result = await runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, getIdTokenClaims, audience });
       const passed = result.checks.every((c) => c.pass);
       setChecks(result.checks);
       setAllPassed(passed);
