@@ -105,6 +105,13 @@ export function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
+      <div className="chat-suggestions">
+        <button className="chat-suggestion" onClick={() => sendMessage("Find the Q3 roadmap")} disabled={isLoading}>Find the Q3 roadmap</button>
+        <button className="chat-suggestion" onClick={() => sendMessage("Show me the employee handbook")} disabled={isLoading}>Employee handbook</button>
+        <button className="chat-suggestion" onClick={() => sendMessage("Log that I viewed the security policy in the CRM")} disabled={isLoading}>Log CRM activity</button>
+        <button className="chat-suggestion" onClick={() => sendMessage("Share the Q3 roadmap with vendor@acme.com")} disabled={isLoading}>Share document (CIBA)</button>
+      </div>
+
       <form className="input-form" onSubmit={handleSubmit}>
         <input
           type="text"

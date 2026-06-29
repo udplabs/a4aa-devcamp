@@ -389,38 +389,115 @@ body {
 /* --- Tool Calls --- */
 
 .tool-calls {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #3A2856;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #2d2040;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .tool-call {
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.tool-call--success {
+  background: #0d1f14;
+  border: 1px solid #1e4a2a;
+}
+
+.tool-call--error {
+  background: #1f0d0d;
+  border: 1px solid #4a1e1e;
+}
+
+.tool-call-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: #1F132C;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tool-call-summary:hover {
+  background: rgba(255,255,255,0.03);
 }
 
 .tool-call-icon {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
 }
+
+.tool-call-icon--success { color: #4caf70; }
+.tool-call-icon--error   { color: #cf6679; }
 
 .tool-call-name {
   font-family: "SF Mono", "Fira Code", monospace;
-  color: #E0DAD2;
+  font-size: 12px;
+  color: #d0cce0;
+  flex-shrink: 0;
 }
 
-.tool-call-status {
-  margin-left: auto;
+.tool-call-badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.tool-call-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: #2a1a3e;
+  color: #9070b8;
+  border: 1px solid #3a2856;
+  white-space: nowrap;
+}
+
+.tool-call-chevron {
   color: #6E5A8A;
+  font-size: 14px;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.tool-call-chevron.open {
+  transform: rotate(90deg);
+}
+
+.tool-call-details {
+  padding: 0 10px 10px;
+}
+
+.tool-call-result {
+  font-family: "SF Mono", "Fira Code", monospace;
   font-size: 11px;
-  text-transform: uppercase;
+  color: #9090b0;
+  background: #0a0a14;
+  border: 1px solid #2d2d4e;
+  border-radius: 6px;
+  padding: 10px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.tool-call-error-msg {
+  font-size: 12px;
+  color: #cf6679;
+  padding: 4px 2px;
+  margin: 0;
 }
 
 /* --- Tool Approval Dialog --- */
@@ -558,6 +635,36 @@ body {
 }
 
 /* --- Input Form --- */
+
+.chat-suggestions {
+  display: flex;
+  gap: 6px;
+  padding: 0 24px 10px;
+  flex-wrap: wrap;
+}
+
+.chat-suggestion {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1px solid #3A2856;
+  background: #1a0e27;
+  color: #9070b8;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.chat-suggestion:hover:not(:disabled) {
+  background: #2d1d40;
+  border-color: #BC6DFF;
+  color: #e0d0f0;
+}
+
+.chat-suggestion:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 .input-form {
   display: flex;
