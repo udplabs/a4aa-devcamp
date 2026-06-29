@@ -111,7 +111,7 @@ export class MCPClient {
           subject_token: userAccessToken,
           subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
           requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          audience: cfg.audience,
+          audience: process.env.AUTH0_TOOL_AUDIENCE || cfg.audience,
           client_id: cfg.clientId,
           client_secret: cfg.clientSecret,
         }),
