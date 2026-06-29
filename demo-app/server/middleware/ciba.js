@@ -244,5 +244,6 @@ export function listPendingCIBA() {
 export function buildDocShareBindingMessage(params) {
   const title = params.documentTitle || params.documentId || "document";
   const recipient = params.recipientEmail || "external recipient";
-  return `Nexus: share "${title}" with ${recipient} — approve?`;
+  const msg = `Share "${title}" with ${recipient}?`;
+  return msg.length > 64 ? msg.substring(0, 61) + "..." : msg;
 }
