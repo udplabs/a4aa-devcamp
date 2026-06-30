@@ -225,6 +225,12 @@ export async function runProvision(
   const MFA_ACTION_NAME = `enforce-guardian-push-${demoName}`;
   const mfaActionCode = `exports.onExecutePostLogin = async (event, api) => {
   if (event.client.client_id !== event.secrets.SPA_CLIENT_ID) return;
+
+  // If MFA was already completed in this authentication context, skip.
+  // This prevents re-challenging on silent token refreshes (getAccessTokenSilently).
+  const methods = event.authentication?.methods || [];
+  if (methods.some((m) => m.name === "mfa")) return;
+
   const enrolledFactors = event.user.enrolledFactors || [];
   const hasPush = enrolledFactors.some((f) => f.type === "push-notification");
   if (hasPush) {

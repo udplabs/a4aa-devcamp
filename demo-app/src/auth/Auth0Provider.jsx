@@ -33,7 +33,10 @@ export function Auth0Provider({ children }) {
         // Lab 01 -- audience tells Auth0 which API to mint a JWT for.
         // The backend validates this audience on every /api/chat call.
         audience,
-        scope: "openid profile email",
+        // chat:send is included at login so getAccessTokenSilently calls
+        // (verify checks, useChat) return from cache without triggering
+        // a silent re-auth that would re-invoke the post-login MFA action.
+        scope: "openid profile email chat:send",
       }}
     >
       {children}
