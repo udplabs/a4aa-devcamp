@@ -491,9 +491,9 @@ app.get("/api/verify/module03", async (req, res) => {
       });
     }
 
-    // Check 3: SPA authorized for the My Account API's Connected Accounts
-    // scopes -- required for the real "Connect" flow in the app header to
-    // mint a token for the https://{domain}/me/ audience.
+    // Check 3: SPA authorized for the Auth0 My Account API's Connected
+    // Accounts scopes -- required for the real "Connect" flow in the app
+    // header to mint a token for the https://{domain}/me/ audience.
     const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
     if (spaClientId) {
       const meAudience = `https://${ctx.domain}/me/`;
@@ -511,11 +511,11 @@ app.get("/api/verify/module03", async (req, res) => {
       const hasConnectedAccountsScopes = requiredScopes.every((s) => grantedScopes.includes(s));
       checks.push({
         id: "my_account_api_grant",
-        name: "SPA authorized for My Account API Connected Accounts scopes",
+        name: "SPA authorized for Auth0 My Account API Connected Accounts scopes",
         pass: hasConnectedAccountsScopes,
         message: hasConnectedAccountsScopes
           ? "create/read/delete:me:connected_accounts are granted"
-          : "Activate My Account API (Auth0 Dashboard → Applications → APIs → My Account API → Activate), then open docagent-spa-codespace → APIs tab → enable My Account API → select create/read/delete:me:connected_accounts",
+          : "Activate Auth0 My Account API (Auth0 Dashboard → Applications → APIs → Auth0 My Account API → Activate), then open docagent-spa-codespace → API Access tab → enable Auth0 My Account API → select create/read/delete:me:connected_accounts",
       });
     }
   } catch (e) {

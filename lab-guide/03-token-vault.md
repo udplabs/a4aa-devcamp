@@ -48,24 +48,24 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 > Before you enable it, the vault falls back to an in-memory mock CRM token — the tool call still succeeds, but Auth0 is not yet involved in storing the credential. After enabling, Auth0 stores the user's real CRM access token and refresh token, and the live federated exchange fires on every `log_crm_activity` call.
 
 > [!IMPORTANT]
-> **Dashboard Step: Authorize the Nexus SPA for the My Account API**
+> **Dashboard Step: Authorize the Nexus SPA for the Auth0 My Account API**
 >
 > Enabling Token Vault on the connection makes the *exchange* possible, but Auth0 still needs a refresh token to exchange — and that only gets stored once a user actually links the CRM connection via the **Connected Accounts** flow (the "Connect" button in the app header). That flow runs against Auth0's My Account API, so the API itself needs to be activated on your tenant, and the SPA needs to be authorized to request a token for it.
 >
 > 1. Auth0 Dashboard → **Applications → APIs**
-> 2. Find the **My Account API** card and click **Activate**
+> 2. Find the **Auth0 My Account API** card and click **Activate**
 >
 > *You should see: the card now shows the API as active (the **Activate** button is gone).*
 >
 > 3. Auth0 Dashboard → **Applications → Applications → docagent-spa-codespace**
-> 4. Go to the **APIs** tab
+> 4. Go to the **API Access** tab
 >
-> *You should see: a list of first-party Auth0 APIs the application can request access to, including **My Account API**.*
+> *You should see: a list of first-party Auth0 APIs the application can request access to, including **Auth0 My Account API**.*
 >
-> 5. Enable **My Account API**, expand it, and select scopes: `create:me:connected_accounts`, `read:me:connected_accounts`, `delete:me:connected_accounts`
+> 5. Enable **Auth0 My Account API**, expand it, and select scopes: `create:me:connected_accounts`, `read:me:connected_accounts`, `delete:me:connected_accounts`
 > 6. Click **Save**
 >
-> *You should see: the three scopes checked under My Account API for this application.*
+> *You should see: the three scopes checked under Auth0 My Account API for this application.*
 >
 > Without this step, clicking "Connect" in the app will fail to mint a token for the `/me/` audience, and the Connected Accounts flow can't start.
 
@@ -145,7 +145,7 @@ Before running checks, complete the interactive steps:
 
 1. Log in and send any non-CRM message first (e.g. *"Find the Q3 roadmap"*). This seeds the in-memory CRM credential.
 2. Send: *"Log that I viewed the Q3 roadmap in the CRM."* The response includes a logged activity ID.
-3. Enable Token Vault on the CRM connection and authorize the SPA for the My Account API (both Dashboard steps above).
+3. Enable Token Vault on the CRM connection and authorize the SPA for the Auth0 My Account API (both Dashboard steps above).
 4. Click **Connect** next to "CRM" in the app header. This runs the real Connected Accounts flow against the CRM mock and redirects you back into the app.
 5. Send the same message again. The server log switches from the seeded mock to `[Token Vault] (live) federated token for …`.
 
