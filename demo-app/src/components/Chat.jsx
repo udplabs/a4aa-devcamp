@@ -1,7 +1,48 @@
 import { useState, useRef, useEffect } from "react";
 import { Message } from "./Message";
-import { ToolApproval } from "./ToolApproval";
 import { useChat } from "../hooks/useChat";
+
+const CIBA_TIMEOUT_SECONDS = 60;
+
+function CIBAWaiting({ ciba, onApprove, onDeny }) {
+  const [secondsLeft, setSecondsLeft] = useState(CIBA_TIMEOUT_SECONDS);
+  const timedOut = secondsLeft <= 0;
+
+  useEffect(() => {
+    if (timedOut) return;
+    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [secondsLeft, timedOut]);
+
+  const pct = (secondsLeft / CIBA_TIMEOUT_SECONDS) * 100;
+
+  return (
+    <div className="message assistant">
+      <div className="message-bubble assistant ciba-waiting-bubble">
+        {timedOut ? (
+          <p className="ciba-timeout-msg">Approval timed out. Re-send your message to try again.</p>
+        ) : (
+          <>
+            <div className="ciba-waiting-header">
+              <span className="spinner-sm" />
+              <span className="ciba-waiting-label">Waiting for approval on your device</span>
+            </div>
+            <p className="ciba-binding-msg">{ciba.bindingMessage}</p>
+            <div className="ciba-timer-bar">
+              <div className="ciba-timer-fill" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="ciba-timer-label">{secondsLeft}s remaining</p>
+            <div className="ciba-demo-actions">
+              <span className="ciba-demo-label">Demo controls:</span>
+              <button className="ciba-approve-btn" onClick={onApprove}>Approve</button>
+              <button className="ciba-deny-btn" onClick={onDeny}>Deny</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function Chat() {
   const {
@@ -94,9 +135,8 @@ export function Chat() {
         )}
 
         {pendingCIBA && (
-          <ToolApproval
-            toolName={pendingCIBA.toolName}
-            bindingMessage={pendingCIBA.bindingMessage}
+          <CIBAWaiting
+            ciba={pendingCIBA}
             onApprove={() => handleCIBADecision(true)}
             onDeny={() => handleCIBADecision(false)}
           />

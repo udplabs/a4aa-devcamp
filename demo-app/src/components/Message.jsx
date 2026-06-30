@@ -1,16 +1,21 @@
 import { useState } from "react";
 
-const TOOL_BADGES = {
-  search_documents:  ["MCP (OBO)", "FGA"],
-  get_document:      ["MCP (OBO)", "FGA"],
-  log_crm_activity:  ["MCP (OBO)", "Token Vault"],
-  share_document:    ["MCP (OBO)", "CIBA", "FGA"],
+// Badges reflect which security layers were actually reached.
+// On error the failure is always at the OBO boundary — deeper layers never run.
+const SUCCESS_BADGES = {
+  search_documents:  ["OBO", "FGA"],
+  get_document:      ["OBO", "FGA"],
+  log_crm_activity:  ["OBO", "Token Vault"],
+  share_document:    ["OBO", "FGA"],   // CIBA shown in chat flow before this result
 };
 
 function ToolCall({ tc }) {
   const [expanded, setExpanded] = useState(false);
-  const badges = TOOL_BADGES[tc.tool] || ["MCP (OBO)"];
   const isSuccess = tc.status === "success";
+  // Error → only OBO badge (failure at auth boundary, deeper layers not reached)
+  const badges = isSuccess
+    ? (SUCCESS_BADGES[tc.tool] || ["OBO"])
+    : ["OBO"];
 
   return (
     <div className={`tool-call tool-call--${tc.status}`}>
