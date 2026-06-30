@@ -562,7 +562,7 @@ app.get("/api/verify/module04", async (req, res) => {
       );
       const enrollments = await enrollRes.json();
       const hasGuardianEnrollment = Array.isArray(enrollments) &&
-        enrollments.some((e) => e.type === "push-notification" && e.status === "confirmed");
+        enrollments.some((e) => e.auth_method === "guardian" && e.status === "confirmed");
       checks.push({
         id: "alice_guardian_enrollment",
         name: "alice@docagent.demo enrolled in Guardian push",
