@@ -52,14 +52,13 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 >
 > Enabling Token Vault on the connection makes the *exchange* possible, but Auth0 still needs a refresh token to exchange — and that only gets stored once a user actually links the CRM connection via the **Connected Accounts** flow (the "Connect" button in the app header). That flow runs against Auth0's My Account API, so the SPA needs to be authorized to request a token for it.
 >
-> 1. Auth0 Dashboard → **Applications → Applications**
-> 2. Open your Nexus SPA application
-> 3. Go to the **APIs** tab
+> 1. Auth0 Dashboard → **Applications → Applications → docagent-spa-codespace**
+> 2. Go to the **APIs** tab
 >
 > *You should see: a list of first-party Auth0 APIs the application can request access to, including **My Account API**.*
 >
-> 4. Enable **My Account API**, expand it, and select scopes: `create:me:connected_accounts`, `read:me:connected_accounts`, `delete:me:connected_accounts`
-> 5. Click **Save**
+> 3. Enable **My Account API**, expand it, and select scopes: `create:me:connected_accounts`, `read:me:connected_accounts`, `delete:me:connected_accounts`
+> 4. Click **Save**
 >
 > *You should see: the three scopes checked under My Account API for this application.*
 >

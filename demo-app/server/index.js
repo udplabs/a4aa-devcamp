@@ -515,7 +515,7 @@ app.get("/api/verify/module03", async (req, res) => {
         pass: hasConnectedAccountsScopes,
         message: hasConnectedAccountsScopes
           ? "create/read/delete:me:connected_accounts are granted"
-          : "Open the Nexus SPA application in Auth0 Dashboard → APIs tab → enable My Account API → select create/read/delete:me:connected_accounts",
+          : "Open docagent-spa-codespace in Auth0 Dashboard → APIs tab → enable My Account API → select create/read/delete:me:connected_accounts",
       });
     }
   } catch (e) {
