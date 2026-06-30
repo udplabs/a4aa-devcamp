@@ -490,6 +490,34 @@ app.get("/api/verify/module03", async (req, res) => {
           : "Open docagent-mcp-obo in Auth0 Dashboard → Advanced Settings → Grant Types → check Token Vault",
       });
     }
+
+    // Check 3: SPA authorized for the My Account API's Connected Accounts
+    // scopes -- required for the real "Connect" flow in the app header to
+    // mint a token for the https://{domain}/me/ audience.
+    const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
+    if (spaClientId) {
+      const meAudience = `https://${ctx.domain}/me/`;
+      const grantR = await fetch(
+        `https://${ctx.domain}/api/v2/client-grants?client_id=${spaClientId}&audience=${encodeURIComponent(meAudience)}`,
+        { headers: { Authorization: `Bearer ${ctx.token}` } }
+      );
+      const grantData = await grantR.json();
+      const requiredScopes = [
+        "create:me:connected_accounts",
+        "read:me:connected_accounts",
+        "delete:me:connected_accounts",
+      ];
+      const grantedScopes = grantData?.[0]?.scope || [];
+      const hasConnectedAccountsScopes = requiredScopes.every((s) => grantedScopes.includes(s));
+      checks.push({
+        id: "my_account_api_grant",
+        name: "SPA authorized for My Account API Connected Accounts scopes",
+        pass: hasConnectedAccountsScopes,
+        message: hasConnectedAccountsScopes
+          ? "create/read/delete:me:connected_accounts are granted"
+          : "Open the Nexus SPA application in Auth0 Dashboard → APIs tab → enable My Account API → select create/read/delete:me:connected_accounts",
+      });
+    }
   } catch (e) {
     checks.push({ id: "token_vault_connection", name: "Token Vault enabled on CRM connection", pass: false, message: e.message });
   }
