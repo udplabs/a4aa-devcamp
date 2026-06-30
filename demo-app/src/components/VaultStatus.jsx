@@ -12,10 +12,16 @@ export const CONNECTED_ACCOUNTS_SCOPE =
 export function VaultStatus() {
   const { getAccessTokenSilently } = useAuth0();
   const { domain } = useRuntimeConfig();
-  const [linked, setLinked] = useState(null); // null = loading
+  const [linked, setLinked] = useState(null); // null = not checked yet
+  const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Checking status calls the real live Token Vault exchange (vault.js
+  // getToken), so we don't run it automatically on every mount/page
+  // refresh -- only when the user explicitly clicks "Check", or right
+  // after a real Connected Accounts link completes (see App.jsx).
   const fetchStatus = useCallback(async () => {
+    setChecking(true);
     try {
       const token = await getAccessTokenSilently();
       const res = await fetch("/api/vault/providers", {
@@ -26,11 +32,16 @@ export function VaultStatus() {
       setLinked(crmLinked);
     } catch {
       setLinked(false);
+    } finally {
+      setChecking(false);
     }
   }, [getAccessTokenSilently]);
 
   useEffect(() => {
-    fetchStatus();
+    if (sessionStorage.getItem("vault_check_on_load")) {
+      sessionStorage.removeItem("vault_check_on_load");
+      fetchStatus();
+    }
   }, [fetchStatus]);
 
   async function connectedAccountsToken() {
@@ -92,13 +103,22 @@ export function VaultStatus() {
     }
   }
 
-  if (linked === null) return null;
-
   return (
     <div className="vault-status">
-      <span className={`vault-dot ${linked ? "vault-dot--on" : "vault-dot--off"}`} />
+      <span
+        className={`vault-dot ${linked === null ? "vault-dot--unknown" : linked ? "vault-dot--on" : "vault-dot--off"}`}
+      />
       <span className="vault-label">CRM</span>
-      {linked ? (
+      {linked === null ? (
+        <button
+          className="vault-btn vault-btn--check"
+          onClick={fetchStatus}
+          disabled={checking}
+          title="Check Token Vault connection status"
+        >
+          {checking ? "…" : "Check"}
+        </button>
+      ) : linked ? (
         <button
           className="vault-btn vault-btn--disconnect"
           onClick={handleDisconnect}
@@ -108,14 +128,24 @@ export function VaultStatus() {
           {busy ? "…" : "Disconnect"}
         </button>
       ) : (
-        <button
-          className="vault-btn vault-btn--connect"
-          onClick={handleConnect}
-          disabled={busy}
-          title="Link CRM via Token Vault"
-        >
-          {busy ? "…" : "Connect"}
-        </button>
+        <>
+          <button
+            className="vault-btn vault-btn--connect"
+            onClick={handleConnect}
+            disabled={busy}
+            title="Link CRM via Token Vault"
+          >
+            {busy ? "…" : "Connect"}
+          </button>
+          <button
+            className="vault-btn vault-btn--check"
+            onClick={fetchStatus}
+            disabled={checking}
+            title="Re-check status"
+          >
+            {checking ? "…" : "↻"}
+          </button>
+        </>
       )}
     </div>
   );

@@ -75,8 +75,9 @@ body {
   flex-shrink: 0;
 }
 
-.vault-dot--on  { background: #34D399; box-shadow: 0 0 5px #34D399; }
-.vault-dot--off { background: #4D3A6B; }
+.vault-dot--on      { background: #34D399; box-shadow: 0 0 5px #34D399; }
+.vault-dot--off     { background: #4D3A6B; }
+.vault-dot--unknown { background: #6E5A8A; }
 
 .vault-label {
   font-size: 12px;
@@ -116,6 +117,14 @@ body {
   color: #F87171;
   border-color: #F87171;
 }
+
+.vault-btn--check {
+  background: transparent;
+  color: #6E5A8A;
+  border: 1px solid #3A2856;
+}
+
+.vault-btn--check:hover:not(:disabled) { color: #BFA9D6; border-color: #4A3866; }
 
 .logout-button {
   padding: 6px 12px;

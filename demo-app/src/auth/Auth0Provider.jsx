@@ -29,6 +29,12 @@ export function Auth0Provider({ children }) {
       domain={domain}
       clientId={clientId}
       useRefreshTokens={true}
+      // Connected Accounts (VaultStatus/App.jsx) request a token for a
+      // different audience/scope (My Account API) than login granted, so
+      // there's no cached refresh token for that combination. Without this,
+      // the SDK throws MissingRefreshTokenError instead of falling back to
+      // a silent prompt=none check against the existing Auth0 session.
+      useRefreshTokensFallback={true}
       cacheLocation="localstorage"
       authorizationParams={{
         redirect_uri: window.location.origin,

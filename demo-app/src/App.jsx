@@ -66,6 +66,9 @@ export default function App() {
             redirect_uri: stashed.redirectUri,
           }),
         });
+        // One real, meaningful event -- worth auto-checking status once
+        // on the next load, unlike routine page refreshes.
+        sessionStorage.setItem("vault_check_on_load", "1");
       } catch (err) {
         console.error("[Vault] Connect completion failed:", err.message);
       } finally {
