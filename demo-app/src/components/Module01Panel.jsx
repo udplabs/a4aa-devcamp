@@ -16,6 +16,7 @@ function deriveCimdUrl() {
 export function Module01Panel({ onReady }) {
   const [copiedCimd, setCopiedCimd] = useState(false);
   const [copiedCreds, setCopiedCreds] = useState(false);
+  const [copiedName, setCopiedName] = useState(false);
   const cimdUrl = deriveCimdUrl();
 
   useEffect(() => {
@@ -94,7 +95,20 @@ export function Module01Panel({ onReady }) {
             <ul>
               <li>Auth0 Dashboard → <strong>APIs → Nexus MCP Server → Applications tab</strong></li>
               <li>Click <strong>Add Application</strong></li>
-              <li>Name it <code>docagent-mcp-obo</code> and enable <strong>user-delegated access</strong> for all four <code>mcp:*</code> scopes</li>
+              <li>
+                Name it:
+                <div className="setup-code-block" style={{ marginTop: "6px" }}>
+                  <code>docagent-mcp-obo</code>
+                  <button className="setup-copy-btn" onClick={() => {
+                    navigator.clipboard.writeText("docagent-mcp-obo").catch(() => {});
+                    setCopiedName(true);
+                    setTimeout(() => setCopiedName(false), 2000);
+                  }}>
+                    {copiedName ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                Then enable <strong>user-delegated access</strong> for all four <code>mcp:*</code> scopes
+              </li>
               <li>Open the new application → scroll to <strong>Token Exchange</strong></li>
               <li>Enable <strong>On-Behalf-Of Token Exchange</strong> → <strong>Save</strong></li>
             </ul>
