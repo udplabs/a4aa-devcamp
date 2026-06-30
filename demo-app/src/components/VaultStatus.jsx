@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useRuntimeConfig } from "../config/runtimeConfig";
+
+// Scopes for Auth0's My Account API -- required to drive the
+// Connected Accounts flow that actually populates Token Vault with
+// a federated refresh token. Requires the SPA to be authorized for
+// the My Account API in the Dashboard (see Module 03 of the lab).
+export const CONNECTED_ACCOUNTS_SCOPE =
+  "create:me:connected_accounts read:me:connected_accounts delete:me:connected_accounts";
 
 export function VaultStatus() {
   const { getAccessTokenSilently } = useAuth0();
+  const { domain } = useRuntimeConfig();
   const [linked, setLinked] = useState(null); // null = loading
   const [busy, setBusy] = useState(false);
 
@@ -24,17 +33,40 @@ export function VaultStatus() {
     fetchStatus();
   }, [fetchStatus]);
 
+  async function connectedAccountsToken() {
+    return getAccessTokenSilently({
+      authorizationParams: {
+        audience: `https://${domain}/me/`,
+        scope: CONNECTED_ACCOUNTS_SCOPE,
+      },
+    });
+  }
+
   async function handleConnect() {
     setBusy(true);
     try {
-      const token = await getAccessTokenSilently();
-      await fetch("/api/vault/link", {
+      const [apiToken, caToken] = await Promise.all([
+        getAccessTokenSilently(),
+        connectedAccountsToken(),
+      ]);
+      const redirectUri = `${window.location.origin}/`;
+      const res = await fetch("/api/vault/connect", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "crm" }),
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "X-Connected-Accounts-Token": caToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ redirectUri }),
       });
-      setLinked(true);
-    } finally {
+      const data = await res.json();
+      if (!res.ok || !data.connect_uri) {
+        throw new Error(data.error_description || data.error || "Failed to start CRM connect flow");
+      }
+      sessionStorage.setItem("vault_connect_state", JSON.stringify({ redirectUri, ...data }));
+      window.location.href = data.connect_uri;
+    } catch (err) {
+      console.error("[Vault] Connect failed:", err.message);
       setBusy(false);
     }
   }
@@ -42,11 +74,17 @@ export function VaultStatus() {
   async function handleDisconnect() {
     setBusy(true);
     try {
-      const token = await getAccessTokenSilently();
-      await fetch("/api/vault/unlink", {
+      const [apiToken, caToken] = await Promise.all([
+        getAccessTokenSilently(),
+        connectedAccountsToken(),
+      ]);
+      await fetch("/api/vault/disconnect", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "crm" }),
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "X-Connected-Accounts-Token": caToken,
+          "Content-Type": "application/json",
+        },
       });
       setLinked(false);
     } finally {

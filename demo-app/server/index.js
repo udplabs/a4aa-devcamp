@@ -1,6 +1,7 @@
 import "dotenv/config";
 import dotenv from "dotenv";
 import fs from "fs";
+import { randomBytes } from "crypto";
 
 // Load pre-claimed ports written by find-port.js so servers don't re-scan
 // and collide. Falls back to env vars or defaults if the file doesn't exist.
@@ -26,7 +27,7 @@ import {
   listPendingCIBA,
 } from "./middleware/ciba.js";
 import { recordConsent } from "./middleware/agent-auth.js";
-import { storeToken, removeToken, listLinkedProviders } from "./token-vault/vault.js";
+import { getToken } from "./token-vault/vault.js";
 import { startCRMServer } from "./crm/app.js";
 import { startMCPServer, TOOLS as MCP_TOOLS } from "./mcp/server.js";
 import { getLogs } from "./mcp/toolLog.js";
@@ -657,36 +658,116 @@ app.get("/api/ciba/pending", (req, res) => {
 });
 
 // --- Token Vault Endpoints (Lab 4) ---
+//
+// Real Token Vault linking via Auth0's My Account API "Connected
+// Accounts" flow. The SPA holds a short-lived access token scoped
+// for the My Account API (create/read/delete:me:connected_accounts)
+// and sends it in X-Connected-Accounts-Token -- separate from the
+// normal Authorization bearer used for our own API auth -- because
+// it authorizes a different audience (https://{domain}/me/).
+//
+// Connecting populates Auth0's Token Vault with a real federated
+// refresh token for the CRM connection, which is what getLiveToken()
+// in token-vault/vault.js needs to succeed.
 
-app.post("/api/vault/link", validateAccessToken, (req, res) => {
-  const user = extractUser(req);
-  const { provider } = req.body;
-  const scopeMap = {
-    crm: ["crm:activities:write"],
-  };
-  const scopes = scopeMap[provider] || ["openid"];
-  storeToken(
-    user.sub,
-    provider,
-    `${provider}_access_${user.sub}_${Date.now()}`,
-    `${provider}_refresh_${user.sub}`,
-    3600,
-    scopes
+function connectedAccountsToken(req) {
+  const header = req.headers["x-connected-accounts-token"];
+  return typeof header === "string" ? header : undefined;
+}
+
+app.post("/api/vault/connect", validateAccessToken, async (req, res) => {
+  const tenant = req.tenant;
+  const connection = tenant?.deploymentData?.vault_connections?.crm;
+  const token = connectedAccountsToken(req);
+  const { redirectUri } = req.body;
+
+  if (!connection) {
+    return res.status(400).json({ error: "No CRM connection provisioned for this tenant." });
+  }
+  if (!token) {
+    return res.status(400).json({ error: "Missing X-Connected-Accounts-Token header." });
+  }
+
+  const state = randomBytes(16).toString("hex");
+  const response = await fetch(`https://${tenant.domain}/me/v1/connected-accounts/connect`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ connection, redirect_uri: redirectUri, state }),
+  });
+
+  const data = await response.json();
+  console.log("[Token Vault] Connected Accounts /connect response:", JSON.stringify(data));
+  if (!response.ok) {
+    return res.status(response.status).json(data);
+  }
+  res.json({ ...data, state });
+});
+
+app.post("/api/vault/connect/complete", validateAccessToken, async (req, res) => {
+  const tenant = req.tenant;
+  const token = connectedAccountsToken(req);
+  if (!token) {
+    return res.status(400).json({ error: "Missing X-Connected-Accounts-Token header." });
+  }
+
+  const response = await fetch(`https://${tenant.domain}/me/v1/connected-accounts/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(req.body),
+  });
+
+  const data = await response.json();
+  console.log("[Token Vault] Connected Accounts /complete response:", JSON.stringify(data));
+  if (!response.ok) {
+    return res.status(response.status).json(data);
+  }
+  res.json({ linked: true, ...data });
+});
+
+app.post("/api/vault/disconnect", validateAccessToken, async (req, res) => {
+  const tenant = req.tenant;
+  const connection = tenant?.deploymentData?.vault_connections?.crm;
+  const token = connectedAccountsToken(req);
+  if (!token) {
+    return res.status(400).json({ error: "Missing X-Connected-Accounts-Token header." });
+  }
+
+  const listRes = await fetch(`https://${tenant.domain}/me/v1/connected-accounts`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const list = await listRes.json();
+  if (!listRes.ok) {
+    return res.status(listRes.status).json(list);
+  }
+
+  const entry = (Array.isArray(list) ? list : list.connected_accounts || []).find(
+    (a) => a.connection === connection
   );
-  res.json({ linked: true, provider, scopes });
+  if (!entry) {
+    return res.json({ unlinked: false, provider: "crm" });
+  }
+
+  const deleteRes = await fetch(`https://${tenant.domain}/me/v1/connected-accounts/${entry.id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!deleteRes.ok) {
+    const data = await deleteRes.json().catch(() => ({}));
+    return res.status(deleteRes.status).json(data);
+  }
+  res.json({ unlinked: true, provider: "crm" });
 });
 
-app.post("/api/vault/unlink", validateAccessToken, (req, res) => {
+app.get("/api/vault/providers", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
-  const { provider } = req.body;
-  const removed = removeToken(user.sub, provider);
-  res.json({ unlinked: removed, provider });
-});
-
-app.get("/api/vault/providers", validateAccessToken, (req, res) => {
-  const user = extractUser(req);
-  const providers = listLinkedProviders(user.sub);
-  res.json({ providers });
+  const linked = await getToken(user.sub, "crm", req.tenant, user.accessToken);
+  res.json({ providers: linked ? [{ provider: "crm" }] : [] });
 });
 
 // --- MCP Dev Endpoints ---

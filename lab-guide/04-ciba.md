@@ -8,7 +8,7 @@ In this module you will:
 
 - Understand how `share_document` triggers CIBA before calling the MCP server.
 - See how the binding message ties the push notification to the exact action being approved.
-- Observe the in-memory approve/deny fallback vs. the live Guardian push path.
+- Trigger a real Guardian push notification and watch the approval resolve the pending tool call.
 
 ### Why we're building this
 
@@ -19,7 +19,7 @@ The commercial consequence: compliance teams at enterprise customers block AI ag
 ## Prerequisites
 
 - You completed **Modules 01–03**. Nexus already authenticates the user, vaults credentials, and routes every tool call through the secured MCP server. CIBA adds a device-level approval gate on top of that.
-- For the live path: the Auth0 Guardian app installed (see **Module 00**) and your user account enrolled. Skipping enrollment is fine; the in-memory fallback runs the same flow offline.
+- The Auth0 Guardian app installed (see **Module 00**) and your user account enrolled. This module runs the live CIBA flow end-to-end, so enrollment is required to receive the approval push.
 
 ## Premise
 
@@ -45,11 +45,8 @@ For CIBA push notifications to fire on a real device, the logged-in user must be
 
 The checkpoint verifier checks that `alice@docagent.demo` has a confirmed Guardian enrollment.
 
-> [!TIP]
-> Most participants skip enrollment and use the in-memory fallback — it runs the same approval flow without device setup overhead. Only enroll if you have a spare few minutes and want to see the Guardian push in action.
-
 > [!NOTE]
-> Self-hosting `starter/`? Create a confidential Regular Web Application, add the `urn:openid:params:grant-type:ciba` grant in **Advanced Settings → Grant Types**, and authorize it against your backend and MCP APIs. The in-memory simulator below covers approval if you skip device enrollment.
+> Self-hosting `starter/`? Create a confidential Regular Web Application, add the `urn:openid:params:grant-type:ciba` grant in **Advanced Settings → Grant Types**, authorize it against your backend and MCP APIs, and enroll your user in Guardian push MFA.
 
 ## Dashboard Steps
 
@@ -64,70 +61,93 @@ The CIBA client is provisioned with email as its notification channel. Enable Gu
 *You should see: `guardian-push` listed as an active notification channel.*
 
 > [!NOTE]
-> Guardian push requires the user to be enrolled in Auth0 Guardian MFA. If you skip enrollment the flow still runs via the in-memory approve/deny fallback — the checkpoint verifier only checks that the channel is enabled on the client, not that a device is enrolled.
+> Guardian push requires the user to be enrolled in Auth0 Guardian MFA — complete the enrollment step above before running the demo scenario below. The checkpoint verifier itself only checks that the channel is enabled on the client.
 
 ## Code Steps
 
 > [!NOTE]
 > This code is already implemented in the demo-app. The steps below walk you through the implementation — open each file in your editor as you go. You are not writing new code in this module.
 
-The CIBA simulator runs the full flow offline. The state machine mirrors Auth0's: `pending` → `approved | denied`, 300-second expiry.
+Once the tenant has a provisioned CIBA client, `initiateCIBA` calls Auth0's `/bc-authorize` directly and `checkCIBAStatus` polls `/oauth/token` with the CIBA grant. The state machine is Auth0's own: `pending` → `approved | denied`, with the expiry and polling interval Auth0 returns from `/bc-authorize`.
 
 ### Step 1: the CIBA middleware
 
 `server/middleware/ciba.js`:
 
 ```js
-import { randomBytes } from "crypto";
+const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
+const cibaRequests = new Map();
 
-const requests = new Map();
+function cibaClient(tenant) {
+  const dd = tenant?.deploymentData;
+  if (!dd?.ciba_client_id || !tenant?.domain) return null;
+  return { domain: tenant.domain, clientId: dd.ciba_client_id, clientSecret: dd.ciba_client_secret };
+}
 
-export async function initiateCIBA(userId, userEmail, toolName, scope, bindingMessage = "", tenant = null) {
-  const authReqId = randomBytes(16).toString("hex");
-  const now = Date.now();
-  requests.set(authReqId, {
-    authReqId, userId, userEmail, toolName, scope, bindingMessage,
-    status: "pending",
-    createdAt: now,
-    expiresAt: now + 300_000,
+export async function initiateCIBA(userId, userEmail, toolName, scope, bindingMessage = "", tenant) {
+  const message = bindingMessage || `Approve use of ${toolName}`;
+  const live = cibaClient(tenant);
+
+  // login_hint identifies the rep to push to. Auth0 accepts an
+  // iss_sub-formatted JSON hint resolved against the tenant issuer.
+  const loginHint = JSON.stringify({ format: "iss_sub", iss: tenant.issuer, sub: userId });
+  const body = new URLSearchParams({
+    client_id: live.clientId,
+    scope: `openid ${scope}`.trim(),
+    binding_message: message,
+    login_hint: loginHint,
   });
-  console.log(`[CIBA] initiated ${authReqId} for ${userId} :: ${bindingMessage}`);
-  return { authReqId, expiresIn: 300, interval: 2, bindingMessage };
+  if (live.clientSecret) body.set("client_secret", live.clientSecret);
+
+  const res = await fetch(`https://${live.domain}/bc-authorize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const data = await res.json();
+  cibaRequests.set(data.auth_req_id, {
+    userId, toolName, status: "pending",
+    authReqId: data.auth_req_id, bindingMessage: message, createdAt: Date.now(), live,
+  });
+  return { authReqId: data.auth_req_id, expiresIn: data.expires_in ?? 300, interval: data.interval ?? 5, bindingMessage: message };
 }
 
-export function checkCIBAStatus(authReqId) {
-  const req = requests.get(authReqId);
-  if (!req) return { status: "denied" };
-  if (Date.now() > req.expiresAt) return { status: "denied" };
-  return {
-    status: req.status,
-    bindingMessage: req.bindingMessage,
-    token: req.status === "approved" ? `mock-ciba-${authReqId}` : undefined,
-  };
-}
+export async function checkCIBAStatus(authReqId) {
+  const request = cibaRequests.get(authReqId);
+  if (!request) return { status: "denied" };
 
-export function approveCIBA(authReqId) {
-  const req = requests.get(authReqId);
-  if (!req) return false;
-  req.status = "approved";
-  return true;
-}
+  // Poll Auth0 /oauth/token with the CIBA grant.
+  const body = new URLSearchParams({
+    grant_type: CIBA_GRANT,
+    auth_req_id: authReqId,
+    client_id: request.live.clientId,
+  });
+  if (request.live.clientSecret) body.set("client_secret", request.live.clientSecret);
 
-export function denyCIBA(authReqId) {
-  const req = requests.get(authReqId);
-  if (!req) return false;
-  req.status = "denied";
-  return true;
-}
+  const res = await fetch(`https://${request.live.domain}/oauth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const data = await res.json();
 
-export function listPendingCIBA() {
-  return Array.from(requests.values())
-    .filter((r) => r.status === "pending")
-    .map(({ authReqId, userId, toolName, bindingMessage, createdAt }) => ({
-      authReqId, userId, toolName, bindingMessage, createdAt,
-    }));
+  if (res.ok && data.access_token) {
+    const { userId, toolName, bindingMessage } = request;
+    cibaRequests.delete(authReqId);
+    return { status: "approved", token: data.access_token, bindingMessage, userId, toolName };
+  }
+  // authorization_pending / slow_down -> still waiting on the device.
+  if (data.error === "authorization_pending" || data.error === "slow_down") {
+    return { status: "pending", bindingMessage: request.bindingMessage };
+  }
+  // access_denied / expired_token / invalid_request -> terminal.
+  cibaRequests.delete(authReqId);
+  return { status: "denied", bindingMessage: request.bindingMessage };
 }
 ```
+
+> [!NOTE]
+> The full file also has `listPendingCIBA()` for the dev `/api/mcp/logs`-style introspection endpoint, and a `buildDocShareBindingMessage()` that sanitizes the title/recipient into Auth0's allowed binding-message character set (`alphanumerics, whitespace, +-_.,:#`).
 
 ### Step 2: the binding message
 
@@ -137,11 +157,15 @@ Same file, `buildDocShareBindingMessage`:
 export function buildDocShareBindingMessage(params) {
   const title = params.documentTitle || params.documentId || "document";
   const recipient = params.recipientEmail || "external recipient";
-  return `Nexus: share "${title}" with ${recipient} — approve?`;
+  // Auth0 allows only: alphanumerics, whitespace, +-_.,:#
+  const safeTitle = title.replace(/[^a-zA-Z0-9 +\-_.,:#]/g, " ").trim();
+  const safeRecipient = recipient.replace("@", " at ").replace(/[^a-zA-Z0-9 +\-_.,:#]/g, " ").trim();
+  const msg = `Approve: share ${safeTitle} to ${safeRecipient}`;
+  return msg.length > 64 ? msg.substring(0, 61) + "..." : msg;
 }
 ```
 
-The binding message is human-readable and surfaces exactly what the user is approving (title and recipient) in the push notification on their device.
+The binding message is human-readable and surfaces exactly what the user is approving (title and recipient) in the Guardian push notification on their device. Auth0 restricts `binding_message` to a narrow character set, so emails and punctuation are sanitized before the `/bc-authorize` call.
 
 ### Step 3: the `share_document` gate in the LLM path
 
@@ -165,7 +189,7 @@ if (!authResult.authorized && authResult.requiresConsent) {
 }
 ```
 
-The same gate runs in `server/simulator.js` so the in-memory fallback also requires CIBA approval before the share executes.
+The same gate runs in `server/simulator.js` (the pattern-matching fallback used when the OpenAI call is unavailable), so every code path requires CIBA approval before the share executes.
 
 ### Step 4: the CIBA endpoints
 
@@ -217,13 +241,13 @@ app.get("/api/ciba/pending", (_req, res) => {
 **Step 2 — Run the demo scenario.**
 
 1. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."*
-2. The response includes a **Device Approval Required** card: `Nexus: share "Q3 Product Roadmap" with external@partner.com — approve?`
-3. In the terminal, run `curl http://localhost:3000/api/ciba/pending` to see the pending request and copy the `authReqId`.
-4. Approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`
-5. The UI updates and the share executes.
+2. The response includes a pending-approval card with the binding message, e.g. `Approve: share Q3 Product Roadmap to external at partner.com`.
+3. A Guardian push notification arrives on your enrolled device showing the same binding message.
+4. Tap **Allow** in the Guardian app.
+5. The frontend's poll resolves to `approved`, the UI updates, and the share executes.
 
 > [!TIP]
-> The approval window is 300 seconds. If you initiate a share and do nothing, `/api/ciba/status/:id` returns `denied` after 5 minutes and the share is silently aborted.
+> The approval window comes straight from Auth0's `/bc-authorize` response (`expires_in`, default 300 seconds). If you initiate a share and don't approve on your device in time, the next poll returns `denied` and the share is silently aborted.
 
 ## What you learned
 
