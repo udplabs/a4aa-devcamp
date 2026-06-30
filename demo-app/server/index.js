@@ -515,7 +515,7 @@ app.get("/api/verify/module03", async (req, res) => {
         pass: hasConnectedAccountsScopes,
         message: hasConnectedAccountsScopes
           ? "create/read/delete:me:connected_accounts are granted"
-          : "Open docagent-spa-codespace in Auth0 Dashboard → APIs tab → enable My Account API → select create/read/delete:me:connected_accounts",
+          : "Activate My Account API (Auth0 Dashboard → Applications → APIs → My Account API → Activate), then open docagent-spa-codespace → APIs tab → enable My Account API → select create/read/delete:me:connected_accounts",
       });
     }
   } catch (e) {
