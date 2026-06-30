@@ -549,45 +549,20 @@ body {
   margin: 0;
 }
 
-.ciba-demo-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 4px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+.ciba-push-icon {
+  font-size: 16px;
+  animation: bell-pulse 1.8s ease-in-out infinite;
+  display: inline-block;
 }
 
-.ciba-demo-label {
-  font-size: 11px;
-  color: #6b5f82;
-  flex: 1;
+@keyframes bell-pulse {
+  0%, 100% { transform: rotate(0deg) scale(1);   opacity: 1; }
+  15%       { transform: rotate(-18deg) scale(1.1); opacity: 1; }
+  30%       { transform: rotate(18deg) scale(1.1);  opacity: 1; }
+  45%       { transform: rotate(-10deg) scale(1);   opacity: 1; }
+  60%       { transform: rotate(0deg) scale(1);     opacity: 1; }
+  80%       { opacity: 0.5; }
 }
-
-.ciba-approve-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #2d6a4f;
-  color: #a8d5b5;
-  border: none;
-  cursor: pointer;
-}
-
-.ciba-approve-btn:hover { background: #3a8a64; }
-
-.ciba-deny-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #5a2530;
-  color: #e8a0ab;
-  border: none;
-  cursor: pointer;
-}
-
-.ciba-deny-btn:hover { background: #7a3040; }
 
 .ciba-timeout-msg {
   font-size: 13px;

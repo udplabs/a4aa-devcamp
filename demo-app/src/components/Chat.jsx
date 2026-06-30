@@ -4,7 +4,7 @@ import { useChat } from "../hooks/useChat";
 
 const CIBA_TIMEOUT_SECONDS = 60;
 
-function CIBAWaiting({ ciba, onApprove, onDeny }) {
+function CIBAWaiting({ ciba }) {
   const [secondsLeft, setSecondsLeft] = useState(CIBA_TIMEOUT_SECONDS);
   const timedOut = secondsLeft <= 0;
 
@@ -24,19 +24,14 @@ function CIBAWaiting({ ciba, onApprove, onDeny }) {
         ) : (
           <>
             <div className="ciba-waiting-header">
-              <span className="spinner-sm" />
-              <span className="ciba-waiting-label">Waiting for approval on your device</span>
+              <span className="ciba-push-icon">🔔</span>
+              <span className="ciba-waiting-label">Push notification sent — approve on your device</span>
             </div>
             <p className="ciba-binding-msg">{ciba.bindingMessage}</p>
             <div className="ciba-timer-bar">
               <div className="ciba-timer-fill" style={{ width: `${pct}%` }} />
             </div>
             <p className="ciba-timer-label">{secondsLeft}s remaining</p>
-            <div className="ciba-demo-actions">
-              <span className="ciba-demo-label">Demo controls:</span>
-              <button className="ciba-approve-btn" onClick={onApprove}>Approve</button>
-              <button className="ciba-deny-btn" onClick={onDeny}>Deny</button>
-            </div>
           </>
         )}
       </div>
@@ -135,11 +130,7 @@ export function Chat() {
         )}
 
         {pendingCIBA && (
-          <CIBAWaiting
-            ciba={pendingCIBA}
-            onApprove={() => handleCIBADecision(true)}
-            onDeny={() => handleCIBADecision(false)}
-          />
+          <CIBAWaiting ciba={pendingCIBA} />
         )}
 
         <div ref={messagesEndRef} />
