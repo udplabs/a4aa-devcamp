@@ -255,7 +255,10 @@ export async function disableMfaCustomization(ctx) {
 export async function createPostLoginAction(ctx, { name, code, secrets = [] }) {
   const list = await mgmt(ctx, "GET", "/actions/actions?triggerId=post-login&per_page=100");
   const existing = (list?.actions || []).find((a) => a.name === name);
-  if (existing) return existing;
+  if (existing) {
+    await mgmt(ctx, "PATCH", `/actions/actions/${existing.id}`, { code, secrets });
+    return existing;
+  }
   return await mgmt(ctx, "POST", "/actions/actions", {
     name,
     supported_triggers: [{ id: "post-login", version: "v3" }],
