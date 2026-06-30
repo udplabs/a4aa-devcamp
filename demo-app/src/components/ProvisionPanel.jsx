@@ -1,13 +1,28 @@
 import { useState, useEffect } from "react";
 
 const STEPS = [
-  "Creating backend API resource server",
+  "Creating Backend API resource server",
   "Creating MCP API resource server",
-  "Creating M2M client (OBO)",
   "Creating SPA client",
   "Creating CIBA client",
   "Creating CRM OAuth2 connection",
+  "Creating demo users (Alice + Bob)",
+  "Creating Nexus User role",
+  "Enabling Guardian push factor",
+  "Creating post-login MFA action",
   "Writing .env and restarting",
+];
+
+const RESOURCE_PILLS = [
+  "Backend API",
+  "MCP API",
+  "SPA Client",
+  "CIBA Client",
+  "CRM Connection",
+  "Demo Users",
+  "Nexus User Role",
+  "Guardian Push",
+  "Post-login MFA Action",
 ];
 
 export function ProvisionPanel({ onProvisioned }) {
@@ -19,12 +34,12 @@ export function ProvisionPanel({ onProvisioned }) {
   useEffect(() => {
     if (status !== "running") return;
     if (stepIndex >= STEPS.length - 1) return;
-    const t = setTimeout(() => setStepIndex((i) => i + 1), 1400);
+    const t = setTimeout(() => setStepIndex((i) => i + 1), 1200);
     return () => clearTimeout(t);
   }, [status, stepIndex]);
 
   // After success, poll /api/setup/status until isProvisioned flips, then
-  // call onProvisioned so the ConfigGate can re-render the full app.
+  // wait 5 seconds so the user can see the completed state before the app reloads.
   useEffect(() => {
     if (status !== "success") return;
     const id = setInterval(async () => {
@@ -33,7 +48,7 @@ export function ProvisionPanel({ onProvisioned }) {
         const data = await res.json();
         if (data.isProvisioned) {
           clearInterval(id);
-          onProvisioned();
+          setTimeout(() => onProvisioned(), 5000);
         }
       } catch {
         /* server may be restarting */
@@ -74,15 +89,12 @@ export function ProvisionPanel({ onProvisioned }) {
           <>
             <p className="setup-desc">
               Your environment is configured. Click below to create the Auth0 applications,
-              APIs, and connections that Nexus needs. This takes about 10 seconds.
+              APIs, and connections that Nexus needs. This takes about 15 seconds.
             </p>
             <div className="setup-resource-list">
-              <span className="setup-resource-pill">Backend API</span>
-              <span className="setup-resource-pill">MCP API</span>
-              <span className="setup-resource-pill">M2M Client (OBO)</span>
-              <span className="setup-resource-pill">SPA Client</span>
-              <span className="setup-resource-pill">CIBA Client</span>
-              <span className="setup-resource-pill">CRM Connection</span>
+              {RESOURCE_PILLS.map((pill) => (
+                <span key={pill} className="setup-resource-pill">{pill}</span>
+              ))}
             </div>
             <button className="setup-provision-btn" onClick={provision}>
               Provision Resources
@@ -109,7 +121,7 @@ export function ProvisionPanel({ onProvisioned }) {
         {status === "success" && (
           <div className="setup-success">
             <p className="setup-success-msg">
-              Resources provisioned successfully. The server is restarting, and the app will reload automatically once initialization completes.
+              Resources provisioned successfully. The server is restarting — the app will reload automatically in a moment.
             </p>
             <div className="spinner" />
           </div>

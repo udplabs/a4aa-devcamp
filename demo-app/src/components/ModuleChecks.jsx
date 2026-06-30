@@ -24,6 +24,12 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
 
     case "02": {
       const checks = [];
+
+      // Backend check: tenant-level MFA customization flag
+      const r02 = await fetch("/api/verify/module02");
+      const d02 = await r02.json();
+      checks.push(...d02.checks);
+
       checks.push({
         id: "authenticated", name: "User is authenticated",
         pass: isAuthenticated,

@@ -32,6 +32,8 @@ import {
   disableGuardianPush,
   setMfaPolicyAlways,
   resetMfaPolicy,
+  enableMfaCustomization,
+  disableMfaCustomization,
   createPostLoginAction,
   deployAction,
   bindActionToPostLogin,
@@ -214,8 +216,9 @@ export async function runProvision(
     }
   }
 
-  // 8. Guardian push — required for CIBA push notifications.
+  // 8. Guardian push + MFA customization via Actions.
   await safe("enable guardian push factor", () => enableGuardianPush(ctx));
+  await safe("enable mfa customization in postlogin action", () => enableMfaCustomization(ctx));
 
   // 9. Post-login Action: enforce Guardian push MFA for the SPA.
   // New users are redirected to enroll; returning users are challenged.
@@ -302,6 +305,7 @@ export async function runDeprovision(ctx) {
   await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
   await safe("del demo user bob",   () => deleteDemoUser(ctx, "bob@docagent.demo"));
   await safe("disable guardian push", () => disableGuardianPush(ctx));
+  await safe("disable mfa customization in postlogin action", () => disableMfaCustomization(ctx));
   if (fgaStoreId) {
     const fgaSettings = fgaSettingsFromEnvOrRecord({});
     if (fgaSettings) await safe("del fga store", () => deleteFgaStore(fgaSettings, fgaStoreId));

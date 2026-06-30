@@ -398,6 +398,41 @@ app.get("/api/verify/module01", async (req, res) => {
   res.json({ module: "01", checks, allPassed: checks.every((c) => c.pass) });
 });
 
+app.get("/api/verify/module02", async (req, res) => {
+  const checks = [];
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
+  const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
+
+  if (!domain || !clientId || !secret) {
+    checks.push({ id: "mfa_customization", name: "MFA customization via Actions enabled", pass: false,
+      message: "Management credentials not set" });
+    return res.json({ module: "02", checks, allPassed: false });
+  }
+
+  try {
+    const { getManagementToken } = await import("./platform/auth0Management.js");
+    const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
+    const settings = await fetch(`https://${ctx.domain}/api/v2/tenants/settings`, {
+      headers: { Authorization: `Bearer ${ctx.token}` },
+    });
+    const data = await settings.json();
+    const enabled = !!data.customize_mfa_in_postlogin_action;
+    checks.push({
+      id: "mfa_customization",
+      name: "MFA customization via Actions enabled",
+      pass: enabled,
+      message: enabled
+        ? "customize_mfa_in_postlogin_action is enabled"
+        : "Not enabled — re-provision or go to Security → Multifactor Auth → Additional Settings → enable Customize MFA Factors using Actions",
+    });
+  } catch (e) {
+    checks.push({ id: "mfa_customization", name: "MFA customization via Actions enabled", pass: false, message: e.message });
+  }
+
+  res.json({ module: "02", checks, allPassed: checks.every((c) => c.pass) });
+});
+
 app.get("/api/verify/module03", async (req, res) => {
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;

@@ -47,6 +47,8 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 | `read:users` | `GET /users-by-email`, `GET /users/{id}/enrollments` | Module 04: look up alice + check her Guardian push enrollments |
 | `update:guardian_factors` | `PUT /guardian/factors/push-notification` | Provisioning: enable Guardian push factor |
 | `update:mfa_policies` | `PUT /guardian/policies` | Provisioning: set MFA policy to always |
+| `read:tenant_settings` | `GET /tenants/settings` | Module 02: verify customize_mfa_in_postlogin_action is enabled |
+| `update:tenant_settings` | `PATCH /tenants/settings` | Provisioning: enable customize_mfa_in_postlogin_action |
 
 ## Full scope list (copy-paste for M2M client configuration)
 
@@ -79,4 +81,6 @@ update:actions
 delete:actions
 update:guardian_factors
 update:mfa_policies
+read:tenant_settings
+update:tenant_settings
 ```

@@ -242,6 +242,14 @@ export async function resetMfaPolicy(ctx) {
   await mgmt(ctx, "PUT", "/guardian/policies", []);
 }
 
+export async function enableMfaCustomization(ctx) {
+  await mgmt(ctx, "PATCH", "/tenants/settings", { customize_mfa_in_postlogin_action: true });
+}
+
+export async function disableMfaCustomization(ctx) {
+  await mgmt(ctx, "PATCH", "/tenants/settings", { customize_mfa_in_postlogin_action: false });
+}
+
 // ---- Actions ----------------------------------------------------
 
 export async function createPostLoginAction(ctx, { name, code, secrets = [] }) {
