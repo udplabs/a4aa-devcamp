@@ -62,10 +62,10 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 >
 > *You should see: a list of first-party Auth0 APIs the application can request access to, including **Auth0 My Account API**.*
 >
-> 5. Enable **Auth0 My Account API**, expand it, and select scopes: `create:me:connected_accounts`, `read:me:connected_accounts`, `delete:me:connected_accounts`
-> 6. Click **Save**
+> 5. Click **Auth0 My Account API** in the list. In the panel that opens, stay on the **User-Delegated Access** tab and select scopes: `create:me:connected_accounts`, `read:me:connected_accounts`, `delete:me:connected_accounts`
+> 6. Click **Grant Access**, then **Save**
 >
-> *You should see: the three scopes checked under Auth0 My Account API for this application.*
+> *You should see: "3 / 8 permissions granted" under User-delegated Access for Auth0 My Account API.*
 >
 > Without this step, clicking "Connect" in the app will fail to mint a token for the `/me/` audience, and the Connected Accounts flow can't start.
 
