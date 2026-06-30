@@ -162,6 +162,10 @@ export class MCPClient {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          // Original user token (aud: MCP server, no `act` claim) so the
+          // server can use it as the Token Vault subject_token instead of
+          // this OBO-derived token, which Token Vault rejects.
+          "X-User-Token": userAccessToken,
         },
         body: JSON.stringify({ name, arguments: args }),
       }

@@ -189,6 +189,10 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
   const tokenScopes = (payload.scope || "").split(" ").filter(Boolean);
   const tenant = req.tenant;
   const userAccessToken = bearerFromHeader(req) || undefined;
+  // The OBO token above authenticates this MCP call but carries an `act`
+  // claim chain that Token Vault rejects. The original user token (aud:
+  // MCP server, no `act`) is what Token Vault needs as subject_token.
+  const originalUserToken = req.headers["x-user-token"] || userAccessToken;
 
   console.log(
     `[MCP Server] Tool call: ${name}, sub=${userSub}, scopes=${tokenScopes.join(",")}`
@@ -218,9 +222,9 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
   try {
     // Seed demo FGA tuples + vault entries on first call per user.
     await seedTuplesForUser(userSub, userEmail, tenant);
-    await seedVaultForUser(userSub, tenant, userAccessToken);
+    await seedVaultForUser(userSub, tenant, originalUserToken);
 
-    const result = await executeToolLogic(name, args, userSub, tenant, userAccessToken);
+    const result = await executeToolLogic(name, args, userSub, tenant, originalUserToken);
     console.log(`[MCP Server] Tool ${name} executed`);
     addLog({ tool: name, userSub, args, result, status: "success" });
     res.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
