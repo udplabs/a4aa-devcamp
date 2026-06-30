@@ -22,7 +22,7 @@ const LAB_MODULES = ["01", "02", "03", "04", "05"];
 // domain/clientId/audience are fetched at runtime from /api/config
 // so the same build works across every demo tenant.
 export default function App() {
-  const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently, getIdTokenClaims } = useAuth0();
   const { audience } = useRuntimeConfig();
   const [activeTab, setActiveTab] = useState("chat");
   const { getModuleStatus } = useLabProgress();
@@ -33,10 +33,10 @@ export default function App() {
   // Auth0Provider / RuntimeConfigProvider) can run Module 02 checks correctly.
   useEffect(() => {
     window.__nexusAuth = isAuthenticated
-      ? { isAuthenticated: true, getAccessTokenSilently, audience }
-      : { isAuthenticated: false, getAccessTokenSilently: null, audience };
+      ? { isAuthenticated: true, getAccessTokenSilently, getIdTokenClaims, audience }
+      : { isAuthenticated: false, getAccessTokenSilently: null, getIdTokenClaims: null, audience };
     return () => { window.__nexusAuth = null; };
-  }, [isAuthenticated, getAccessTokenSilently, audience]);
+  }, [isAuthenticated, getAccessTokenSilently, getIdTokenClaims, audience]);
 
   if (isLoading) {
     return (
