@@ -56,6 +56,67 @@ body {
   color: #BFA9D6;
 }
 
+/* --- Token Vault status (header) --- */
+
+.vault-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid #3A2856;
+  border-radius: 20px;
+  background: #1a0e27;
+}
+
+.vault-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vault-dot--on  { background: #34D399; box-shadow: 0 0 5px #34D399; }
+.vault-dot--off { background: #4D3A6B; }
+
+.vault-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #BFA9D6;
+  letter-spacing: 0.02em;
+}
+
+.vault-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+  font-family: inherit;
+}
+
+.vault-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.vault-btn--connect {
+  background: #2D1D40;
+  color: #BC6DFF;
+  border: 1px solid #4A3866;
+}
+
+.vault-btn--connect:hover:not(:disabled) { background: #3A2856; }
+
+.vault-btn--disconnect {
+  background: transparent;
+  color: #6E5A8A;
+  border: 1px solid transparent;
+}
+
+.vault-btn--disconnect:hover:not(:disabled) {
+  color: #F87171;
+  border-color: #F87171;
+}
+
 .logout-button {
   padding: 6px 12px;
   border: 1px solid #3A2856;

@@ -7,6 +7,7 @@ import { ToolLogs } from "./components/ToolLogs";
 import { ToolTester } from "./components/ToolTester";
 import { LoginScreen } from "./components/LoginScreen";
 import { useLabProgress } from "./hooks/useLabProgress";
+import { VaultStatus } from "./components/VaultStatus";
 
 const TABS = [
   { id: "chat",   label: "Chat" },
@@ -56,6 +57,7 @@ export default function App() {
       <header className="app-header">
         <h1>Nexus</h1>
         <div className="user-info">
+          <VaultStatus />
           <span>{user?.name}</span>
           <button
             className="logout-button"
