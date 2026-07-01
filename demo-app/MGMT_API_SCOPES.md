@@ -11,11 +11,9 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 | `delete:resource_servers` | `DELETE /resource-servers/{id}` | Teardown |
 | `read:clients` | `GET /clients` | List clients, look up CIMD app by name |
 | `create:clients` | `POST /clients` | Create SPA, CIBA client |
-| `update:clients` | `PATCH /clients/{id}` | Reconfigure SPA callbacks/origins |
+| `update:clients` | `PATCH /clients/{id}` | Reconfigure SPA callbacks/origins (platform path only) |
 | `delete:clients` | `DELETE /clients/{id}` | Teardown SPA, CIBA, CIMD clients |
-| `read:client_grants` | `GET /client-grants` | Verify OBO user-delegated grant |
-| `create:client_grants` | `POST /client-grants` | Grant SPA → backend API, CIBA → APIs |
-| `update:client_grants` | `PATCH /client-grants/{id}` | Fix OBO grant scope array |
+| `create:client_grants` | `POST /client-grants` | Grant SPA → MCP API, CIBA → MCP/backend APIs |
 | `read:connections` | `GET /connections` | Look up CRM OAuth2 connection |
 | `create:connections` | `POST /connections` | Create CRM OAuth2 connection |
 | `delete:connections` | `DELETE /connections/{id}` | Teardown CRM connection |
@@ -26,29 +24,32 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 | `create:roles` | `POST /roles` | Create Nexus User role |
 | `update:roles` | `POST /roles/{id}/permissions` | Add MCP + backend permissions to role |
 | `delete:roles` | `DELETE /roles/{id}` | Teardown Nexus User role |
-| `read:role_members` | `GET /roles/{id}/users`, `GET /roles/{id}/permissions` | Verify role assignments + permissions |
 | `create:role_members` | `POST /users/{id}/roles` | Assign Nexus User role to alice + bob |
 | `read:actions` | `GET /actions/actions`, `GET /actions/triggers/post-login/bindings` | Check if action exists; read current bindings |
 | `create:actions` | `POST /actions/actions`, `POST /actions/actions/{id}/deploy` | Create + deploy post-login MFA action |
 | `update:actions` | `PATCH /actions/triggers/post-login/bindings` | Bind/unbind action from post-login trigger |
 | `delete:actions` | `DELETE /actions/actions/{id}` | Teardown MFA action |
+| `update:guardian_factors` | `PUT /guardian/factors/push-notification` | Enable/disable Guardian push factor |
+| `update:tenant_settings` | `PATCH /tenants/settings` | Enable/disable `customize_mfa_in_postlogin_action` |
 
 ## Verification endpoints (`server/index.js`)
 
 | Scope | Endpoint(s) | Used for |
 |---|---|---|
 | `read:clients` | `GET /clients?external_client_id=...` | Module 01: verify CIMD client registered |
-| `read:clients` | `GET /clients/{id}?fields=...` | Module 01: verify OBO client config; Module 03: Token Vault grant; Module 04: CIBA grant + channels |
-| `update:clients` | `PATCH /clients/{id}` | Module 01: patch OBO token_exchange if not set |
-| `read:client_grants` | `GET /client-grants?client_id=...&audience=...` | Module 01: verify user-delegated OBO grant + scopes |
-| `update:client_grants` | `PATCH /client-grants/{id}` | Module 01: auto-fix OBO grant scope array |
+| `read:clients` | `GET /clients/{id}?fields=...` | Module 01: verify OBO client config; Module 03: Token Vault grant on OBO client; Module 04: CIBA grant + channels |
+| `read:client_grants` | `GET /client-grants?client_id=...&audience=...` | Module 01: verify user-delegated OBO grant + scopes; Module 03: verify SPA authorized for Auth0 My Account API Connected Accounts scopes |
 | `read:connections` | `GET /connections?name=...` | Module 03: verify Token Vault purpose on CRM connection |
-| `read:roles` | `GET /roles`, `GET /roles/{id}/permissions`, `GET /roles/{id}/users` | Module 01: verify Nexus User role has MCP permissions + is assigned |
 | `read:users` | `GET /users-by-email`, `GET /users/{id}/enrollments` | Module 04: look up alice + check her Guardian push enrollments |
-| `update:guardian_factors` | `PUT /guardian/factors/push-notification` | Provisioning: enable Guardian push factor |
-| `update:mfa_policies` | `PUT /guardian/policies` | Provisioning: set MFA policy to always |
-| `read:tenant_settings` | `GET /tenants/settings` | Module 02: verify customize_mfa_in_postlogin_action is enabled |
-| `update:tenant_settings` | `PATCH /tenants/settings` | Provisioning: enable customize_mfa_in_postlogin_action |
+| `read:tenant_settings` | `GET /tenants/settings` | Module 02: verify `customize_mfa_in_postlogin_action` is enabled |
+
+## Scopes granted but currently unused — safe to omit unless the code below is revived
+
+| Scope | Why it's in older docs/checklists | Status |
+|---|---|---|
+| `update:client_grants` | Would back a `PATCH /client-grants/{id}` auto-fix for the OBO grant's scope array | No such call exists anywhere in the codebase — verification only reports the mismatch and tells the user to fix it in the Dashboard |
+| `read:role_members` | Would back `GET /roles/{id}/users` / `GET /roles/{id}/permissions` role-assignment verification | No such call exists — no module currently verifies role assignment via the Management API |
+| `update:mfa_policies` | `setMfaPolicyAlways`/`resetMfaPolicy` in `auth0Management.js` (`PUT /guardian/policies`) | Defined and imported into `provision.js` but never invoked — MFA enforcement is done via the per-client post-login Action instead (see `update:actions` above), not a tenant-wide policy |
 
 ## Full scope list (copy-paste for M2M client configuration)
 
@@ -60,9 +61,8 @@ read:clients
 create:clients
 update:clients
 delete:clients
-read:client_grants          # required for obo_user_grant verify check
+read:client_grants
 create:client_grants
-update:client_grants
 read:connections
 create:connections
 delete:connections
@@ -73,14 +73,12 @@ read:roles
 create:roles
 update:roles
 delete:roles
-read:role_members
 create:role_members
 read:actions
 create:actions
 update:actions
 delete:actions
 update:guardian_factors
-update:mfa_policies
-read:tenant_settings
 update:tenant_settings
+read:tenant_settings
 ```

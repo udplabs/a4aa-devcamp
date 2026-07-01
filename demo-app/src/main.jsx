@@ -8,6 +8,7 @@ import { ProvisionPanel } from "./components/ProvisionPanel";
 import { Module01Panel } from "./components/Module01Panel";
 import { RestartLabButton } from "./components/RestartLabButton";
 import { ProgressTracker } from "./components/ProgressTracker";
+import { LabProgressProvider } from "./hooks/useLabProgress";
 import "./styles/index.css";
 import "./styles/lab-guide.css";
 
@@ -63,14 +64,16 @@ function ConfigGate({ children }) {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <ConfigGate>
-      <RuntimeConfigProvider>
-        <Auth0Provider>
-          <App />
-        </Auth0Provider>
-      </RuntimeConfigProvider>
-    </ConfigGate>
-    <RestartLabButton />
-    <ProgressTracker />
+    <LabProgressProvider>
+      <ConfigGate>
+        <RuntimeConfigProvider>
+          <Auth0Provider>
+            <App />
+          </Auth0Provider>
+        </RuntimeConfigProvider>
+      </ConfigGate>
+      <RestartLabButton />
+      <ProgressTracker />
+    </LabProgressProvider>
   </React.StrictMode>
 );

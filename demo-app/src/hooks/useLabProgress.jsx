@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 
 const STORAGE_KEY = "nexus-lab-progress";
 
@@ -17,7 +17,12 @@ function saveProgress(data) {
   } catch { /* ignore */ }
 }
 
-export function useLabProgress() {
+const LabProgressContext = createContext(null);
+
+// Shared across the whole render tree (App + ProgressTracker + LabGuide are
+// separate sibling subtrees -- see main.jsx) so a check passing in one place
+// is visible everywhere else immediately, without a page reload.
+export function LabProgressProvider({ children }) {
   const [progress, setProgress] = useState(loadProgress);
 
   const setModuleStatus = useCallback((moduleId, status) => {
@@ -37,5 +42,17 @@ export function useLabProgress() {
     setProgress({});
   }, []);
 
-  return { getModuleStatus, setModuleStatus, resetProgress, progress };
+  return (
+    <LabProgressContext.Provider value={{ getModuleStatus, setModuleStatus, resetProgress, progress }}>
+      {children}
+    </LabProgressContext.Provider>
+  );
+}
+
+export function useLabProgress() {
+  const ctx = useContext(LabProgressContext);
+  if (!ctx) {
+    throw new Error("useLabProgress must be used within LabProgressProvider");
+  }
+  return ctx;
 }

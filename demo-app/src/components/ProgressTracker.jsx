@@ -75,10 +75,7 @@ export function ProgressTracker() {
                 <div className="progress-tracker-checks">
                   <ModuleChecks
                     moduleId={mod.id}
-                    onComplete={(id) => {
-                      setModuleStatus(id, "pass");
-                      setTimeout(() => window.location.reload(), 150);
-                    }}
+                    onComplete={(id) => setModuleStatus(id, "pass")}
                   />
                 </div>
               )}
