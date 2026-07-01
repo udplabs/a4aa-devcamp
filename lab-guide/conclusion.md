@@ -31,7 +31,7 @@ What you built transcends Nexus. Every AI agent that calls APIs, touches user da
 
 ### Cleaning Up
 
-To remove the Auth0 resources created during provisioning, click **Delete Resources** in the top-right corner of the Nexus app header (next to your username). You will be asked to confirm. This calls the deprovision endpoint and removes the backend API, MCP resource server, M2M client, SPA client, CIBA client, and CRM connection from your tenant. Your Auth0 tenant itself and its users remain intact.
+To remove the Auth0 resources created during provisioning, click the floating **Reset icon** in the bottom-right corner of the app. You will be asked to confirm. This calls the deprovision endpoint and removes the backend API, MCP resource server, M2M client, SPA client, CIBA client, and CRM connection from your tenant. Your Auth0 tenant itself and its users remain intact.
 
 ### What's Next
 

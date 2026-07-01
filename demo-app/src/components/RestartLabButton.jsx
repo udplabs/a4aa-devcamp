@@ -23,9 +23,13 @@ export function RestartLabButton() {
     <div className="restart-lab-fab">
       {state === "confirm" && (
         <div className="restart-lab-confirm">
-          <span>Reset everything and restart?</span>
+          <span>
+            This deletes every Auth0 resource provisioned for this demo
+            (APIs, clients, the CRM connection) and resets your lab progress.
+            This cannot be undone.
+          </span>
           <button className="restart-lab-confirm-yes" onClick={handleRestart}>
-            Yes, restart
+            Yes, delete resources &amp; reset
           </button>
           <button className="restart-lab-confirm-no" onClick={() => setState("idle")}>
             Cancel
@@ -35,7 +39,7 @@ export function RestartLabButton() {
       <button
         className={`restart-lab-btn${state === "restarting" ? " restarting" : ""}`}
         onClick={state === "restarting" ? undefined : handleRestart}
-        title="Restart Lab"
+        title="Reset Lab (deletes provisioned Auth0 resources)"
         disabled={state === "restarting"}
       >
         {state === "restarting" ? (
