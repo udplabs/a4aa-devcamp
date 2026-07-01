@@ -32,6 +32,19 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 > If you restart your Codespace, it gets a new public URL. The CRM connection registered in Auth0 will point to the old URL and the live Token Vault path will fail. To fix this, click **Provision Resources** again from the Nexus setup screen to re-register the connection with the new URL.
 
 > [!IMPORTANT]
+> **Codespace Step: Make the CRM mock's port public**
+>
+> The Connected Accounts flow ("Connect" in the app header) redirects your browser through the CRM mock on port 3002 to authorize the connection. Codespaces ports default to **Private**, which requires a GitHub-auth interstitial page before the request goes through — and that interstitial's own Content-Security-Policy blocks the redirect chain Auth0 drives you through, breaking the flow.
+>
+> 1. Open the **Ports** tab in your Codespace
+> 2. Find port **3002**
+> 3. Right-click the row → **Port Visibility** → **Public**
+>
+> *You should see: the **Visibility** column for port 3002 now reads **Public**.*
+>
+> Without this, clicking "Connect" fails partway through with a Content-Security-Policy error after briefly redirecting to `github.com/codespaces/auth/...`.
+
+> [!IMPORTANT]
 > **Dashboard Step: Enable Token Vault on the CRM connection**
 >
 > 1. Auth0 Dashboard → **Authentication → Social**
@@ -145,7 +158,7 @@ Before running checks, complete the interactive steps:
 
 1. Log in and send any non-CRM message first (e.g. *"Find the Q3 roadmap"*). This seeds the in-memory CRM credential.
 2. Send: *"Log that I viewed the Q3 roadmap in the CRM."* The response includes a logged activity ID.
-3. Enable Token Vault on the CRM connection and authorize the SPA for the Auth0 My Account API (both Dashboard steps above).
+3. Make the CRM mock's port (3002) public, enable Token Vault on the CRM connection, and authorize the SPA for the Auth0 My Account API (all three steps above).
 4. Click **Connect** next to "CRM" in the app header. This runs the real Connected Accounts flow against the CRM mock and redirects you back into the app.
 5. Send the same message again. The server log switches from the seeded mock to `[Token Vault] (live) federated token for …`.
 
