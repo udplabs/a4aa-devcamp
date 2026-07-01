@@ -14,7 +14,7 @@ In this module you will:
 
 Fully automated irreversible actions, like sharing a confidential document with an external recipient, represent one of the highest-risk categories of AI agent behavior. Without a human approval gate, a single compromised session or a mistyped email address sends sensitive data outside the organization with no recourse.
 
-The commercial consequence: compliance teams at enterprise customers block AI agent deployments that can execute irreversible external actions without an audit trail. CIBA turns a blocked feature into an approved one. Every external share produces a timestamped, device-bound approval record that satisfies the audit requirement. That is the difference between a feature that reaches production and one that dies in security review.
+The commercial consequence: CIBA lets the agent run everything else silently — no approval prompt for a document search, no interruption for a CRM lookup — and surfaces a mobile approval only for the action that's genuinely irreversible: sharing outside the organization. That eliminates execution friction everywhere except where it should exist, and it also stops rogue agent actions because no external share executes without an un-bypassable, device-bound human approval, whether the agent is behaving correctly or has been compromised. Compliance teams at enterprise customers block deployments that skip this control. CIBA turns a blocked feature into an approved one, with a timestamped approval record on every share.
 
 ## Prerequisites
 

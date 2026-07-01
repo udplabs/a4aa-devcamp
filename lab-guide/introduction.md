@@ -30,11 +30,11 @@ You will close that gap with Auth0's Auth for AI Agents suite. CIMD and OBO Toke
 
 ### The Business Case
 
-The five controls in this lab are not purely security requirements; they are the conditions under which enterprise customers will buy. Each maps directly to a commercial outcome:
+The five controls in this lab are not purely security requirements; they are the conditions under which enterprise customers will buy. Each maps directly to one of three commercial outcomes:
 
-- **Go-to-market acceleration**: Zero-config client discovery via PRM and stable agent identities through CIMD remove the custom onboarding burden from every new integration. A compliant partner or agent framework connects without engineering work from either side, shortening the path from pilot to production.
-- **Operational expense reduction**: A single authorization engine across all agent runtimes, combined with per-user short-lived credentials, eliminates credential sprawl and per-client auth logic. Offboarding an employee becomes a single revocation, not a coordination exercise across every downstream system the agent touches.
-- **Enterprise revenue growth**: A verifiable audit trail on every action, approval gates on irreversible operations, and document-level access enforcement answer the security questionnaire before it is asked, compressing security review cycles from months to weeks and enabling the access-tier differentiation that supports enterprise pricing.
+- **Drive revenue through world-class experiences**: Zero-config discovery via PRM and stable CIMD identities let you safely expose your MCP server to trusted third-party agents and partners, unlocking integrations you couldn't support before. CIBA does the inverse for friction: background agents run every pre-approved task silently, and only interrupt a human device for the one action that's genuinely high-stakes.
+- **Stay ahead of the curve**: A single, standardized authorization engine means you can swap in a new agent framework or model without re-architecting security, and Universal Login plugs directly into the IdP you already run, so User Authentication ships with zero migration. Token Vault offloads the burden of managing and auditing agent credentials, freeing developers to focus on building. FGA's fine-grained permission boundaries are the guarantee that earns enterprise and buyer trust.
+- **Reduce risk and protect your brand**: Token Vault keeps high-risk credentials out of your application database entirely, shrinking the attack surface. CIMD gives every agent a distinct, auditable, revocable identity, closing the blind spot a shared service account creates. CIBA enforces an un-bypassable human approval on irreversible actions, so no rogue or compromised agent acts alone on your most consequential operations.
 
 ## The Journey
 

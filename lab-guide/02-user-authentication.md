@@ -17,7 +17,7 @@ By the end you will understand:
 
 An AI agent that calls tools without a verified user identity cannot produce an audit trail that satisfies compliance requirements. Every access decision downstream depends on knowing which employee is behind the request: which documents they can read, which credentials Token Vault returns, and which shares CIBA approves.
 
-The commercial consequence is direct: enterprise customers in regulated industries cite the absence of a user-level audit trail as the single most common reason they delay or block AI agent deployments. A clean, attributable trail on every document access compresses security review cycles from months to weeks, directly accelerating the path to a signed contract.
+The commercial consequence is direct: enterprise customers in regulated industries cite the absence of a user-level audit trail as the single most common reason they delay or block AI agent deployments. Universal Login plugs your existing IdP straight into the agent's authorization chain, so User Authentication ships with zero migration — no new identity system to stand up, no user re-enrollment, no parallel directory. Because every downstream control keys off that verified identity, skipping it means Token Vault and CIBA are working from a guess instead of a fact. A clean, attributable trail on every document access compresses security review cycles from months to weeks, directly accelerating the path to a signed contract.
 
 ## Prerequisites
 

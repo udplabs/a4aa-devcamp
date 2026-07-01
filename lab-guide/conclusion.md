@@ -12,11 +12,11 @@ Five gaps stood between Nexus and production, and you closed each one with a lay
 
 ### Business Value Delivered
 
-The five controls you implemented map directly to the commercial outcomes that differentiate a production-ready AI agent platform from a prototype:
+The five controls you implemented map directly to the three outcomes that differentiate a production-ready AI agent platform from a prototype:
 
-- **Go-to-market acceleration**: PRM discovery and CIMD-based client identity mean any compliant agent or integration connects without custom onboarding work. Every new agent runtime you support inherits the same authorization engine, eliminating rework and additional review cycles.
-- **Operational expense reduction**: Token Vault eliminates the bot token management lifecycle entirely. Auth for MCP consolidates authorization logic into one server. Offboarding is a revocation. These translate to hours of operational toil removed per employee per quarter.
-- **Enterprise revenue growth**: The audit trail, approval records, and FGA access model are what let procurement teams say yes. They compress the security review cycle from months to weeks, and FGA's relationship-based access is the mechanical foundation for tiered enterprise pricing.
+- **Drove revenue through world-class experiences**: PRM discovery and CIMD-based identity mean any compliant agent or partner connects without custom onboarding work, unlocking integrations a closed platform couldn't support. CIBA kept that experience frictionless throughout — every routine tool call ran silently, and only the one irreversible action, external sharing, ever interrupted a human.
+- **Stayed ahead of the curve**: The same authorization engine now covers every agent runtime you support, so a new model or framework arrives without a security re-architecture. Universal Login plugged straight into the IdP you already run. Token Vault took the burden of managing and auditing agent credentials off your developers. FGA's relationship-based access model is the guarantee that earns enterprise and buyer trust.
+- **Reduced risk and protected your brand**: Token Vault eliminated the bot token lifecycle and the shared credential that came with it. CIMD gave every agent a distinct, auditable, revocable identity. CIBA's approval gate means no external share — automated or malicious — executes without a human in the loop. These are hours of operational toil and blast-radius removed per employee, per quarter.
 
 What you built transcends Nexus. Every AI agent that calls APIs, touches user data, or executes tools on behalf of a human needs this same stack, and every enterprise customer evaluating that agent needs to see it.
 

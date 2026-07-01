@@ -16,7 +16,7 @@ In this module you will:
 
 Shared bot tokens are an operational liability that scales with your user base: one token means one blast radius, zero attribution, and a manual rotation process every time someone leaves. For an AI agent platform serving multiple employees, this pattern becomes unsustainable, not just as a security risk but as a recurring operational cost.
 
-The commercial consequence: Token Vault removes the bot token management lifecycle entirely. Per-user, short-lived credentials mean every CRM action is attributable to a specific employee, offboarding is a single revocation, and the risk surface of any credential compromise is contained to one user and one call. That is a measurable reduction in operational overhead and directly strengthens the security posture that enterprise procurement evaluates.
+The commercial consequence: Token Vault removes the bot token management lifecycle entirely, freeing your developers from manually managing and auditing agent credentials so they spend that time building instead of babysitting tokens. Because the credential lives in Auth0's vault and never lands in your application database, the high-value CRM token never becomes a target sitting in agent memory. Per-user, short-lived credentials mean every CRM action is attributable to a specific employee, offboarding is a single revocation instead of a coordination exercise across every system the agent touched, and that measurable reduction in operational overhead directly strengthens the security posture that enterprise procurement evaluates.
 
 ## Prerequisites
 

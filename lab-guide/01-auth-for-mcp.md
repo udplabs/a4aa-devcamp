@@ -16,7 +16,7 @@ By the end you will understand:
 
 Without a defined trust boundary, every agent runtime connecting to your MCP server becomes an implicit authorization decision made by whoever wrote the agent, not by the platform. A new agent framework means a new security review, a compromised client has no scope boundary, and an audit log entry that says "agent called tool" tells you nothing about which employee was responsible.
 
-The commercial consequence is direct: enterprise procurement teams require stable client identity and token-scoped tool access in the security questionnaire. CIMD-based agent identity and on-behalf-of token exchange mean partners and new agent runtimes integrate without custom onboarding work on either side, and every tool call is auditable to a specific employee and resource.
+The commercial consequence is direct. CIMD-based agent identity and PRM/AS discovery let you safely expose your MCP server to trusted third-party agents and partners without custom onboarding on either side, letting you reach new customers and revenue streams at the velocity of standardization, not the friction of one-off integrations. Because the trust boundary is standardized rather than hardcoded to one agent framework, you can ship a new runtime or model without rearchitecting security, so you're not trapped by today's choices when the ecosystem moves. And because every agent carries a distinct, auditable, revocable identity through CIMD, a compromised or forged client is a contained incident on one identity's permissions, not a lateral movement vector across your whole platform.
 
 ## Prerequisites
 

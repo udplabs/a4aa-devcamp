@@ -19,7 +19,7 @@ From those relationships, FGA derives the two decisions Nexus actually needs: ca
 
 Role-based access control breaks down at enterprise scale. Assigning roles like "engineer" or "hr" cannot capture the real shape of a knowledge organization: who owns which documents, which departments share access to which resources, and where the boundary between read and share sits. The result is either over-permissioned access that fails compliance audits, or under-permissioned access that blocks legitimate use.
 
-The commercial consequence: relationship-based authorization at the data boundary answers the "how do you prevent data leakage between departments?" question in the security questionnaire before it is asked. It is also the same mechanism that enables enterprise tier pricing (different customers, different access levels, enforced by the same store) without custom access logic for each deployment.
+The commercial consequence: relationship-based authorization at the data boundary is what lets you guarantee — not just claim — that an AI agent only ever accesses data within strict, fine-grained permission boundaries, answering the "how do you prevent data leakage between departments?" question before it's asked in the security questionnaire. That same guarantee builds enterprise and buyer trust at the point of sale, because the relationship engine that enforces Alice's access over engineering docs also enforces a different customer's access over their own tenant, without custom access logic for each deployment.
 
 ## Prerequisites
 
