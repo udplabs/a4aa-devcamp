@@ -1,9 +1,0 @@
-# Securing RetailZero's Z-Merchant Wholesale Quote Agent with Auth0 for AI Agents and MCP
-
-## Abstract
-
-RetailZero is an omnichannel retailer whose largest revenue engine is B2B wholesale. The deal desk runs a high-touch process: reps pull catalog prices, look up buyer tiers, draft quote documents, route them to finance for sign-off, and commit final terms once approved. Every cycle costs hours of salaried time, and every non-standard discount compounds the delay. Z-Merchant is the AI agent RetailZero built to compress that cycle. It drafts the quote, pings the triage channel, and commits terms on the rep's behalf, without pulling a human into every keystroke.
-
-This lab shows you how to make Z-Merchant trustworthy enough to ship. You will secure the agent end-to-end with Auth0 for AI Agents, carrying the rep's identity from the first browser login all the way to the order system. You will implement patterns that keep customer and pricing data inside least-privilege boundaries, preserve user context across every downstream call, and keep a human in the loop for the actions that actually move money, such as non-standard discounts and off-policy payment terms.
-
-The core of the lab is Auth for MCP. Z-Merchant reaches its tools through a Model Context Protocol server that stands in front of the catalog, Google Docs, Slack, and the order system. You will register the MCP server as an OAuth-protected resource, configure Client ID Metadata (CIMD) so the agent has a stable, pre-registered identity, and wire up On-Behalf-Of token exchange with RFC 8707 resource indicators so the rep's identity and scoped permissions flow through every call. The outcome is a reference architecture that reduces operational expense by cutting the deal-desk cycle time and accelerates go-to-market for new AI-driven revenue workflows without trading off compliance or auditability.
