@@ -107,7 +107,7 @@ export function Module01Panel({ onReady }) {
                     {copiedName ? "Copied" : "Copy"}
                   </button>
                 </div>
-                Make sure all four <code>mcp:*</code> scopes are enabled for <strong>user-delegated access</strong>.
+                Make sure all scopes are enabled for <strong>user-delegated access</strong> on both <strong>Nexus MCP Server</strong> (<code>chat:send</code>) and <strong>Nexus Backend API</strong> (the four <code>mcp:*</code> scopes) &mdash; check the application's APIs tab for each.
               </li>
               <li>Open the new application → scroll to <strong>Token Exchange</strong></li>
               <li>Enable <strong>On-Behalf-Of Token Exchange</strong> → <strong>Save</strong></li>

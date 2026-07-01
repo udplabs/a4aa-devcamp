@@ -354,7 +354,7 @@ app.get("/api/verify/module01", async (req, res) => {
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
         message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable OBO toggle on docagent-mcp-obo" });
 
-      // 5b. User-delegated grant — client must have subject_type: "user" grant against MCP API
+      // 5b. User-delegated grant — client must have subject_type: "user" grant against the Backend API (the OBO exchange target)
       if (toggled && domain && mgmtId && mgmtSecret) {
         try {
           const { getManagementToken } = await import("./platform/auth0Management.js");
@@ -378,9 +378,9 @@ app.get("/api/verify/module01", async (req, res) => {
             name: "User-delegated grant on docagent-mcp-obo",
             pass,
             message: noData
-              ? "User-delegated access not verifiable (add read:client_grants to management client) — ensure Nexus MCP Server → docagent-mcp-obo → User-Delegated Access is enabled"
+              ? "User-delegated access not verifiable (add read:client_grants to management client) — ensure Nexus Backend API → docagent-mcp-obo → User-Delegated Access is enabled"
               : !userGrant
-                ? "Missing user-delegated grant — in Nexus MCP Server API → Applications → docagent-mcp-obo, enable user-delegated access for all mcp:* scopes"
+                ? "Missing user-delegated grant — in Nexus Backend API → Applications → docagent-mcp-obo, enable user-delegated access for all mcp:* scopes"
                 : `User-delegated access grant exists${allScopesGranted ? " (all permissions)" : ` (${grantScopes.join(", ")})`}`,
           });
         } catch (e) {
