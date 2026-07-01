@@ -144,7 +144,7 @@ AUTH0_OBO_CLIENT_SECRET=<client-secret-from-dashboard>
 
 **Step 4: Restart the app**
 
-Stop the running app (`Ctrl+C`) and restart:
+If the app doesn't auto-refresh, stop the running app (`Ctrl+C`) and restart:
 
 ```bash
 npm run dev

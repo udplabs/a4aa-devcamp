@@ -131,7 +131,7 @@ export function Module01Panel({ onReady }) {
           <li>
             <strong>Restart the app</strong>
             <ul>
-              <li>Stop the app (<code>Ctrl+C</code>) and run <code>npm run dev</code></li>
+              <li>If the app doesn't auto-refresh, stop the app (<code>Ctrl+C</code>) and run <code>npm run dev</code></li>
               <li>This screen advances automatically once the credentials are detected</li>
             </ul>
           </li>
