@@ -42,8 +42,7 @@ devcamp-a4aa/
 │   └── conclusion.md             ← wrap-up (what you shipped, next steps)
 │
 ├── demo-app/                     ← the application: platform-integrated deploy (demo.okta.com)
-├── mock-crm-service/             ← standalone CRM OAuth2 mock, deployable to Vercel (Module 03 upstream)
-└── archives/                     ← retired material, not part of the active workshop (see below)
+└── mock-crm-service/             ← standalone CRM OAuth2 mock, deployable to Vercel (Module 03 upstream)
 ```
 
 There is a single living application tree: **`demo-app/`**. It serves both local single-tenant runs (for development or self-hosting) and multi-tenant demo.okta.com deployments from the same codebase. Participants work directly against `demo-app/`, guided by `lab-guide/`.
@@ -55,17 +54,6 @@ The Nexus application: Express API + MCP server + React frontend, with per-tenan
 ### `mock-crm-service/`
 
 A standalone, Vercel-deployable mock CRM OAuth2 server and activities API. `demo-app/` also has its own in-process CRM mock (`server/crm/app.js`, used for local/Codespace runs on `:3002`); `mock-crm-service/` is the externally-hosted alternative referenced as the "real upstream OAuth2 registration" in `demo-app/README.md` for deployments that need the CRM connection to point at a separately running service rather than a co-located process.
-
-### `archives/`
-
-Material from an earlier iteration of this workshop, retired and no longer maintained:
-
-- `starter/`, `solution/`, `starter-test/` — a prior two-tree (edit `starter/`, diff against `solution/`) local-dev workshop built around a different use case ("RetailZero Z-Merchant", TypeScript). Superseded by the single `demo-app/` tree above.
-- `presentation/` — slides from the RetailZero-era workshop.
-- `OUTLINE.md`, `OUTLINE-plain.md`, `OUTLINE.docx`, `RETAILZERO-ABSTRACT.md`, `RETAILZERO-STORY.md` — narrative and outline docs for the RetailZero use case.
-- `docs/superpowers/` — a planning doc from an earlier lab-guide framing exercise.
-
-Nothing in `archives/` is referenced by `demo-app/` or `lab-guide/`. Kept for history, not for use.
 
 ## Setup
 
