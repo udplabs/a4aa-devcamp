@@ -104,9 +104,13 @@ Auth0 needs to fetch the metadata document to register the agent. Port 3001 is p
 
 *You should see: Auth0 fetches the document and shows a preview with `client_name` and `allowed_scopes` from your metadata.*
 
+![Import from URL preview showing client_name and allowed_scopes](images/01-cimd-import-preview.png)
+
 4. Click **Create**
 
 *You should see: Auth0 creates a Native application with the metadata URL as the `client_id`. This is the agent's published identity — not used for OBO exchange, but visible in Auth0 logs wherever the agent's identity is referenced.*
+
+![Created CIMD native application with client_id set to the metadata URL](images/01-cimd-client-created.png)
 
 ### Part C: Create the M2M client for OBO token exchange
 
@@ -119,6 +123,8 @@ The OBO exchange requires a confidential client authorized against the MCP API w
 
 *You should see: a new application listed in the API's Applications tab with all four scopes granted.*
 
+![docagent-mcp-obo API Access tab with all four mcp:* scopes granted](images/01-obo-api-access-scopes.png)
+
 > [!IMPORTANT]
 > **Enable On-Behalf-Of Token Exchange**
 >
@@ -130,6 +136,8 @@ The OBO exchange requires a confidential client authorized against the MCP API w
 > *You should see: the Token Exchange section with the On-Behalf-Of toggle off.*
 >
 > 3. Toggle on **On-Behalf-Of Token Exchange** → **Save**
+>
+> ![Token Exchange section with On-Behalf-Of Token Exchange toggled on](images/01-obo-token-exchange-enabled.png)
 >
 > Until this is enabled, the OBO exchange returns a `403` and every tool call fails. This is the deliberate first moment of insight in the module: the scaffolding is in place, but the capability requires an explicit trust decision.
 

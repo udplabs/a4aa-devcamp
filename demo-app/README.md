@@ -1,21 +1,21 @@
 # Nexus (A4AA): demo.okta.com deploy
 
-This is the **platform-integrated deploy copy** of the Nexus devcamp lab. It is the same five-module Auth0 for AI Agents app as [`../solution/`](../solution/), repackaged so a single deployment serves many demos on **demo.okta.com**. Creating a demo instance auto-provisions the entire Auth0 footprint through lifecycle hooks, and the running app pulls its per-tenant config at runtime.
+This is the Nexus devcamp lab's application code, repackaged so a single deployment serves many demos on **demo.okta.com**. Creating a demo instance auto-provisions the entire Auth0 footprint through lifecycle hooks, and the running app pulls its per-tenant config at runtime. This is the only living copy of the app — there is no separate starter/solution tree; participants read [`../lab-guide/`](../lab-guide/) and inspect this codebase directly.
 
 The business case is straightforward: one running image with zero manual dashboard setup per demo removes per-demo provisioning overhead and lets an SE spin up a fully-configured Nexus demo in minutes rather than an afternoon, reducing operational costs and accelerating go-to-market directly.
 
-`../solution/` and `../starter/` are unchanged. Work here only when you are deploying to the demo platform.
+An earlier local-dev iteration of this workshop (separate `starter/`/`solution/` trees under a different use case) has been retired to [`../archives/`](../archives/) and is no longer maintained.
 
-## How this differs from `solution/`
+## Multi-tenant design
 
-| Concern | `solution/` | `demo-app/` (this copy) |
-|---|---|---|
-| Tenancy | Single tenant, one `.env` | Multi-tenant by subdomain, one deployment serves many demos |
-| Frontend Auth0 config | Baked at Vite build time (`VITE_AUTH0_*`) | Fetched at runtime from `GET /api/config` per tenant |
-| API + MCP JWT validation | Built once at module load | Per-tenant validator selected from the resolved issuer + audience |
-| Auth0 objects | Created by hand in the dashboard | Auto-provisioned by the CREATE hook |
-| CIBA / FGA / Token Vault | Simulated in memory | Live Auth0 when provisioned, simulation as fallback |
-| Serving | `npm run dev` only | Adds `build` + `start` and a Dockerfile for single-host serving |
+| Concern | Behavior |
+|---|---|
+| Tenancy | Multi-tenant by subdomain, one deployment serves many demos |
+| Frontend Auth0 config | Fetched at runtime from `GET /api/config` per tenant |
+| API + MCP JWT validation | Per-tenant validator selected from the resolved issuer + audience |
+| Auth0 objects | Auto-provisioned by the CREATE hook |
+| CIBA / FGA / Token Vault | Live Auth0 when provisioned, in-memory simulation as fallback |
+| Serving | `npm run dev` locally; `build` + `start` and a Dockerfile for single-host production serving |
 
 ## Architecture
 

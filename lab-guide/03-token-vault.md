@@ -58,6 +58,8 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 >
 > *You should see: the Purpose radio button update to the Token Vault option. Auth0 will automatically request a refresh token from the CRM on every OAuth2 flow so it can maintain the stored credential without user re-authentication.*
 >
+> ![CRM connection Purpose section with Token Vault option selected](images/03-token-vault-purpose-enabled.png)
+>
 > Before you enable it, the vault falls back to an in-memory mock CRM token — the tool call still succeeds, but Auth0 is not yet involved in storing the credential. After enabling, Auth0 stores the user's real CRM access token and refresh token, and the live federated exchange fires on every `log_crm_activity` call.
 
 > [!IMPORTANT]
@@ -70,6 +72,8 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 >
 > *You should see: the card now shows the API as active (the **Activate** button is gone).*
 >
+> ![Auth0 My Account API card showing active status](images/03-my-account-api-activated.png)
+>
 > 3. Auth0 Dashboard → **Applications → Applications → docagent-spa-codespace**
 > 4. Go to the **API Access** tab
 >
@@ -79,6 +83,8 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 > 6. Click **Grant Access**, then **Save**
 >
 > *You should see: "3 / 8 permissions granted" under User-delegated Access for Auth0 My Account API.*
+>
+> ![docagent-spa-codespace API Access tab with 3/8 My Account API scopes granted](images/03-spa-my-account-scopes-granted.png)
 >
 > Without this step, clicking "Connect" in the app will fail to mint a token for the `/me/` audience, and the Connected Accounts flow can't start.
 

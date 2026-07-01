@@ -74,6 +74,8 @@ Five core modules, five layers. This closing run drives the full Nexus workflow 
 ### Missing scope
 
 - In the Auth0 Dashboard, navigate to **Applications → Applications → `docagent-mcp-obo` → APIs tab → Nexus MCP Server** and deselect `mcp:docs:share`.
+
+  ![docagent-mcp-obo APIs tab with mcp:docs:share deselected](images/06-missing-scope-deselected.png)
 - Prompt: *"Share the Q3 roadmap with external@partner.com."*
 - A push notification card appears — approve it on your enrolled Guardian device.
 - Expected after approval: `403 { "error": "Insufficient scope", "required": "mcp:docs:share" }`.
@@ -82,6 +84,8 @@ Five core modules, five layers. This closing run drives the full Nexus workflow 
 ### Token Vault disabled — fails closed
 
 - In the Auth0 Dashboard, go to **Authentication → Social → crm-`{{demoName}}`** and turn off the **Authentication and Connected Accounts for Token Vault** purpose (back to plain Authentication).
+
+  ![CRM connection Purpose section reverted to plain Authentication](images/06-token-vault-purpose-disabled.png)
 - Prompt: *"Log in the CRM that I read the Q3 roadmap."*
 - Expected: the tool call fails: `{ "success": false, "error": "No CRM account linked. Ask the user to connect their CRM." }`. The server log shows `[Token Vault] (live) exchange failed for crm: ...` right before it.
 - There is no silent fallback to a mock credential here — once a real federated connection is provisioned for a user, Token Vault either returns a real per-user token or fails closed. That is the correct behavior for a production system: a missing credential should never be papered over with a fake one.

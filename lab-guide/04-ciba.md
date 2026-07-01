@@ -60,6 +60,8 @@ The CIBA client is provisioned with email as its notification channel. Enable Gu
 
 *You should see: `guardian-push` listed as an active notification channel.*
 
+![docagent-ciba-codespace Notification Channels with Guardian Push enabled](images/04-guardian-push-enabled.png)
+
 > [!NOTE]
 > Guardian push requires the user to be enrolled in Auth0 Guardian MFA — complete the enrollment step above before running the demo scenario below. The checkpoint verifier itself only checks that the channel is enabled on the client.
 
