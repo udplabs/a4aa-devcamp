@@ -1,7 +1,6 @@
 import "dotenv/config";
 import dotenv from "dotenv";
 import fs from "fs";
-import { randomBytes } from "crypto";
 
 // Load pre-claimed ports written by find-port.js so servers don't re-scan
 // and collide. Falls back to env vars or defaults if the file doesn't exist.
@@ -622,6 +621,9 @@ app.get("/api/config", (req, res) => {
     domain: tenant?.domain || process.env.AUTH0_DOMAIN || "",
     clientId: tenant?.clientId || process.env.VITE_AUTH0_CLIENT_ID || "",
     audience: tenant?.backendAudience || process.env.AUTH0_AUDIENCE || "",
+    // Connection name for the SDK's connectAccountWithRedirect() call
+    // (VaultStatus.jsx) -- tenant-specific, derived at provisioning time.
+    crmConnection: tenant?.deploymentData?.vault_connections?.crm || "",
   });
 });
 
@@ -688,75 +690,21 @@ app.get("/api/ciba/pending", (req, res) => {
 // --- Token Vault Endpoints (Lab 4) ---
 //
 // Real Token Vault linking via Auth0's My Account API "Connected
-// Accounts" flow. The SPA holds a short-lived access token scoped
-// for the My Account API (create/read/delete:me:connected_accounts)
-// and sends it in X-Connected-Accounts-Token -- separate from the
-// normal Authorization bearer used for our own API auth -- because
-// it authorizes a different audience (https://{domain}/me/).
-//
-// Connecting populates Auth0's Token Vault with a real federated
-// refresh token for the CRM connection, which is what getLiveToken()
-// in token-vault/vault.js needs to succeed.
+// Accounts" flow. The SPA drives /connect and /complete itself via the
+// SDK's connectAccountWithRedirect() (VaultStatus.jsx) -- a full-page
+// redirect is required, not a silent/background call, because this
+// tenant's post-login Action forces a Guardian push MFA challenge that
+// only an interactive redirect can complete. Disconnecting isn't exposed
+// by the SDK, so it still goes through our own proxy below, using a
+// short-lived My Account API token the SPA sends in
+// X-Connected-Accounts-Token -- separate from the normal Authorization
+// bearer used for our own API auth, because it authorizes a different
+// audience (https://{domain}/me/).
 
 function connectedAccountsToken(req) {
   const header = req.headers["x-connected-accounts-token"];
   return typeof header === "string" ? header : undefined;
 }
-
-app.post("/api/vault/connect", validateAccessToken, async (req, res) => {
-  const tenant = req.tenant;
-  const connection = tenant?.deploymentData?.vault_connections?.crm;
-  const token = connectedAccountsToken(req);
-  const { redirectUri } = req.body;
-
-  if (!connection) {
-    return res.status(400).json({ error: "No CRM connection provisioned for this tenant." });
-  }
-  if (!token) {
-    return res.status(400).json({ error: "Missing X-Connected-Accounts-Token header." });
-  }
-
-  const state = randomBytes(16).toString("hex");
-  const response = await fetch(`https://${tenant.domain}/me/v1/connected-accounts/connect`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ connection, redirect_uri: redirectUri, state }),
-  });
-
-  const data = await response.json();
-  console.log("[Token Vault] Connected Accounts /connect response:", JSON.stringify(data));
-  if (!response.ok) {
-    return res.status(response.status).json(data);
-  }
-  res.json({ ...data, state });
-});
-
-app.post("/api/vault/connect/complete", validateAccessToken, async (req, res) => {
-  const tenant = req.tenant;
-  const token = connectedAccountsToken(req);
-  if (!token) {
-    return res.status(400).json({ error: "Missing X-Connected-Accounts-Token header." });
-  }
-
-  const response = await fetch(`https://${tenant.domain}/me/v1/connected-accounts/complete`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(req.body),
-  });
-
-  const data = await response.json();
-  console.log("[Token Vault] Connected Accounts /complete response:", JSON.stringify(data));
-  if (!response.ok) {
-    return res.status(response.status).json(data);
-  }
-  res.json({ linked: true, ...data });
-});
 
 app.post("/api/vault/disconnect", validateAccessToken, async (req, res) => {
   const tenant = req.tenant;

@@ -20,6 +20,26 @@
 import { Auth0Provider as Provider } from "@auth0/auth0-react";
 import { useRuntimeConfig } from "../config/runtimeConfig";
 
+// Connected Accounts (VaultStatus.jsx) requests a token for a different
+// audience/scope (the My Account API) than login granted. The first such
+// request has no cached refresh token for that combination, and this
+// tenant's post-login Action forces a Guardian push MFA challenge that
+// only an interactive (non-silent) redirect can complete -- so instead of
+// a silent prompt=none fallback, VaultStatus does a one-time
+// loginWithRedirect bootstrap for that audience/scope, then lands back
+// here. Both that bootstrap and the real connectAccountWithRedirect flow
+// return via a full-page redirect (query params, not a hash fragment),
+// so onRedirectCallback below is where we react to either outcome.
+function onRedirectCallback(appState) {
+  if (appState?.response_type === "connect_code") {
+    sessionStorage.setItem("vault_check_on_load", "1");
+  }
+  if (appState?.thenConnect) {
+    sessionStorage.setItem("vault_pending_connect", "1");
+  }
+  window.history.replaceState({}, document.title, appState?.returnTo || window.location.pathname);
+}
+
 export function Auth0Provider({ children }) {
   // Lab 01 -- runtime config from /api/config. No hardcoded tenant.
   const { domain, clientId, audience } = useRuntimeConfig();
@@ -29,13 +49,8 @@ export function Auth0Provider({ children }) {
       domain={domain}
       clientId={clientId}
       useRefreshTokens={true}
-      // Connected Accounts (VaultStatus/App.jsx) request a token for a
-      // different audience/scope (My Account API) than login granted, so
-      // there's no cached refresh token for that combination. Without this,
-      // the SDK throws MissingRefreshTokenError instead of falling back to
-      // a silent prompt=none check against the existing Auth0 session.
-      useRefreshTokensFallback={true}
       cacheLocation="localstorage"
+      onRedirectCallback={onRedirectCallback}
       authorizationParams={{
         redirect_uri: window.location.origin,
         // Lab 01 -- audience tells Auth0 which API to mint a JWT for.
