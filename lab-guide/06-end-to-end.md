@@ -73,7 +73,10 @@ Five core modules, five layers. This closing run drives the full Nexus workflow 
 
 ### Missing scope
 
-- In the Auth0 Dashboard, navigate to **Applications → Applications → `docagent-mcp-obo` → APIs tab → Nexus MCP Server** and deselect `mcp:docs:share`.
+- In the Auth0 Dashboard, go to **APIs → Nexus Backend API → Settings**, scroll to **Application Access Policy**, and set **User Access** to **Per-app authorization** (the API defaults to "All apps allowed," which grants every scope to every authorized app and makes individual scopes non-deselectable) → **Save**.
+
+  ![Nexus Backend API Application Access Policy, User Access changed from All apps allowed to Per-app authorization](images/06-application-access-policy-per-app.png)
+- Navigate to **Applications → Applications → `docagent-mcp-obo` → APIs tab → Nexus Backend API** and deselect `mcp:docs:share`.
 
   ![docagent-mcp-obo APIs tab with mcp:docs:share deselected](images/06-missing-scope-deselected.png)
 - Prompt: *"Share the Q3 roadmap with external@partner.com."*

@@ -35,7 +35,7 @@ This module wires six Auth for MCP features in one flow:
 
 | Part | Feature | RFC / Spec |
 |---|---|---|
-| A | Register MCP server as Auth0 API with per-tool scopes | OAuth 2.1 |
+| A | Register MCP API + Backend API as Auth0 resource servers (per-tool scopes live on the Backend API) | OAuth 2.1 |
 | B | CIMD: publish the agent's identity as a metadata document URL | Client ID Metadata Documents (draft) |
 | C | Protected Resource Metadata (PRM) | RFC 9728 |
 | D | Authorization Server Metadata | RFC 8414 |
@@ -44,9 +44,10 @@ This module wires six Auth for MCP features in one flow:
 
 ## What's provisioned for you
 
-Part A (registering the MCP API resource server with its four per-tool scopes) was handled automatically by Provision Resources. Your tenant already has:
+Part A (registering the MCP API and Backend API resource servers) was handled automatically by Provision Resources. Your tenant already has:
 
-- **The MCP API (resource server)**: `https://devcamp-mcp-server` (RS256), with the four per-tool scopes:
+- **The MCP API (resource server)**: `https://devcamp-mcp-server` (RS256), with one coarse scope, `chat:send` — proves the user can access the Nexus chat interface.
+- **The Nexus Backend API (resource server)**: `https://devcamp-docagent-api` (RS256), with the four fine-grained per-tool scopes the OBO exchange targets:
   - `mcp:docs:search`: search the document knowledge base
   - `mcp:docs:read`: retrieve a specific document
   - `mcp:crm:log`: log activity to the CRM via Token Vault
@@ -59,7 +60,7 @@ Part A (registering the MCP API resource server with its four per-tool scopes) w
 > [!NOTE]
 > **Two clients, two purposes:**
 > - **CIMD native app** (public, `is_first_party: false`): the agent's published identity document. Anyone can fetch the URL to learn what the agent is and what scopes it needs. This is what CIMD is — a stable, self-hosted identity that shows up in audit logs.
-> - **M2M confidential app** (has a client_secret): performs the actual OBO token exchange server-side. Authorized directly against the MCP API resource server.
+> - **M2M confidential app** (has a client_secret): performs the actual OBO token exchange server-side. Authorized against both the MCP API (the audience it exchanges from) and the Nexus Backend API (the audience it exchanges into, where the four per-tool scopes live).
 
 ## Dashboard Steps
 
@@ -114,14 +115,14 @@ Auth0 needs to fetch the metadata document to register the agent. Port 3001 is p
 
 ### Part C: Create the M2M client for OBO token exchange
 
-The OBO exchange requires a confidential client authorized against the MCP API with both user-delegated and direct client access. Create it from the resource server screen.
+The OBO exchange takes a token scoped to the MCP API (the user's login audience) and exchanges it for one scoped to the Nexus Backend API (where the four per-tool scopes live). The client that performs this exchange needs authorization on **both** resource servers — the MCP API it exchanges *from*, and the Backend API it exchanges *into*.
 
 1. Auth0 Dashboard → **APIs → Nexus MCP Server**
 2. Click **Add Application**
 3. Name it `docagent-mcp-obo`
-4. In **API Access** tab, make sure all four `mcp:*` scopes for **user-delegated access** are enabled.
+4. Make sure all scopes are authorized for **user-delegated access** on **both** resource servers: the Nexus MCP Server (`chat:send`) and the Nexus Backend API (the four `mcp:*` scopes). Both APIs default to Application Access Policy "All apps allowed," so every scope is granted automatically — nothing to individually toggle yet.
 
-*You should see: a new application listed in the API's Applications tab with all four scopes granted.*
+*You should see: `docagent-mcp-obo` listed in the Applications tab of both APIs, with its scopes granted on each.*
 
 ![docagent-mcp-obo API Access tab with all four mcp:* scopes granted](images/01-obo-api-access-scopes.png)
 
@@ -199,7 +200,7 @@ PRM enables an MCP client that knows only your server URL to discover which auth
 ```js
 export function protectedResourceMetadata(_req, res) {
   res.json({
-    resource: process.env.MCP_AUTH0_AUDIENCE,
+    resource: process.env.AUTH0_TOOL_AUDIENCE,
     authorization_servers: [`https://${process.env.AUTH0_DOMAIN}`],
     scopes_supported: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"],
     bearer_methods_supported: ["header"],
@@ -228,7 +229,7 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
 
 ### Part E: OBO token exchange
 
-The agent's backend holds the user's access token. To call the MCP server, it exchanges that token for one scoped to the MCP API, preserving the user's `sub` so FGA and Token Vault still reason about the human, not the agent.
+The agent's backend holds the user's access token. To call the MCP server, it exchanges that token for one scoped to the Backend API, preserving the user's `sub` so FGA and Token Vault still reason about the human, not the agent.
 
 `server/mcp/client.js`:
 
@@ -281,7 +282,7 @@ Use the **Run Checks** button at the bottom of this page. The in-app verifier co
 Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the user's actual identity on a resource server that enforces FGA, Token Vault, and scope. The agent backend stops being the trust boundary. Concretely, you just walked through the full A4AA "Auth for MCP" pattern:
 
 - **CIMD: stable published identity.** The CIMD native app gives the agent a URL-based identity that survives redeploys. Anyone can fetch it to learn what the agent is. Compare this to DCR (RFC 7591), where a new opaque UUID is minted on every install and audit logs become meaningless across deploys.
-- **M2M client: confidential OBO exchanger.** The M2M client is authorized directly against the MCP API and performs token exchanges with its own credentials. The `sub` from the user's token is preserved in the issued MCP token so FGA and Token Vault key off the human, not the agent.
+- **M2M client: confidential OBO exchanger.** The M2M client is authorized against both the MCP API and the Backend API, and performs token exchanges with its own credentials. The `sub` from the user's token is preserved in the issued token so FGA and Token Vault key off the human, not the agent.
 - **Discovery without config.** RFC 9728 PRM and RFC 8414 AS metadata let a new MCP client point at your server URL and resolve the issuer, scopes, and grant types on its own.
 - **Graceful step-up.** `403 insufficient_scope` tells the client exactly which scope is missing, so the next OBO exchange can request it and retry.
 
@@ -307,7 +308,7 @@ You should have successfully:
       published the agent's CIMD identity by registering its metadata document URL in Auth0;
   </li>
   <li style="list-style-type:'✅ '">
-      created an M2M confidential client from the MCP API resource server screen and enabled Token Exchange;
+      created an M2M confidential client from the MCP API resource server screen, authorized it on the Backend API, and enabled Token Exchange;
   </li>
   <li style="list-style-type:'✅ '">
       understood how RFC 9728 and RFC 8414 discovery documents enable zero-config client integration;

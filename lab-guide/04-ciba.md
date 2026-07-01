@@ -29,7 +29,7 @@ The agent backend initiates an authorization request with a human-readable bindi
 
 ## What's provisioned for you
 
-Provision Resources created a CIBA client on your tenant (`docagent-ciba-codespace`) — a confidential regular web app with the `urn:openid:params:grant-type:ciba` grant already enabled, authorized against the backend API and the MCP API for `mcp:docs:share`. There are no required Dashboard steps to complete this module.
+Provision Resources created a CIBA client on your tenant (`docagent-ciba-codespace`) — a confidential regular web app with the `urn:openid:params:grant-type:ciba` grant already enabled, authorized against the MCP API (`chat:send`) and the Nexus Backend API (`mcp:docs:share`). There are no required Dashboard steps to complete this module.
 
 > [!NOTE]
 > CIBA is configured at the **application level** only. There is no tenant-level CIBA toggle in Auth0. The provisioned client already has everything set.

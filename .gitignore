@@ -6,3 +6,4 @@ node_modules
 .port
 .ports
 archives
+.DS_Store
