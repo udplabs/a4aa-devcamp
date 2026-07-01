@@ -115,7 +115,7 @@ The OBO exchange requires a confidential client authorized against the MCP API w
 1. Auth0 Dashboard → **APIs → Nexus MCP Server**
 2. Click **Add Application**
 3. Name it `docagent-mcp-obo`
-4. In **API Access** tab, enable **user-delegated access** for all four `mcp:*` scopes
+4. In **API Access** tab, make sure all four `mcp:*` scopes for **user-delegated access** are enabled.
 
 *You should see: a new application listed in the API's Applications tab with all four scopes granted.*
 

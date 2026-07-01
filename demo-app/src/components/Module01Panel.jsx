@@ -93,7 +93,7 @@ export function Module01Panel({ onReady }) {
           <li>
             <strong>Create the M2M client for OBO exchange</strong>
             <ul>
-              <li>Auth0 Dashboard → <strong>APIs → Nexus MCP Server → Applications tab</strong></li>
+              <li>Auth0 Dashboard → <strong>APIs → Nexus MCP Server</strong></li>
               <li>Click <strong>Add Application</strong></li>
               <li>
                 Name it:
@@ -107,7 +107,7 @@ export function Module01Panel({ onReady }) {
                     {copiedName ? "Copied" : "Copy"}
                   </button>
                 </div>
-                Then enable <strong>user-delegated access</strong> for all four <code>mcp:*</code> scopes
+                Make sure all four <code>mcp:*</code> scopes are enabled for <strong>user-delegated access</strong>.
               </li>
               <li>Open the new application → scroll to <strong>Token Exchange</strong></li>
               <li>Enable <strong>On-Behalf-Of Token Exchange</strong> → <strong>Save</strong></li>
