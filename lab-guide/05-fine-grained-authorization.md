@@ -99,7 +99,7 @@ All demo users are seeded as **viewer** on `document:handbook` and `document:sec
 
 | User | Additional tuples | Net effect |
 |---|---|---|
-| `alice@docagent.demo` | `alice member department:engineering`, `alice editor document:q3-roadmap` | Reads all-company + all engineering docs; can share q3-roadmap |
+| `alice@docagent.demo` | `alice member department:engineering`, `alice editor document:q3-roadmap`, `alice editor document:product-spec-v2` | Reads all-company + all engineering docs; can share q3-roadmap and product-spec-v2 |
 | `bob@docagent.demo` | *(no additional tuples)* | All-company docs only; denied on engineering, HR, and executive |
 
 `document:compensation-q3` (HR) and `document:board-deck-q3` (Executive) are intentionally never seeded for demo users, so any query against them is a clean deny. Together these tuples give the demo a direct-access allow, a department-inheritance allow, a direct deny, and a confidential-classification deny.
@@ -126,7 +126,7 @@ Open the **Tool Logs** panel on the right side of the Nexus UI, then run these p
 
 4. **Deny (confidential).** Bob or Alice: *"Find the compensation review."* Neither user has any tuple on `document:compensation-q3`. Clean deny on both sides, with the document never surfacing in search results or as a retrievable ID.
 
-5. **Share allowed for editor, denied for viewer.** To test this, prompt Nexus to share a document. A **Device Approval Required** card will appear first — approve it via `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`. After approval, Alice's share of `q3-roadmap` succeeds because she has an editor tuple. Bob's share of `security-policy` is denied at the data boundary — viewers do not meet the `can_share` condition — even though he can read it.
+5. **Share allowed for editor, denied for viewer.** To test this, prompt Nexus to share a document. An **Approval Required** card will appear first — approve it via `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`. After approval, Alice's share of `q3-roadmap` succeeds because she has an editor tuple. Bob's share of `security-policy` is denied at the data boundary — viewers do not meet the `can_share` condition — even though he can read it.
 
 > [!TIP]
 > Each decision lands in the event panel keyed on the user's `sub`, the relation checked, and the document ID, so the allow and the deny are both auditable on the same key.

@@ -13,7 +13,9 @@ Five core modules, five layers. This closing run drives the full Nexus workflow 
 
 ## Prerequisites
 
-- All Dashboard steps from Modules 01–04 completed (Token Exchange enabled, Token Vault enabled, CIBA enabled at the tenant level).
+- All Dashboard steps from Modules 01–04 completed (Token Exchange enabled, Token Vault enabled on the CRM connection, Auth0 My Account API activated and the SPA authorized for its Connected Accounts scopes, CIBA enabled at the tenant level).
+- Codespace port 3002 (CRM mock) is set to **Public** visibility (see Module 03) — required for the CRM's OAuth redirect to complete.
+- You have already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this, `log_crm_activity` fails with "No CRM account linked" instead of returning a live federated token in step 7 below.
 - Your tenant is provisioned, meaning the Nexus API, MCP API, SPA client, M2M client, and CRM connection are already in place.
 - The app is running: API :3000, MCP :3001, CRM mock :3002, frontend :5173 (or the next available port — check the terminal output from `npm run dev` if the browser preview doesn't open automatically).
 - Demo users: `alice@docagent.demo` (engineering team, editor on q3-roadmap), `bob@docagent.demo` (all-company docs only).
@@ -24,29 +26,22 @@ Five core modules, five layers. This closing run drives the full Nexus workflow 
 2. Prompt: *"Find everything we have on the Q3 roadmap."*
 3. Expected:
    - Tool call `search_documents` returns `q3-roadmap` (title "Q3 Product Roadmap", department engineering).
-   - Badges on the tool card: **FGA + MCP (OBO)**.
+   - Badges on the tool card: **OBO**, **FGA**.
 4. Prompt: *"Read the Q3 roadmap."*
 5. Expected:
    - Tool call `get_document` with `documentId: q3-roadmap` returns full content.
-   - Badges: **FGA + MCP (OBO)**.
+   - Badges: **OBO**, **FGA**.
 6. Prompt: *"Log in the CRM that I read the Q3 roadmap."*
 7. Expected:
    - Tool call `log_crm_activity` triggers Token Vault to mint a CRM credential for Alice, logging the activity with her `sub`.
-   - Badges: **Token Vault → CRM + MCP (OBO)**.
+   - Badges: **OBO**, **Token Vault**.
    - Server log: `[Token Vault] (live) federated token for auth0|<alice-sub> @ crm`
 
 ## CIBA path: external document share
 
 8. Prompt: *"Share the Q3 roadmap with external@partner.com."*
-9. Expected: Device Approval card shows `Nexus: share "Q3 Product Roadmap" with external@partner.com — approve?`
-10. Approve out-of-band:
-
-```
-curl http://localhost:3000/api/ciba/pending
-# copy the authReqId
-curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>
-```
-
+9. Expected: a push notification card appears in the chat — "Push notification sent — approve on your device" — showing the binding message `Approve: share Q3 Product Roadmap to external at partner.com`.
+10. Approve the push on your enrolled Guardian device.
 11. The UI flips; the share executes with a `sharedAt` timestamp.
 
 ## Negative tests
@@ -67,7 +62,7 @@ curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>
 
 - Log in as Bob.
 - Prompt: *"Share the employee handbook with external@partner.com."*
-- A **Device Approval Required** card appears — approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
+- A push notification card appears — approve it on your enrolled Guardian device.
 - Expected after approval: `[FGA] Check: user:auth0|<bob_sub> can_share document:handbook -> DENIED`. The share is blocked at the data boundary. Bob can read the handbook but viewers do not meet `can_share`.
 
 ### CIBA timeout
@@ -80,16 +75,17 @@ curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>
 
 - In the Auth0 Dashboard, navigate to **Applications → Applications → `docagent-mcp-obo` → APIs tab → Nexus MCP Server** and deselect `mcp:docs:share`.
 - Prompt: *"Share the Q3 roadmap with external@partner.com."*
-- A **Device Approval Required** card appears — approve it: `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`.
+- A push notification card appears — approve it on your enrolled Guardian device.
 - Expected after approval: `403 { "error": "Insufficient scope", "required": "mcp:docs:share" }`.
 - Re-enable the scope when done.
 
-### CRM graceful fallback
+### Token Vault disabled — fails closed
 
-- In the Auth0 Dashboard, go to **Authentication → Social → crm-`{{demoName}}`** and toggle **Store user access tokens** off. This simulates a tenant with no live Token Vault connection.
+- In the Auth0 Dashboard, go to **Authentication → Social → crm-`{{demoName}}`** and turn off the **Authentication and Connected Accounts for Token Vault** purpose (back to plain Authentication).
 - Prompt: *"Log in the CRM that I read the Q3 roadmap."*
-- Expected: the tool still succeeds, but the server log shows the in-memory fallback token rather than a live federated one. The activity is logged and the tool returns success — Nexus degrades gracefully rather than failing.
-- Toggle Token Vault back on when done.
+- Expected: the tool call fails: `{ "success": false, "error": "No CRM account linked. Ask the user to connect their CRM." }`. The server log shows `[Token Vault] (live) exchange failed for crm: ...` right before it.
+- There is no silent fallback to a mock credential here — once a real federated connection is provisioned for a user, Token Vault either returns a real per-user token or fails closed. That is the correct behavior for a production system: a missing credential should never be papered over with a fake one.
+- Toggle the Token Vault purpose back on and re-confirm the Connected Accounts link (Module 03) when done.
 
 ## Reading the logs
 
@@ -120,7 +116,7 @@ Five controls are stacked behind one MCP server: MCP with CIMD, OBO, and PRM; Au
 - CIBA (Module 04) prevents unilateral irreversible actions.
 - FGA (Module 05) prevents cross-user document access.
 
-The commercial payoff is substantial: a document agent that helps users find and share information faster than a manual workflow accelerates go-to-market, passes security review cleanly because every decision is auditable, and does not require re-buying identity work every time the agent runtime changes, which keeps opex down on the platform team.
+The commercial payoff is substantial: a document agent that finds and shares information faster than manual workflow, with CIBA clearing every routine call silently and only interrupting a human for the irreversible share, is what driving revenue through a world-class experience looks like in practice. Because CIMD, OBO, and FGA gave you one standardized authorization layer instead of one-off logic per runtime, the next model or framework arrives without re-buying identity work — your architecture stays current instead of constantly chasing migrations. And because every decision traces back to a real employee, external shares are gated by approval, and no credential ever lived in agent memory, security review closes clean and the risk that would otherwise burden the platform team evaporates.
 
 That is the full Nexus workshop. The implementation you just walked through is the reference pattern for production-ready AI agent identity.
 
