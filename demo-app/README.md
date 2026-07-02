@@ -1,6 +1,6 @@
 # Nexus (A4AA): demo-app
 
-This is the Nexus devcamp lab's application code. Each participant runs their own copy — in GitHub Codespaces, or locally — against their own Auth0 tenant, provisioned with one click from inside the app. This is the only living copy of the app — there is no separate starter/solution tree; participants read [`../lab-guide/`](../lab-guide/) and inspect this codebase directly.
+This is the Nexus devcamp lab's application code. Each participant runs their own copy, in GitHub Codespaces or locally, against their own Auth0 tenant provisioned with one click from inside the app. This is the only living copy of the app: there is no separate starter/solution tree, so participants read [`../lab-guide/`](../lab-guide/) and inspect this codebase directly.
 
 The business case is straightforward: a participant opens a Codespace, clicks one button, and has a fully-configured Nexus environment in minutes rather than an afternoon of manual Dashboard setup.
 
@@ -18,6 +18,8 @@ An earlier local-dev iteration of this workshop (separate `starter/`/`solution/`
 | Serving | `npm run dev` in a GitHub Codespace or locally; `build` + `start` and a Dockerfile also available |
 
 ## Architecture
+
+![Nexus system architecture: the whole app, including the API, MCP server, and CRM mock, runs inside one GitHub Codespace or locally, with only Auth0, FGA, and the LLM external](images/architecture.png)
 
 ### Provisioning and runtime config
 
@@ -43,7 +45,39 @@ The SPA fetches `/api/config` on mount (`src/config/runtimeConfig.jsx`) and gate
 4. **CRM connection**: A federated OAuth2 connection pointing at the CRM mock (Module 04), created when CRM OAuth credentials are supplied.
 5. **FGA store + model**: An Okta FGA store with the document authorization model written (Module 06), created only when FGA credentials are supplied.
 
-Each optional step is wrapped in a `safe()` helper, so a missing credential logs a warning and falls back to simulation rather than aborting provisioning entirely. Two clients — the CIMD native app and the OBO M2M client — are deliberately left for participants to create by hand in Module 02, since walking through that Dashboard flow is the point of the module.
+Each optional step is wrapped in a `safe()` helper, so a missing credential logs a warning and falls back to simulation rather than aborting provisioning entirely. Two clients, the CIMD native app and the OBO M2M client, are deliberately left for participants to create by hand in Module 02, since walking through that Dashboard flow is the point of the module.
+
+### FGA: live store vs. in-memory simulation
+
+`server/fga/client.js` runs one of two authorization backends behind the same function signature, so `canReadDocument()` and `canShareDocument()` behave identically either way:
+
+- **Live**: when the tenant has a provisioned FGA store (`deploymentData.fga_store_id` + credentials), checks and tuple writes go to a real Okta/Auth0 FGA store via `@openfga/sdk`.
+- **Simulated**: otherwise, an in-memory relation-tuple store models the same graph in-process. There's no network call, just a JS array checked directly by the MCP server's tool handlers. This is what runs by default in the Codespace/local lab, since no FGA credentials are required to complete the workshop.
+
+The simulated store is a real graph, not a stub. It holds `{ user, relation, object }` tuples and resolves the same relations the live model enforces: direct `owner` / `editor` / `viewer` grants, plus department membership (`user → member → department`, `department → viewer → document`):
+
+```js
+// server/fga/client.js
+const tupleStore = [];
+
+function hasDirect(user, relation, object) {
+  return tupleStore.some(
+    (t) => t.user === user && t.relation === relation && t.object === object
+  );
+}
+
+function simCanRead(userKey, docKey) {
+  if (hasDirect(userKey, "owner", docKey)) return true;
+  if (hasDirect(userKey, "editor", docKey)) return true;
+  if (hasDirect(userKey, "viewer", docKey)) return true;
+  // via department membership
+  const userDepts = departmentsUserIsMemberOf(userKey);
+  const docDepts = departmentsWithViewerOnDoc(docKey);
+  return userDepts.some((d) => docDepts.includes(d));
+}
+```
+
+Tuples are seeded once per user on first login (`seedTuplesForUser()`), branched by email so the two demo users produce different access decisions: `alice@docagent.demo` gets `member` on `department:engineering` plus `editor` on the engineering docs, `bob@docagent.demo` gets only the all-company `viewer` tuples. `compensation-q3` and `board-deck-q3` are never seeded for anyone, so they're a clean FGA deny for both users. That's the intentional negative-test path in Module 06.
 
 ## Repository layout
 
@@ -126,7 +160,7 @@ demo-app/
 
 ### GitHub Codespaces or local
 
-This is how the lab is actually delivered: one participant, one Codespace (or a local checkout), one Auth0 tenant.
+This is how the lab is actually delivered: one participant runs one Codespace (or a local checkout) against one Auth0 tenant.
 
 ```bash
 cp .env.sample .env
@@ -160,7 +194,7 @@ This app runs each previously-simulated module against real Auth0 once your tena
 |---|---|---|
 | Auth0 login, JWT validation, OBO token exchange | Always (real) | n/a |
 | FGA | `FGA_*` credentials set and the store is provisioned | In-memory document tuples |
-| Token Vault | A CRM federated connection is provisioned + employee access token present | In-memory mint + refresh |
+| Token Vault | A CRM federated connection is provisioned + employee access token present | Simulates minting and refresh |
 | CIBA | `AUTH0_CIBA_CLIENT_ID` is set | In-memory approve/deny via `/api/ciba/*` |
 | CRM API | Mocked on :3002 | same |
 | LLM | `OPENAI_API_KEY` set | Pattern-matching simulator |
@@ -188,7 +222,7 @@ docker run -p 3000:3000 --env-file .env nexus-a4aa
 
 ## Further reading
 
-- [`../README.md`](../README.md) — workshop overview and the modules
-- [`../lab-guide/`](../lab-guide/) — step-by-step participant guides
+- [`../README.md`](../README.md): workshop overview and the modules
+- [`../lab-guide/`](../lab-guide/): step-by-step participant guides
 - [Auth0 for AI Agents](https://auth0.com/ai)
 - RFC 9728 (Protected Resource Metadata), RFC 8414 (AS Metadata), RFC 8693 (Token Exchange), RFC 8707 (Resource Indicators)

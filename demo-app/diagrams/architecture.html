@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Nexus Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #FAF8F5; }
+  #card {
+    width: 1240px;
+    padding: 48px 56px 40px 56px;
+    background: #FAF8F5;
+    font-family: 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  }
+  .eyebrow {
+    color: #EB5424;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 8px 0;
+  }
+  h1 {
+    color: #16112B;
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: #6B6470;
+    font-size: 15px;
+    margin: 0 0 28px 0;
+  }
+  .legend {
+    display: flex;
+    gap: 28px;
+    margin-top: 16px;
+    font-size: 12.5px;
+    color: #6B6470;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .swatch { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+<div id="card">
+  <p class="eyebrow">Nexus (A4AA) &middot; demo-app</p>
+  <h1>System architecture</h1>
+  <p class="subtitle">The whole app, including the API, MCP server, and CRM mock, runs inside one GitHub Codespace or locally, with only Auth0, FGA, and the LLM external.</p>
+
+  <svg width="1200" height="740" viewBox="0 0 1200 740" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#3A3450"/>
+      </marker>
+      <marker id="arrowDashed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#A8A2B0"/>
+      </marker>
+    </defs>
+
+    <!-- ================= CONNECTORS ================= -->
+
+    <!-- Client -> Codespace -->
+    <path d="M600,100 L600,150" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="616" y="141" font-size="12.5" fill="#3A3450" font-weight="600">Universal Login / API calls (JWT)</text>
+
+    <!-- Express API -> MCP Server -->
+    <path d="M445,262 L468,262" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="456" y="196" text-anchor="middle" font-size="12" fill="#3A3450" font-weight="600">OBO exchange</text>
+
+    <!-- MCP Server -> CRM Mock -->
+    <path d="M740,262 L763,262" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="752" y="196" text-anchor="middle" font-size="12" fill="#3A3450" font-weight="600">Vaulted call</text>
+
+    <!-- Express API -> LLM (dashed, external, optional) -->
+    <path d="M430,205 L430,118 L1075,118 L1075,102" fill="none" stroke="#A8A2B0" stroke-width="2" stroke-dasharray="6,5" marker-end="url(#arrowDashed)"/>
+    <text x="855" y="112" text-anchor="middle" font-size="12" fill="#8B8494">tool-calling loop &middot; optional</text>
+
+    <!-- Express API -> Auth0 -->
+    <path d="M310,320 L310,488" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="326" y="392" font-size="12.5" fill="#3A3450" font-weight="600">Login &middot; Token Exchange (OBO)</text>
+    <text x="326" y="410" font-size="12.5" fill="#3A3450" font-weight="600">Token Vault &middot; CIBA</text>
+
+    <!-- MCP Server -> FGA -->
+    <path d="M605,320 L605,508" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="621" y="400" font-size="12.5" fill="#3A3450" font-weight="600">FGA access check</text>
+
+    <!-- ================= NODES ================= -->
+
+    <!-- Client SPA -->
+    <rect x="460" y="20" width="280" height="80" rx="14" fill="#FFFFFF" stroke="#2D6CDF" stroke-width="2.5"/>
+    <text x="600" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">React SPA</text>
+    <text x="600" y="72" text-anchor="middle" font-size="12" fill="#6B6470">Browser &middot; Vite :5173</text>
+
+    <!-- LLM optional -->
+    <rect x="980" y="20" width="190" height="80" rx="14" fill="#FFFFFF" stroke="#A8A2B0" stroke-width="2" stroke-dasharray="6,5"/>
+    <text x="1075" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#4A4456">LLM</text>
+    <text x="1075" y="72" text-anchor="middle" font-size="11.5" fill="#8B8494">OpenAI &middot; sim fallback</text>
+
+    <!-- Codespace outer -->
+    <rect x="140" y="150" width="920" height="200" rx="16" fill="#F1EEEA" stroke="#16112B" stroke-width="2"/>
+    <text x="164" y="180" font-size="13" font-weight="700" fill="#16112B" letter-spacing="0.06em">GITHUB CODESPACE &middot; OR LOCAL</text>
+
+    <!-- Express API -->
+    <rect x="175" y="205" width="270" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
+    <text x="310" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">Express API</text>
+    <text x="310" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3000</text>
+    <text x="310" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">JWT validation &middot; /api/chat</text>
+    <text x="310" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">CIBA gate &middot; provisioning</text>
+
+    <!-- MCP Server -->
+    <rect x="470" y="205" width="270" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
+    <text x="605" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">MCP Server</text>
+    <text x="605" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3001</text>
+    <text x="605" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">Tool execution &middot; scope check</text>
+    <text x="605" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">CIMD &middot; PRM &middot; AS metadata</text>
+
+    <!-- CRM Mock -->
+    <rect x="765" y="205" width="260" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
+    <text x="895" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">CRM Mock</text>
+    <text x="895" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3002</text>
+    <text x="895" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">OAuth2 + activities API</text>
+    <text x="895" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">same Node process</text>
+
+    <!-- Auth0 -->
+    <rect x="170" y="488" width="280" height="185" rx="14" fill="#FFF6F1" stroke="#EB5424" stroke-width="2.5"/>
+    <!-- shield icon -->
+    <path d="M310,508 C296,508 284,512 274,518 C274,540 274,558 280,572 C286,588 298,598 310,604 C322,598 334,588 340,572 C346,558 346,540 346,518 C336,512 324,508 310,508 Z"
+          fill="#EB5424" stroke="#C43D14" stroke-width="1.5"/>
+    <path d="M298,552 L307,562 L324,538" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="310" y="628" text-anchor="middle" font-size="17" font-weight="800" fill="#C43D14">Auth0</text>
+    <text x="310" y="648" text-anchor="middle" font-size="11.5" fill="#8A4A2F">Universal Login &middot; Token Exchange</text>
+    <text x="310" y="663" text-anchor="middle" font-size="11.5" fill="#8A4A2F">Token Vault &middot; Guardian (CIBA)</text>
+
+    <!-- FGA -->
+    <rect x="475" y="508" width="260" height="140" rx="12" fill="#EFFBFB" stroke="#0F9D9D" stroke-width="2.5"/>
+    <text x="605" y="546" text-anchor="middle" font-size="16" font-weight="800" fill="#0B7A7A">FGA</text>
+    <text x="605" y="568" text-anchor="middle" font-size="11.5" fill="#3E7D7D">Relationship-based document</text>
+    <text x="605" y="584" text-anchor="middle" font-size="11.5" fill="#3E7D7D">access model</text>
+    <text x="605" y="606" text-anchor="middle" font-size="11" fill="#6BA3A3">live per tenant &middot; sim fallback</text>
+
+  </svg>
+
+  <div class="legend">
+    <span><span class="swatch" style="background:#3A3450"></span>required path</span>
+    <span><span class="swatch" style="background:#A8A2B0; border-top:2px dashed #A8A2B0; height:0;"></span>optional / simulated fallback</span>
+  </div>
+</div>
+</body>
+</html>
