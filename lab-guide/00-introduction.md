@@ -22,7 +22,7 @@ Every one of these is an identity problem. Nothing ties the server, or the agent
 
 You will close that gap with Auth0's Auth for AI Agents suite. CIMD and OBO Token Exchange are the mechanisms that make everything else possible: once the agent has a stable identity and carries the employee's `sub` through the exchange, Token Vault, CIBA, and FGA all have the signals they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
 
-- **Auth for MCP** makes the MCP server the trust boundary. It handles JWT validation, PRM and AS discovery documents, and on-behalf-of token exchange so every tool call is scoped to a resource and a caller.
+- **Auth for MCP** makes the MCP server the trust boundary. It handles JWT validation and on-behalf-of token exchange so every tool call is scoped to a resource and a caller. It also publishes Protected Resource Metadata (PRM) and Authorization Server (AS) discovery documents: machine-readable files that let any compliant client learn how to authenticate against your server with zero manual setup.
 - **User Authentication** gives the server a verified employee identity on every request, so everything downstream reasons about the human, not the agent.
 - **Token Vault** holds each employee's federated CRM credential and hands the server a short-lived, scoped token for exactly one downstream call.
 - **Async Authorization (CIBA)** puts a human in the loop for irreversible external sharing: the agent proposes, the employee approves from their device, then it executes.
@@ -41,9 +41,9 @@ The five controls in this lab are not purely security requirements; they are the
 You work in a running build of Nexus, not slides. Two things are in front of you the whole time:
 
 - **The in-app lab guide.** Open it from the **Lab guide** button in the UI. It renders these same module pages with copy-ready code, so you can read a step and apply it without leaving the app.
-- **Nexus itself.** The chat surface is the live agent. As you work through each module, you talk to Nexus the way an employee would, then watch the result land through the live event panel: every token exchange, every access decision, every credential mint as it happens.
+- **Nexus itself.** The chat surface is the live agent. Modules 01–05 build and configure each control in turn. The chat interface unlocks once every module passes its checkpoint, so you talk to Nexus the way an employee would for the first time in the closing end-to-end run, watching the result land through the live event panel: every token exchange, every access decision, every credential mint as it happens.
 
-Most modules are hands-on. You configure something in Auth0, walk through the implementation in the editor, and confirm it at a checkpoint before moving on. One module, Fine-Grained Authorization, runs as a live demo you watch rather than configure. A closing end-to-end run takes one document request through every control at once.
+Most modules are hands-on. You configure something in Auth0, walk through the implementation in the editor, and confirm it at a checkpoint before moving on. One module, Fine-Grained Authorization, has nothing to configure; you preview its expected behavior on the page and confirm it live later. The closing end-to-end run then takes one document request through every control at once.
 
 Over the next two hours, you will close each gap in turn. By the end, Nexus is secured from end to end: clients are identified, employees are authenticated, credentials stay scoped and short-lived, approval gates protect external shares, and access is enforced at the document boundary.
 
