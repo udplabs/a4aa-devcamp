@@ -116,17 +116,20 @@ Because every check keys off the user's `sub` (the identity from Module 02), the
 
 ## What you'll observe
 
-Open the **Tool Logs** panel on the right side of the Nexus UI, then run these prompts. Each one maps to a specific edge of the relationship graph and you will see the FGA decision land in the panel in real time.
+> [!NOTE]
+> **Preview — you'll run these five prompts yourself, live, in Module 07 (End-to-End).** Chat unlocks once every module's checkpoint passes, so for now, read each scenario below alongside the exact event-panel line it produces. This module is here so you recognize the pattern the moment you see it for real.
 
-1. **Allow (all-company viewer).** Logged in as Alice: *"Find the security policy."* FGA checks `can_read(alice, security-policy)`, and Alice has a viewer tuple on all-company docs, so the document returns.
+Each prompt below maps to a specific edge of the relationship graph. Once chat is unlocked, open the **Tool Logs** panel on the right side of the Nexus UI and run these to watch the FGA decision land in real time.
 
-2. **Allow (department member).** Still Alice: *"Show me the Q3 roadmap."* FGA resolves the path through `alice member department:engineering` and `department:engineering viewer document:q3-roadmap`, so the content returns.
+1. **Allow (all-company viewer).** Logged in as Alice: *"Find the security policy."* FGA checks `can_read(alice, security-policy)`, and Alice has a viewer tuple on all-company docs, so the document returns. Expected log line: `[FGA] Check: user:auth0|<alice_sub> can_read document:security-policy -> ALLOWED`.
 
-3. **Deny (outside department).** Logged in as Bob: *"Show me the Q3 roadmap."* Bob has no membership in `department:engineering` and no direct viewer tuple on `document:q3-roadmap`. You see `[FGA] Check: user:auth0|<bob_sub> can_read document:q3-roadmap -> DENIED` and no content is returned.
+2. **Allow (department member).** Still Alice: *"Show me the Q3 roadmap."* FGA resolves the path through `alice member department:engineering` and `department:engineering viewer document:q3-roadmap`, so the content returns. Expected log line: `[FGA] Check: user:auth0|<alice_sub> can_read document:q3-roadmap -> ALLOWED`.
+
+3. **Deny (outside department).** Logged in as Bob: *"Show me the Q3 roadmap."* Bob has no membership in `department:engineering` and no direct viewer tuple on `document:q3-roadmap`. Expected log line: `[FGA] Check: user:auth0|<bob_sub> can_read document:q3-roadmap -> DENIED` — no content is returned.
 
 4. **Deny (confidential).** Bob or Alice: *"Find the compensation review."* Neither user has any tuple on `document:compensation-q3`. Clean deny on both sides, with the document never surfacing in search results or as a retrievable ID.
 
-5. **Share allowed for editor, denied for viewer.** To test this, prompt Nexus to share a document. An **Approval Required** card will appear first — approve it via `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`. After approval, Alice's share of `q3-roadmap` succeeds because she has an editor tuple. Bob's share of `security-policy` is denied at the data boundary — viewers do not meet the `can_share` condition — even though he can read it.
+5. **Share allowed for editor, denied for viewer.** Prompting Nexus to share a document surfaces an **Approval Required** card first, approved via `curl -X POST http://localhost:3000/api/ciba/approve/<authReqId>`. After approval, Alice's share of `q3-roadmap` succeeds because she has an editor tuple (`[FGA] Check: user:auth0|<alice_sub> can_share document:q3-roadmap -> ALLOWED`). Bob's share of `security-policy` is denied at the data boundary — viewers do not meet the `can_share` condition — even though he can read it (`[FGA] Check: user:auth0|<bob_sub> can_share document:security-policy -> DENIED`).
 
 > [!TIP]
 > Each decision lands in the event panel keyed on the user's `sub`, the relation checked, and the document ID, so the allow and the deny are both auditable on the same key.

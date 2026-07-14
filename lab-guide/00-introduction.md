@@ -20,7 +20,7 @@ Every one of these is an identity problem. Nothing ties the server, or the agent
 
 ## The Solution
 
-You will close that gap with Auth0's Auth for AI Agents suite. CIMD and OBO Token Exchange are the mechanism that makes everything else possible: once the agent has a stable identity and carries the employee's `sub` through the exchange, Token Vault, CIBA, and FGA all have the signal they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
+You will close that gap with Auth0's Auth for AI Agents suite. CIMD and OBO Token Exchange are the mechanisms that make everything else possible: once the agent has a stable identity and carries the employee's `sub` through the exchange, Token Vault, CIBA, and FGA all have the signals they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
 
 - **Auth for MCP** makes the MCP server the trust boundary. It handles JWT validation, PRM and AS discovery documents, and on-behalf-of token exchange so every tool call is scoped to a resource and a caller.
 - **User Authentication** gives the server a verified employee identity on every request, so everything downstream reasons about the human, not the agent.

@@ -54,6 +54,9 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 > 2. Open **crm-codespace**
 > 3. Scroll down to the **Purpose** section
 > 4. Select **Authentication and Connected Accounts for Token Vault**
+>
+> *You may see an **"Offline Access Scope"** warning dialog appear at this point — this is expected. Token Vault needs a refresh token to maintain the stored credential, and this dialog is Auth0 confirming that tradeoff. Click through it to continue.*
+>
 > 5. Click **Save Changes**
 >
 > *You should see: the Purpose radio button update to the Token Vault option. Auth0 will automatically request a refresh token from the CRM on every OAuth2 flow so it can maintain the stored credential without user re-authentication.*
@@ -80,7 +83,7 @@ The `docagent-mcp-obo` client you created in Module 01 is a **Custom API Client*
 > *You should see: a list of first-party Auth0 APIs the application can request access to, including **Auth0 My Account API**.*
 >
 > 5. Click **Auth0 My Account API** in the list. In the panel that opens, stay on the **User-Delegated Access** tab and select scopes: `create:me:connected_accounts`, `read:me:connected_accounts`, `delete:me:connected_accounts`
-> 6. Click **Grant Access**, then **Save**
+> 6. Click **Grant Access**. The grant takes effect immediately — a separate **Save** button on this screen may appear greyed out; if so, there's nothing left to save and you can move on.
 >
 > *You should see: "3 / 8 permissions granted" under User-delegated Access for Auth0 My Account API.*
 >
@@ -160,16 +163,13 @@ The `userId: userSub` in the request body is the user's Auth0 subject, so the CR
 
 Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
 
-Before running checks, complete the interactive steps:
+Before running checks, complete the parts you can do right now — Dashboard config and the Connected Accounts link, both independent of the chat interface:
 
-1. Log in and send any non-CRM message first (e.g. *"Find the Q3 roadmap"*). This seeds the in-memory CRM credential.
-2. Send: *"Log that I viewed the Q3 roadmap in the CRM."* The response includes a logged activity ID.
-3. Make the CRM mock's port (3002) public, enable Token Vault on the CRM connection, and authorize the SPA for the Auth0 My Account API (all three steps above).
-4. Click **Connect** next to "CRM" in the app header. This runs the real Connected Accounts flow against the CRM mock and redirects you back into the app.
-5. Send the same message again. The server log switches from the seeded mock to `[Token Vault] (live) federated token for …`.
+1. Make the CRM mock's port (3002) public, enable Token Vault on the CRM connection, and authorize the SPA for the Auth0 My Account API (all three Dashboard steps above).
+2. Click **Connect** next to "CRM" in the app header (this button is always available, even before the chat interface unlocks). This runs the real Connected Accounts flow against the CRM mock and redirects you back into the app.
 
-> [!TIP]
-> The `userId` in the CRM activity record should match the Auth0 `sub` of the logged-in user — not a service account. That's the confirmation the credential is scoped per-user.
+> [!NOTE]
+> **Preview — you'll drive this live in Module 07 (End-to-End).** Once chat unlocks after Module 05, you'll send *"Find the Q3 roadmap"* (seeds an in-memory CRM credential the first time), then *"Log that I viewed the Q3 roadmap in the CRM."* — the response includes a logged activity ID. Sending that same message again after linking CRM above flips the server log from the seeded mock to `[Token Vault] (live) federated token for …`. The `userId` in that activity record matches the Auth0 `sub` of the logged-in user, not a service account — that's the confirmation the credential is scoped per-user.
 
 ## What you learned
 

@@ -26,7 +26,7 @@ import OpenAI from "openai";
 import { SYSTEM_PROMPT_FULL } from "./llm/prompts.js";
 import { getToolsForOpenAI } from "./llm/tools.js";
 import { processMessage as simulatorFallback } from "./simulator.js";
-import { checkToolAuthorization } from "./middleware/agent-auth.js";
+import { checkToolAuthorization, revokeConsent } from "./middleware/agent-auth.js";
 import { executeTool } from "./tools/registry.js";
 import { initiateCIBA, buildDocShareBindingMessage } from "./middleware/ciba.js";
 
@@ -120,6 +120,13 @@ export async function processMessage(message, conversationHistory, user, tenant)
         message: `Failed to execute ${toolName}: ${error.message}`,
         toolCalls: [{ tool: toolName, result: null, status: "error" }],
       };
+    }
+
+    // Consent is single-use: it exists only to let the CIBA-approved
+    // resubmission through without re-prompting. Revoke it immediately
+    // so the *next* share_document call requires a fresh approval.
+    if (authResult.tool?.requiresConsent) {
+      revokeConsent(user.sub, toolName);
     }
 
     const followUp = await openai.chat.completions.create({

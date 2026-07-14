@@ -1,5 +1,3 @@
-# Module 00: Prerequisites
-
 ## Sign in to your Auth0 account
 
 As part of the provisioning process for your Auth0 tenant, an Auth0 admin was created that corresponds to the email address you used to sign in to this very platform (https://labs.demo.okta.com).
@@ -13,8 +11,10 @@ To activate your tenant, follow these instructions:
 2. Follow the instructions to accept the invitation.
 3. Upon successful acceptance of the invitation, you will land in your newly created Auth0 tenant.
 
+![Launch Pad Accept Invitation button](images/00-accept-invitation.png)
+
 > [!NOTE]
-> Your Auth0 tenant is created for you when you launch the lab, and your management credentials are available in the Launch Pad. You will provision the Nexus resources (backend API, MCP resource server, agent client, CRM OAuth2 connection, and where available, FGA store and CIBA client) with one click directly from the app in the next section. Three capabilities (**OBO token exchange**, **Token Vault on the CRM connection**, and **CIBA**) require a one-time toggle in the Auth0 Dashboard. Each module guides you to the exact setting when you need it.
+> Your Auth0 tenant is created for you when you launch the lab, and your management credentials are available in the Launch Pad. You will provision the Nexus resources (backend API, MCP resource server, agent client, CRM OAuth2 connection, and where available, a Fine-Grained Authorization (FGA) store and a Client-Initiated Backchannel Authentication (CIBA) client — both covered in later modules) with one click directly from the app in the next section. Three capabilities (**OBO token exchange**, **Token Vault on the CRM connection**, and **CIBA**) require a one-time toggle in the Auth0 Dashboard. Each module guides you to the exact setting when you need it.
 
 ## Navigating your Lab Guide
 
@@ -105,62 +105,97 @@ Because the environment lives in the cloud, the list is short. You need:
 
 ## Configure and provision your environment
 
-Once the Codespace finishes building, install dependencies and start the app in the terminal:
+Once the Codespace finishes building, open a terminal. Set up your credentials **before** starting the app — that way you never have to stop a running server partway through to fix a file path.
+
+### Step 1: install dependencies and add your credentials to `.env`
 
 ```bash
 cd demo-app
 npm install
-npm run dev
+touch .env
 ```
 
-The Codespace will open a browser preview automatically. When you open it for the first time, you will see a **setup screen**; this is expected. Follow these steps:
+> [!NOTE]
+> `npm install` will likely print a line like `X vulnerabilities (...)` when it finishes. This refers to pre-existing advisories in third-party lab dependencies — it's expected in this environment and safe to ignore. Do not run `npm audit fix`.
 
-### Step 1: add your credentials to `.env`
+You already ran `cd demo-app` above, so the new file is at `demo-app/.env` on disk, but shows up simply as `.env` in your Codespace file tree and in any `cd demo-app`-relative terminal command.
 
-The setup screen shows the three environment variables Nexus needs to connect to your Auth0 tenant. Copy each value from the **Launch Pad** on the right side of the screen.
-
-In the Codespace terminal, create the `.env` file in the `demo-app` directory:
-
-```bash
-touch demo-app/.env
-```
-
-Then open `demo-app/.env` in the editor and paste the three values from the **Launch Pad**:
+Open `.env` in the editor and paste in the three values Nexus needs to connect to your Auth0 tenant, copying each from the **Launch Pad** on the right side of the screen:
 
 ```
-AUTH0_DOMAIN=<your-tenant>.auth0.com
+AUTH0_DOMAIN=<your-tenant-name>.cic-demo-platform.auth0app.com
 AUTH0_MGMT_CLIENT_ID=<management-client-id>
 AUTH0_MGMT_CLIENT_SECRET=<management-client-secret>
 ```
 
-Once the values are saved, stop the running app and restart it so the server picks up the new environment variables:
+> [!TIP]
+> Your actual domain will look like `aquamarine-koala-16644.cic-demo-platform.auth0app.com` — the Launch Pad shows the exact value for your tenant. Copy it from there rather than typing it by hand.
+
+**If the credentials are not shown in the Launch Pad,** navigate to the Auth0 dashboard and create a custom M2M client with the following permissions, then use its Client ID and Secret in place of the Launch Pad values above:
+
+```
+read:resource_servers
+create:resource_servers
+delete:resource_servers
+read:clients
+create:clients
+update:clients
+delete:clients
+read:client_grants
+create:client_grants
+read:connections
+create:connections
+delete:connections
+read:users
+create:users
+delete:users
+read:roles
+create:roles
+update:roles
+delete:roles
+create:role_members
+read:actions
+create:actions
+update:actions
+delete:actions
+update:guardian_factors
+update:tenant_settings
+read:tenant_settings
+```
+
+![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
+
+### Step 2: start the app
 
 ```bash
-# in the terminal where npm run dev is running
-Ctrl+C
-
 npm run dev
 ```
 
-The app will reload and the setup screen will automatically advance to the next step.
+The Codespace will open a browser preview automatically. Because `.env` already has valid credentials, the app skips straight to the **Provision Resources** screen (Step 3 below).
 
-> [!TIP]
-> The setup screen has a **Copy keys** button that copies the variable names to your clipboard. Open `demo-app/.env` in the Codespace editor, paste the names, and fill in the values from the Launch Pad.
+> [!NOTE]
+> **Started the app before adding your `.env` values?** You'll see a **setup screen** instead, showing the three environment variable names with a **Copy keys** button. Open `demo-app/.env` in the editor, paste the names, fill in the values from the Launch Pad, then stop the server (`Ctrl+C` in the terminal running `npm run dev`) and restart it with `npm run dev` so it picks up the change. The app will reload and advance to the next step automatically.
 
-### Step 2: provision Auth0 resources
+![Nexus setup screen showing the three required environment variables](images/00-setup-screen-env-vars.png)
 
-After the credentials are detected, the app shows the **Provision Resources** screen. Click the **Provision Resources** button.
+### Step 3: provision Auth0 resources
+
+The app shows the **Provision Resources** screen. Click the **Provision Resources** button.
 
 Nexus calls the Auth0 Management API and creates the Auth0 API registrations your app will use throughout the lab — the backend API, MCP resource server, agent client, CRM connection, and where available, FGA store and CIBA client. This takes about 10 seconds.
 
 When provisioning completes, the server restarts automatically and the app reloads into its normal state.
 
+![Nexus Provision Resources screen](images/00-provision-resources-screen.png)
+
 > [!NOTE]
 > If provisioning fails, the error message will tell you which step failed. The most common cause is incorrect management credentials. Double-check the values from the Launch Pad and try again.
 
-### Step 3: confirm the app is running
+### Step 4: confirm the app is running
 
 After the reload, you should see the Nexus chat interface. You are now ready to start Module 01.
+
+![Nexus chat interface after successful provisioning](images/00-provisioning-complete.png)
 
 > [!NOTE]
 > Provisioning creates two demo employees in your Auth0 tenant. You will use both throughout the lab to observe access decisions:
@@ -169,9 +204,14 @@ After the reload, you should see the Nexus chat interface. You are now ready to 
 >
 > Both users are created with the password **`DevCamp1!`**
 
+> [!CAUTION]
+> **Do not log in yet.** Module 02 walks you through logging in for the first time — logging in now can trigger an early Guardian MFA enrollment prompt before the lab guide explains what it's for.
+
 ## Confirm access to your Auth0 tenant
 
 If you have not already opened your Auth0 tenant (or if you closed it), launch into it from the Launch Pad in the Lab Guide. You will be using this throughout the lab, so we advise you keep a tab open.
+
+![Auth0 Dashboard landing page after accepting invitation](images/00-auth0-dashboard-landing.png)
 
 > [!NOTE]
 >

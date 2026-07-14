@@ -51,6 +51,15 @@ import { addLog } from "./toolLog.js";
 const app = express();
 app.use(express.json());
 
+// search_documents matches on individual words from the query rather
+// than the whole phrase; these common words are filtered out so they
+// don't dilute the match (e.g. "we", "have" would otherwise count as
+// "significant" terms just by being longer than 2 characters).
+const SEARCH_STOPWORDS = new Set([
+  "the", "a", "an", "on", "in", "of", "for", "we", "have", "everything",
+  "about", "our", "find", "show", "me", "get", "and", "to", "with",
+]);
+
 // OAuth 2.0 token validation -- validates OBO-issued backend API tokens.
 // The MCP server accepts tokens with audience = AUTH0_TOOL_AUDIENCE
 // (the backend/tool API), which are minted by docagent-mcp-obo via OBO
@@ -246,13 +255,17 @@ async function executeToolLogic(name, args, userSub, tenant, userAccessToken) {
       // Filter corpus by keyword match, then FGA-filter by user access.
       // The FGA filter is the security layer: the agent only sees what
       // the user is authorized to read, regardless of the query.
-      const matches = DOCUMENTS.filter(
-        (doc) =>
-          doc.title.toLowerCase().includes(lower) ||
-          doc.snippet.toLowerCase().includes(lower) ||
-          doc.department.toLowerCase().includes(lower) ||
-          doc.id.toLowerCase().includes(lower)
-      );
+      // Match on individual significant words, not the whole query
+      // string -- a natural-language phrase like "everything we have
+      // on the Q3 roadmap" should still hit a short doc title/snippet.
+      const terms = lower
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !SEARCH_STOPWORDS.has(w));
+      const matches = DOCUMENTS.filter((doc) => {
+        const haystack = `${doc.title} ${doc.snippet} ${doc.department} ${doc.id}`.toLowerCase();
+        return terms.length === 0 ? haystack.includes(lower) : terms.some((t) => haystack.includes(t));
+      });
       const accessible = [];
       for (const doc of matches) {
         if (await canReadDocument(userSub, doc.id, tenant)) {

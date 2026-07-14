@@ -16,7 +16,7 @@ By the end you will understand:
 
 Without a defined trust boundary, every agent runtime connecting to your MCP server becomes an implicit authorization decision made by whoever wrote the agent, not by the platform. A new agent framework means a new security review, a compromised client has no scope boundary, and an audit log entry that says "agent called tool" tells you nothing about which employee was responsible.
 
-The commercial consequence is direct. CIMD-based agent identity and PRM/AS discovery let you safely expose your MCP server to trusted third-party agents and partners without custom onboarding on either side, letting you reach new customers and revenue streams at the velocity of standardization, not the friction of one-off integrations. Because the trust boundary is standardized rather than hardcoded to one agent framework, you can ship a new runtime or model without rearchitecting security, so you're not trapped by today's choices when the ecosystem moves. And because every agent carries a distinct, auditable, revocable identity through CIMD, a compromised or forged client is a contained incident on one identity's permissions, not a lateral movement vector across your whole platform.
+The commercial consequence is direct. CIMD-based agent identity and PRM/AS discovery — Protected Resource Metadata and Authorization Server Metadata, covered later in this module — let a client discover and connect to your server on its own, safely exposing your MCP server to trusted third-party agents and partners without custom onboarding on either side, letting you reach new customers and revenue streams at the velocity of standardization, not the friction of one-off integrations. Because the trust boundary is standardized rather than hardcoded to one agent framework, you can ship a new runtime or model without rearchitecting security, so you're not trapped by today's choices when the ecosystem moves. And because every agent carries a distinct, auditable, revocable identity through CIMD, a compromised or forged client is a contained incident on one identity's permissions, not a lateral movement vector across your whole platform.
 
 ## Prerequisites
 
@@ -70,6 +70,9 @@ The Nexus MCP server publishes a metadata document at `/.well-known/client-metad
 
 **Step 1: Open the metadata document in your browser**
 
+> [!TIP]
+> `<your-codespace>` is the name shown in your Codespace's browser tab and URL bar (e.g. `fuzzy-space-potato-abc123`), or run `echo $CODESPACE_NAME` in the terminal to print it directly.
+
 ```
 https://<your-codespace>-3001.app.github.dev/.well-known/client-metadata
 ```
@@ -97,6 +100,9 @@ Auth0 needs to fetch the metadata document to register the agent. Port 3001 is p
 
 *You should see: the visibility icon on port 3001 changes to show it is publicly accessible.*
 
+> [!NOTE]
+> Codespaces can reset port visibility back to Private after the Codespace restarts or rebuilds (for example, if you stop and restart the app later in the lab). If a step that depends on port 3001 or 3002 starts failing, re-check its visibility here before troubleshooting anything else.
+
 **Step 3: Register in Auth0 using Import from URL**
 
 1. Auth0 Dashboard → **Applications → Applications → Create Application**
@@ -117,10 +123,20 @@ Auth0 needs to fetch the metadata document to register the agent. Port 3001 is p
 
 The OBO exchange takes a token scoped to the MCP API (the user's login audience) and exchanges it for one scoped to the Nexus Backend API (where the four per-tool scopes live). The client that performs this exchange needs authorization on **both** resource servers — the MCP API it exchanges *from*, and the Backend API it exchanges *into*.
 
-1. Auth0 Dashboard → **APIs → Nexus MCP Server**
+**Step 1: Create the M2M client**
+
+1. Auth0 Dashboard → **Applications → APIs → Nexus MCP Server**
 2. Click **Add Application**
 3. Name it `docagent-mcp-obo`
-4. Make sure all scopes are authorized for **user-delegated access** on **both** resource servers: the Nexus MCP Server (`chat:send`) and the Nexus Backend API (the four `mcp:*` scopes). Both APIs default to Application Access Policy "All apps allowed," so every scope is granted automatically — nothing to individually toggle yet.
+
+**Step 2: Confirm scopes on both APIs**
+
+Creating the client from the Nexus MCP Server's Applications tab authorizes it there automatically. Confirm it also has access on the Nexus Backend API — this is the API that actually holds the four per-tool scopes the OBO exchange targets:
+
+- **Nexus MCP Server**: `docagent-mcp-obo` should already be authorized for `chat:send`.
+- **Nexus Backend API**: Auth0 Dashboard → **Applications → APIs → Nexus Backend API → Applications tab** → confirm `docagent-mcp-obo` is listed with all four `mcp:*` scopes (`mcp:docs:search`, `mcp:docs:read`, `mcp:crm:log`, `mcp:docs:share`) granted for **user-delegated access** — i.e., the scopes a *user's* token can carry through this client, as opposed to scopes the client would use to act as itself.
+
+Both APIs default to Application Access Policy "All apps allowed," so every scope is granted automatically the moment the client exists — there's nothing to individually toggle yet.
 
 *You should see: `docagent-mcp-obo` listed in the Applications tab of both APIs, with its scopes granted on each.*
 
@@ -164,7 +180,7 @@ The MCP client is now configured and can perform OBO token exchanges.
 ## Code Steps
 
 > [!NOTE]
-> This code is already implemented in the demo-app. The steps below are a structured walk-through. Open each file in your editor as you go. You are not writing new code in this module.
+> This code is already implemented in the demo-app. The steps below are a structured walk-through. Open each file in your editor as you go. **You are not writing new code in this module.**
 
 ### Part B: CIMD metadata endpoint
 
@@ -272,7 +288,7 @@ Use the **Run Checks** button at the bottom of this page. The in-app verifier co
 - The On-Behalf-Of Token Exchange toggle is active on your M2M client.
 
 > [!IMPORTANT]
-> One step requires manual confirmation in the Dashboard: **Applications → Applications → Nexus Agent (DevCamp)**. Confirm the `client_id` shown is the metadata document URL — not an opaque UUID. This confirms the CIMD registration succeeded.
+> One step requires manual confirmation in the Dashboard — not a chat prompt to Nexus. Go to **Applications → Applications → Nexus Agent (DevCamp)**. Confirm the `client_id` shown is the metadata document URL — not an opaque UUID. This confirms the CIMD registration succeeded.
 
 > [!TIP]
 > If a check fails, the result row shows the exact reason. Fix the flagged item and click **Re-run checks**.

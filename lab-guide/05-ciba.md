@@ -55,7 +55,7 @@ The checkpoint verifier checks that `alice@docagent.demo` has a confirmed Guardi
 The CIBA client is provisioned with email as its notification channel. Enable Guardian push so the in-app approval request can trigger a real device notification.
 
 1. Auth0 Dashboard → **Applications → Applications → docagent-ciba-codespace**
-2. Scroll to **Notification Channels**
+2. In the left-side section list, look for **Client-Initiated Backchannel Authentication (CIBA)** — that's the section header itself, easier to spot than the **Notification Channels** control that lives inside it
 3. Toggle on **Guardian Push** → **Save**
 
 *You should see: `guardian-push` listed as an active notification channel.*
@@ -240,15 +240,15 @@ app.get("/api/ciba/pending", (_req, res) => {
 
 **Step 1 — Verify setup.** Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms the CIBA grant is active on your provisioned CIBA client.
 
-**Step 2 — Run the demo scenario.**
-
-1. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."*
-2. The response includes a pending-approval card with the binding message, e.g. `Approve: share Q3 Product Roadmap to external at partner.com`.
-3. A Guardian push notification arrives on your enrolled device showing the same binding message.
-4. Tap **Allow** in the Guardian app.
-5. The frontend's poll resolves to `approved`, the UI updates, and the share executes.
-
-> [!TIP]
+> [!NOTE]
+> **Preview — you'll run this live in Module 07 (End-to-End).** Once chat unlocks after Module 05, here's the demo scenario you'll drive yourself:
+>
+> 1. Prompt Nexus: *"Share the Q3 roadmap with external@partner.com."*
+> 2. The response includes a pending-approval card with the binding message, e.g. `Approve: share Q3 Product Roadmap to external at partner.com`.
+> 3. A Guardian push notification arrives on your enrolled device showing the same binding message.
+> 4. Tap **Allow** in the Guardian app.
+> 5. The frontend's poll resolves to `approved`, the UI updates, and the share executes.
+>
 > The approval window comes straight from Auth0's `/bc-authorize` response (`expires_in`, default 300 seconds). If you initiate a share and don't approve on your device in time, the next poll returns `denied` and the share is silently aborted.
 
 ## What you learned

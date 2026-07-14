@@ -14,7 +14,7 @@
 // layers stay identical. See ../llm.js for the parallel comment.
 // =============================================================
 
-import { checkToolAuthorization } from "./middleware/agent-auth.js";
+import { checkToolAuthorization, revokeConsent } from "./middleware/agent-auth.js";
 import { executeTool } from "./tools/registry.js";
 import { initiateCIBA, buildDocShareBindingMessage } from "./middleware/ciba.js";
 
@@ -70,6 +70,12 @@ export async function processMessage(message, _conversationHistory, user, tenant
       intent.parameters,
       user.accessToken
     );
+    // Consent is single-use: it exists only to let the CIBA-approved
+    // resubmission through without re-prompting. Revoke it immediately
+    // so the *next* share_document call requires a fresh approval.
+    if (authResult.tool?.requiresConsent) {
+      revokeConsent(user.sub, intent.toolName);
+    }
     return {
       message: formatToolResponse(intent.toolName, result),
       toolCalls: [{ tool: intent.toolName, result, status: "success" }],

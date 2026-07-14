@@ -108,6 +108,9 @@ const { loginWithRedirect, isLoading } = useAuth0();
 </button>
 ```
 
+> [!IMPORTANT]
+> **Log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!` (from Module 00). This is the first time you're using these credentials — everything from here on assumes you're logged in.
+
 ### Step 4: the access token is attached to `/api/chat`
 
 `src/hooks/useChat.js` requests a token for the Nexus API audience and sends it on every chat call:
@@ -181,6 +184,9 @@ There is no mock `anonymous` user: a request without a valid token never reaches
 
 ## Checkpoint
 
+> [!NOTE]
+> The **Run Checks** button lives in *this Lab Guide*, at the bottom of this page — not inside the Nexus app itself.
+
 Use the **Run Checks** button at the bottom of this page. The in-app verifier confirms:
 
 - You are logged in as `alice@docagent.demo`.
@@ -188,7 +194,7 @@ Use the **Run Checks** button at the bottom of this page. The in-app verifier co
 - The token carries the `chat:send` scope.
 
 > [!TIP]
-> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the `aud`, `sub`, and `scope` claims directly. The backend terminal shows `Authenticated request from user: auth0|...` on every chat call — the `sub` there matches the `sub` in the token.
+> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the `aud`, `sub`, and `scope` claims directly. To get the raw token: open your browser's DevTools (F12 or right-click → Inspect), open the **Network** tab, send any chat message in Nexus, and click the `/api/chat` request that appears. Copy the `Authorization` request header's value and paste everything **after** `Bearer ` into jwt.io. The backend terminal also shows `Authenticated request from user: auth0|...` on every chat call — the `sub` there matches the `sub` in the token.
 
 ## What you learned
 

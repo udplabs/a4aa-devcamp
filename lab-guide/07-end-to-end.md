@@ -20,6 +20,12 @@ Five core modules, five layers. This closing run drives the full Nexus workflow 
 - The app is running: API :3000, MCP :3001, CRM mock :3002, frontend :5173 (or the next available port — check the terminal output from `npm run dev` if the browser preview doesn't open automatically).
 - Demo users: `alice@docagent.demo` (engineering team, editor on q3-roadmap), `bob@docagent.demo` (all-company docs only).
 
+> [!NOTE]
+> **No `OPENAI_API_KEY`, or yours expired?** Nexus falls back to the pattern-matching simulator (`server/simulator.js`) automatically. The simulator supports this entire happy path, the CIBA path, and every negative test below — you are not blocked from completing this module without a live LLM.
+
+> [!TIP]
+> For every prompt below, open the **Tool Logs** panel on the right side of the Nexus UI first. It shows the exact tool call the agent made (name, parameters, and badges), which is the fastest way to confirm you got the expected result — rather than parsing the chat reply text alone.
+
 ## Happy path: engineering document workflow
 
 1. Log in as Alice.
