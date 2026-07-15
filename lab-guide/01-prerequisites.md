@@ -253,31 +253,31 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      activated your Auth0 tenant by accepting the invitation;
+      Activated your Auth0 tenant by accepting the invitation;
   </li>
   <li style="list-style-type:'✅ '">
-      familiarized yourself with the Lab Guide outline, Launch Pad, and dynamic variables;
+      Familiarized yourself with the Lab Guide outline, Launch Pad, and dynamic variables;
   </li>
   <li style="list-style-type:'✅ '">
-      confirmed you have a GitHub account and a modern browser;
+      Confirmed you have a GitHub account and a modern browser;
   </li>
   <li style="list-style-type:'✅ '">
-      launched the lab's GitHub Codespace environment;
+      Launched the lab's GitHub Codespace environment;
   </li>
   <li style="list-style-type:'✅ '">
-      understood that Node.js, the editor, and dependencies come preprovisioned in the Codespace;
+      Understood that Node.js, the editor, and dependencies come preprovisioned in the Codespace;
   </li>
   <li style="list-style-type:'✅ '">
-      added your Auth0 management credentials to <code>.env</code> from the Launch Pad;
+      Added your Auth0 management credentials to <code>.env</code> from the Launch Pad;
   </li>
   <li style="list-style-type:'✅ '">
-      provisioned Auth0 resources using the in-app Provision Resources button;
+      Provisioned Auth0 resources using the in-app Provision Resources button;
   </li>
   <li style="list-style-type:'✅ '">
-      confirmed the Nexus chat interface loaded after provisioning;
+      Confirmed the Nexus chat interface loaded after provisioning;
   </li>
   <li style="list-style-type:'✅ '">
-      downloaded the Auth0 Guardian application on your mobile device (for *Humans approve what can't be undone*, CIBA).
+      Downloaded the Auth0 Guardian application on your mobile device (for *Humans approve what can't be undone*, CIBA).
   </li>
 </ul>
 

@@ -137,15 +137,15 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      driven a full happy-path document workflow through every control;
+      Driven a full happy-path document workflow through every control;
   </li>
   <li style="list-style-type:'✅ '">
-      tripped CIBA on an external share and approved it out-of-band;
+      Tripped CIBA on an external share and approved it out-of-band;
   </li>
   <li style="list-style-type:'✅ '">
-      run each negative test and confirmed the guardrails hold;
+      Run each negative test and confirmed the guardrails hold;
   </li>
   <li style="list-style-type:'✅ '">
-      traced a single user <code>sub</code> through every hop in the logs.
+      Traced a single user <code>sub</code> through every hop in the logs.
   </li>
 </ul>

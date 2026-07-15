@@ -183,16 +183,16 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      enabled Token Vault on the CRM connection in the Auth0 Dashboard;
+      Enabled Token Vault on the CRM connection in the Auth0 Dashboard;
   </li>
   <li style="list-style-type:'✅ '">
-      observed how <code>getToken</code> selects the live federated exchange vs. the in-memory fallback;
+      Observed how <code>getToken</code> selects the live federated exchange vs. the in-memory fallback;
   </li>
   <li style="list-style-type:'✅ '">
-      logged a CRM activity attributed to the user's identity, not a shared service account;
+      Logged a CRM activity attributed to the user's identity, not a shared service account;
   </li>
   <li style="list-style-type:'✅ '">
-      confirmed the CRM record shows the user's Auth0 <code>sub</code>, not an agent client ID.
+      Confirmed the CRM record shows the user's Auth0 <code>sub</code>, not an agent client ID.
   </li>
 </ul>
 

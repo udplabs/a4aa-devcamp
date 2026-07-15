@@ -286,7 +286,7 @@ Use the **Run Checks** button at the bottom of this page. The in-app verifier co
 - The CIMD metadata document is reachable and **client_id** equals the URL itself.
 - The Protected Resource Metadata endpoint returns **resource**, **authorization_servers**, and **scopes_supported**.
 - The AS Metadata endpoint returns **issuer**, **token_endpoint**, the four scopes, and **"metadata"** in **client_registration_types_supported**.
-- An unauthenticated **GET /mcp/tools** returns **401 with a **WWW-Authenticate** header.
+- An unauthenticated **GET /mcp/tools** returns **401** with a **WWW-Authenticate** header.
 - The On-Behalf-Of Token Exchange toggle is active on your M2M client.
 
 > [!IMPORTANT]
@@ -323,16 +323,16 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      published the agent's CIMD identity by registering its metadata document URL in Auth0;
+      Published the agent's CIMD identity by registering its metadata document URL in Auth0;
   </li>
   <li style="list-style-type:'✅ '">
-      created an M2M confidential client from the MCP API resource server screen, authorized it on the Backend API, and enabled Token Exchange;
+      Created an M2M confidential client from the MCP API resource server screen, authorized it on the Backend API, and enabled Token Exchange;
   </li>
   <li style="list-style-type:'✅ '">
-      understood how RFC 9728 and RFC 8414 discovery documents enable zero-config client integration;
+      Understood how RFC 9728 and RFC 8414 discovery documents enable zero-config client integration;
   </li>
   <li style="list-style-type:'✅ '">
-      confirmed OBO token exchange preserves the user's <b>sub</b> all the way to tool execution.
+      Confirmed OBO token exchange preserves the user's <b>sub</b> all the way to tool execution.
   </li>
 </ul>
 

@@ -195,7 +195,11 @@ Use the **Run Checks** button at the bottom of this page. The in-app verifier co
 - The token carries the `chat:send` scope.
 
 > [!TIP]
-> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the **aud**, **sub**, and **scope** claims directly. To get the raw token: open your browser's DevTools (F12 or right-click → Inspect), open the **Network** tab, send any chat message in Nexus, and click the **/api/chat** request that appears. Copy the **Authorization** request header's value and paste everything **after** **Bearer** into jwt.io. The backend terminal also shows **Authenticated request from user: auth0|...** on every chat call, and the **sub** there matches the **sub** in the token.
+> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the **aud**, **sub**, and **scope** claims directly. To get the raw token without needing chat unlocked, open your browser's DevTools console and run:
+> ```js
+> await window.__nexusAuth.getAccessTokenSilently({ authorizationParams: { audience: window.__nexusAuth.audience, scope: "chat:send" } })
+> ```
+> Paste the result into jwt.io. The backend terminal also shows **Authenticated request from user: auth0|...** on every chat call once chat unlocks later, and the **sub** there will match the **sub** in this token.
 
 ## What you learned
 
@@ -212,16 +216,16 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      gated the Nexus chat UI behind Auth0 Universal Login;
+      Gated the Nexus chat UI behind Auth0 Universal Login;
   </li>
   <li style="list-style-type:'✅ '">
-      attached the user's access token to every <code>/api/chat</code> call;
+      Attached the user's access token to every <code>/api/chat</code> call;
   </li>
   <li style="list-style-type:'✅ '">
-      validated the JWT on the Express backend;
+      Validated the JWT on the Express backend;
   </li>
   <li style="list-style-type:'✅ '">
-      extracted the user's <code>sub</code>, <code>email</code>, and <code>scope</code> for downstream modules.
+      Extracted the user's <code>sub</code>, <code>email</code>, and <code>scope</code> for downstream modules.
   </li>
 </ul>
 

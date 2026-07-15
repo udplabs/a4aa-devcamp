@@ -146,16 +146,16 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      seen FGA allow a read for a direct viewer and for a department member;
+      Seen FGA allow a read for a direct viewer and for a department member;
   </li>
   <li style="list-style-type:'✅ '">
-      seen a clean deny when a user queries a document outside their access;
+      Seen a clean deny when a user queries a document outside their access;
   </li>
   <li style="list-style-type:'✅ '">
-      seen confidential documents stay invisible to all demo users;
+      Seen confidential documents stay invisible to all demo users;
   </li>
   <li style="list-style-type:'✅ '">
-      understood that <code>can_share</code> is stricter than <code>can_read</code>, and why.
+      Understood that <code>can_share</code> is stricter than <code>can_read</code>, and why.
   </li>
 </ul>
 

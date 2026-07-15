@@ -261,16 +261,16 @@ You should have successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      identified <code>share_document</code> as an irreversible action requiring out-of-band approval;
+      Identified <code>share_document</code> as an irreversible action requiring out-of-band approval;
   </li>
   <li style="list-style-type:'✅ '">
-      built a human-readable binding message from the document title and recipient email;
+      Built a human-readable binding message from the document title and recipient email;
   </li>
   <li style="list-style-type:'✅ '">
-      initiated a CIBA request and gated the share on the user's device approval;
+      Initiated a CIBA request and gated the share on the user's device approval;
   </li>
   <li style="list-style-type:'✅ '">
-      produced a timestamped approval record tying the external share to the authenticated user.
+      Produced a timestamped approval record tying the external share to the authenticated user.
   </li>
 </ul>
 
