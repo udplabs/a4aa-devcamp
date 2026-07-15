@@ -104,8 +104,16 @@ Because the environment lives in the cloud, the list is short. You need:
 ## Launch your Codespace
 
 1. From the Launch Pad in the Lab Guide, open the repository link for the lab.
+
+![GitHub repository page for the lab](images/00-codespace-repo-page.png)
+
 2. Start a Codespace on the repository (**Code > Codespaces > Create codespace on the lab branch**).
+
+![Code button dropdown showing the Codespaces tab and Create codespace button](images/00-codespace-create-menu.png)
+
 3. Wait for the environment to finish building. When it is ready you will have a full VS Code editor and terminal in your browser, with the project already cloned and its dependencies installed.
+
+![Codespace finished building with VS Code editor and terminal ready in the browser](images/00-codespace-ready.png)
 
 > [!TIP]
 > Prefer your own editor? You can connect the desktop VS Code app to a running Codespace, but it is not required. Everything in this lab works from the in-browser editor.
