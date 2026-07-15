@@ -180,6 +180,13 @@ read:tenant_settings
 
 ![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
 
+> [!NOTE]
+> **Optional: bring your own OpenAI key.** Nexus can run on a real LLM or fall back to a built-in pattern-matching simulator, and every prompt, checkpoint, and negative test in this lab works either way, since every tool call is enforced by the same MCP, FGA, Token Vault, and CIBA layers regardless of which one chose the tool. If you have an OpenAI API key, add it to the same `.env` file:
+> ```
+> OPENAI_API_KEY=<your-openai-api-key>
+> ```
+> Leave it blank if you don't have one. Nexus detects a missing key automatically and uses the simulator instead, no other change needed.
+
 ### Step 2: start the app
 
 ```bash
