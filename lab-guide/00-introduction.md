@@ -1,34 +1,44 @@
-You built Nexus's MCP server: it exposes four tools covering document search, document retrieval, CRM logging, and external sharing. Your first-party Nexus agent already uses it, third-party partners want to integrate, and Claude Desktop users want to call your tools directly. Multiple agents and multiple clients are routing through the same server on behalf of company employees. The server works today; what it cannot do is tell those clients apart or prove which employee any of them is acting for.
+Your team has built a Nexus's MCP server! It exposes four tools covering:
+- document search
+- document retrieval
+- CRM logging,
+- and external sharing. 
 
-## The Challenge(s)
+The internal Nexus agent already uses it, but  external third-party partners want to integrate and Claude Desktop users want to call your tools directly. 
 
-The MCP server works, but it cannot ship. Five blockers stand between today's demo and a production deployment, and none of them are about the model:
+The good news is that the server works, but it cannot distinguish:
+- a legitimate first-party agent from a forged request
+- which employee is behind which agent.
 
-1. **No mechanism to distinguish clients.** The MCP server cannot tell a first-party agent (your own Nexus agent with a stable Client ID Metadata Document or CIMD) from a third-party integration from a forged request. There are no discovery documents for compliant clients to find, and no token validation to enforce before a tool executes.
+## The Challenges
 
-2. **No user identity flowing through the agent boundary.** Even if a caller presents a token, the server does not know which employee is behind it. Downstream systems cannot scope access to a person, On-Behalf-Of token exchange is not wired, and there is nothing to audit.
+The MCP server works, but it cannot ship yet. Five blockers stand between today's demo and a production deployment:
 
-3. **No per-user credentials for downstream systems.** When Nexus logs CRM activity, it uses a shared service account: impossible to attribute, dangerous if it leaks, and a manual burden when employees leave.
+1. **No mechanism to distinguish clients.** The MCP server cannot tell a first-party agent (your own Nexus agent) from a third-party integration from a forged request.
 
-4. **No approval gate on irreversible actions.** An agent can share a document with any external recipient, at any time, without confirmation. A mistyped email or a compromised session sends a confidential file outside the org with no recourse.
+2. **User identities are not flowing through the agent boundary.** Even if an agent presents a token, the server does not know which employee is behind it. Downstream systems cannot scope access to a real person.
+
+3. **No per-user credentials for downstream systems.** When Nexus logs CRM activity, it uses a shared service account. This makes it impossible to track and dangerous if the credentials leak.
+
+4. **No approval gate on irreversible actions.** An agent can share a document with any external recipient, at any time, without confirmation.
 
 5. **No access control at the document level.** With the user's identity in the token, FGA can enforce relationship-based access, but only if that identity actually flows to the check. Without OBO carrying **sub** end-to-end, the check is meaningless.
 
-Every one of these is an identity problem. Nothing ties the server, or the agents connecting to it, to the employee on whose behalf they act.
+Every one of these is an identity problem. Nothing is currently tieing the authorization chain together.
 
 ## The Solution
 
-You will close that gap with Auth0 for AI Agents suite. CIMD and OBO Token Exchange are the mechanisms that make everything else possible: once the agent has a stable identity and carries the employee's **sub** through the exchange, Token Vault, CIBA, and FGA all have the signals they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
+With Auth0 for AI Agents, we're going to close this gap. Using CIMD and OBO Token Exchange, we cangive the agent a stable identity and carry the employee's **sub** through the exchange so Token Vault, CIBA, and FGA all have the signals they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
 
-- **Auth for MCP** makes the MCP server the trust boundary. It handles JWT validation and on-behalf-of token exchange so every tool call is scoped to a resource and a caller. It also publishes Protected Resource Metadata (PRM) and Authorization Server (AS) discovery documents: machine-readable files that let any compliant client learn how to authenticate against your server with zero manual setup.
-- **User Authentication** gives the server a verified employee identity on every request, so everything downstream reasons about the human behind it.
-- **Token Vault** holds each employee's federated CRM credential and hands the server a short-lived, scoped token for exactly one downstream call.
-- **Async Authorization (CIBA)** puts a human in the loop for irreversible external sharing. The agent proposes the action, and it only executes once the employee approves it from their own device.
-- **Fine-Grained Authorization (FGA)** scopes each employee to the documents they are authorized to read and share, enforced live at the data boundary. This module runs as a live demonstration you watch in action.
+- **Auth for MCP** makes the MCP server the trust boundary via CIMD, PRM, and token exchange
+- **User Authentication** gives the server a verified employee identity on every request, even when it comes from an agent.
+- **Token Vault** holds each employee's credential and hands the server a short-lived, scoped token for exactly one downstream call.
+- **Async Authorization (CIBA)** puts a human in the loop for irreversible external sharing. The agent proposes the action, and it only executes once the employee approves it.
+- **Fine-Grained Authorization (FGA)** scopes each employee to the documents they are authorized to read and share. This module runs as a live demonstration you watch in action.
 
 ### The Business Case
 
-The five controls in this lab are not purely security requirements; they are the conditions under which enterprise customers will buy. Each maps directly to one of three commercial outcomes:
+The five controls in this lab are not purely security requirements. They are the conditions that our enterprise customers see every day. Each maps directly to one of three commercial outcomes:
 
 - **Drive revenue through world-class experiences**: Zero-config discovery via PRM and stable CIMD identities let you safely expose your MCP server to trusted third-party agents and partners, unlocking integrations you couldn't support before. CIBA does the inverse for friction: background agents run every pre-approved task silently, and only interrupt a human device for the one action that's genuinely high-stakes.
 - **Stay ahead of the curve**: A single, standardized authorization engine means you can swap in a new agent framework or model without re-architecting security, and Universal Login can plug directly into the systems you already run, so User Authentication can ship with nearly zero migration. Token Vault offloads the burden of managing and auditing agent credentials, freeing developers to focus on building. FGA's fine-grained permission boundaries are the guarantee that earns enterprise and buyer trust.

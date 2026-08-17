@@ -29,6 +29,7 @@ export function ProvisionPanel({ onProvisioned }) {
   const [status, setStatus] = useState("idle"); // idle | running | success | error
   const [stepIndex, setStepIndex] = useState(0);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [missingKeys, setMissingKeys] = useState([]);
 
   // Simulate step progress while provision is running (real work is server-side).
   useEffect(() => {
@@ -70,6 +71,7 @@ export function ProvisionPanel({ onProvisioned }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setStepIndex(STEPS.length - 1);
+      setMissingKeys(data.missingKeys || []);
       setStatus("success");
     } catch (err) {
       setErrorMsg(err.message);
@@ -88,8 +90,8 @@ export function ProvisionPanel({ onProvisioned }) {
         {status === "idle" && (
           <>
             <p className="setup-desc">
-              Your environment is configured. Click below to create the Auth0 applications,
-              APIs, and connections that Nexus needs. This takes about 15 seconds.
+              See <strong>Module 01: Prerequisites</strong>, Step 3 in your Lab Guide for what
+              this creates. Click below to provision — takes about 15 seconds.
             </p>
             <div className="setup-resource-list">
               {RESOURCE_PILLS.map((pill) => (
@@ -123,6 +125,18 @@ export function ProvisionPanel({ onProvisioned }) {
             <p className="setup-success-msg">
               Resources provisioned successfully. The server is restarting — the app will reload automatically in a moment.
             </p>
+            {missingKeys.length > 0 && (
+              <div className="setup-error" style={{ marginTop: "1rem" }}>
+                <p className="setup-error-msg">
+                  Warning: {missingKeys.length} expected value{missingKeys.length > 1 ? "s" : ""} didn't get
+                  written to .env: {missingKeys.join(", ")}
+                </p>
+                <p className="setup-error-hint">
+                  Check the server terminal for "[provision] step ... failed" lines, then click Retry once the
+                  app reloads — re-provisioning is safe to run again.
+                </p>
+              </div>
+            )}
             <div className="spinner" />
           </div>
         )}

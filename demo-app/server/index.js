@@ -52,6 +52,22 @@ const PROVISIONED_ENV_KEYS = [
   "DEMO_USER_ALICE_ID", "DEMO_USER_BOB_ID",
 ];
 
+// Keys deploymentDataToEnvVars() should ALWAYS produce from a successful
+// /api/setup/provision run. Excludes AUTH0_OBO_CLIENT_ID/SECRET (created
+// manually in Module 01, not by provisioning) and FGA_STORE_ID/FGA_MODEL_ID
+// (only written when FGA credentials are configured -- see below).
+// runProvision() wraps every Auth0 API call in safe(), which swallows
+// errors and returns null on failure, so a single failed step silently
+// drops its key from the written .env without failing the request. This
+// list lets us flag that instead of finding out later when something in
+// the demo breaks.
+const REQUIRED_PROVISION_ENV_KEYS = [
+  "VITE_AUTH0_CLIENT_ID", "AUTH0_AUDIENCE", "AUTH0_TOOL_AUDIENCE",
+  "AUTH0_CIBA_CLIENT_ID", "AUTH0_CIBA_CLIENT_SECRET",
+  "AUTH0_MFA_ACTION_ID", "VAULT_CONN_CRM",
+  "DEMO_USER_ALICE_ID", "DEMO_USER_BOB_ID",
+];
+
 // Remove specific keys from the .env file and from process.env.
 function clearEnvKeys(keys) {
   const envPath = path.resolve(process.cwd(), ".env");
@@ -173,7 +189,17 @@ app.post("/api/setup/provision", async (req, res) => {
     const envVars = deploymentDataToEnvVars(deploymentData);
     writeEnv(envVars);
     Object.assign(process.env, envVars);
-    res.json({ ok: true, keys: Object.keys(envVars) });
+
+    const requiredKeys = fgaSettings
+      ? [...REQUIRED_PROVISION_ENV_KEYS, "FGA_STORE_ID", "FGA_MODEL_ID"]
+      : REQUIRED_PROVISION_ENV_KEYS;
+    const missingKeys = requiredKeys.filter((k) => !envVars[k]);
+    if (missingKeys.length) {
+      console.error(
+        `[setup] provision wrote .env but these expected keys are missing: ${missingKeys.join(", ")} -- check the "[provision] step ... failed" logs above for the cause and re-run provisioning.`
+      );
+    }
+    res.json({ ok: true, keys: Object.keys(envVars), missingKeys });
   } catch (err) {
     console.error("[setup] provision failed:", err.message);
     res.status(500).json({ error: err.message });

@@ -1,6 +1,6 @@
 ## Sign in to your Auth0 account *(~20 min)*
 
-As part of the provisioning process for your Auth0 tenant, an Auth0 admin was created that corresponds to the email address you used to sign in to this very platform (https://labs.demo.okta.com).
+As part of the provisioning process for your tenant, an admin was created that corresponds to the email address you used to sign in (https://labs.demo.okta.com).
 
 > [!IMPORTANT]
 > Your Auth0 tenant will be available for *thirty (30) days* for exploration and development.
@@ -14,10 +14,9 @@ To activate your tenant, follow these instructions:
 ![Launch Pad Accept Invitation button](images/00-accept-invitation.png)
 
 > [!NOTE]
-> Your Auth0 tenant is created for you when you launch the lab, and your management credentials are available in the Launch Pad. 
-> You will provision the Nexus resources (backend API, MCP resource server, agent client, CRM OAuth2 connection, and where available, a Fine-Grained Authorization (FGA) store and a Client-Initiated Backchannel Authentication (CIBA) client) with one click directly from the app in the next section. 
-> Three capabilities (**OBO token exchange**, **Token Vault on the CRM connection**, and **CIBA**) require a one-time toggle in the Auth0 Dashboard. 
-> Each module guides you to the exact setting when you need it.
+> - Your Auth0 management credentials are available in the Launch Pad after you launch your tenant.
+> - You will provision the Nexus resources in the next section. 
+> - Each module will guide you to configure items in Auth0 as you need it.
 
 ## Navigating your Lab Guide
 
@@ -25,7 +24,7 @@ Before we get started, here is some information about the **Labs.Demo.Okta** pla
 
 ### Outline
 
-On the left of the screen, you will find an outline of today's lab which also serves as your navigation control panel. This Dev{Camps} Agentic AI workshop consists of **seven interactive (7)** **modules**, where the final module is a closing end-to-end run. Each module contains **tasks** with **steps**. You can collapse the outline at any time by clicking on the arrow icon.
+On the left of the screen, you will find an outline of today's lab which also serves as your navigation control panel. This Dev{Camp} consists of **seven interactive (7)** **modules**, where the final module is a closing end-to-end run. Each module contains **tasks** with **steps**. You can collapse the outline at any time by clicking on the arrow icon.
 
 At the bottom of each section, there's a handy control to navigate forward and backward between sections. You can also simply click on different sections (and subsections) to navigate freely.
 
@@ -47,7 +46,7 @@ In addition to the ability to copy credentials from the Launch Pad, we've also p
 If at any point, you need guidance from any of our lab assistants, please click on the **Request Help** button from the Launch Pad. One of our assistants will be notified.
 
 
-### Just a few things...
+### Take note!
 
 - Throughout the lab you will see various types of alerts/panels like the following.
 
@@ -70,26 +69,25 @@ If at any point, you need guidance from any of our lab assistants, please click 
 
 <br>
 
-**Phew!** 😮‍💨 *Now that all of that is out of the way,* <span>let's set up your environment!</span>
-
 ## Your lab environment
 
-Above, you activated your Auth0 tenant. The lab is designed to run in **GitHub Codespaces**, a cloud development environment that opens in your browser. There is nothing to install and everything should be pre-configured. *The application may run locally on your own machine if you prefer (Node.js 20+ required).* The steps below are the same either way.
+Above, you activated your Auth0 tenant. The lab is designed to run in **GitHub Codespaces**. There is nothing to install an almost everything should be pre-configured.
 
 ![Nexus system architecture: the whole app, including the API, MCP server, and CRM mock, runs inside one GitHub Codespace or locally, with only Auth0, FGA, and the LLM external](images/architecture.png)
 
 > [!NOTE]
-> **Running locally instead of Codespaces?** 
+> **Running locally instead of Codespaces?** (Node.js 20+ required) 
 > 1. Clone the repository
 > 2. Open a terminal in the `demo-app/` directory
 > 3. Follow the same steps below. 
+> 
 > All modules work locally **except the live Token Vault path in *The agent acts as the employee, not a shared bot***. Auth0 as a cloud service cannot reach `localhost:3002` to perform the CRM OAuth flow, so the vault falls back to the in-memory simulation. Everything else, including login, MCP, CIBA, and FGA, works exactly as described.
 
 #### *It is important that the requirements are met in order for your participation in the lab to be successful.*
 
 ## Prerequisites
 
-Because the environment lives in the cloud, the list is short. You need:
+You need:
 
 - **A GitHub account**, used to launch and run the Codespace.
 - **A modern web browser** (a current version of Chrome, Edge, Firefox, or Safari).
@@ -101,12 +99,12 @@ Because the environment lives in the cloud, the list is short. You need:
     | ![App Store](images/01-guardian-ios.png) | ![Google Play](images/01-guardian-android.png) |
 
 > [!NOTE]
-> You do **not** need to install Node.js, a code editor, or any project dependencies on your own machine. The Codespace ships with all of them preconfigured. There are no laptop hardware or operating-system requirements beyond running a current browser.
+> There are no laptop hardware or operating-system requirements beyond running a current browser.
 
 ## Launch your Codespace
 
 > [!IMPORTANT]
-> **Make sure you're logged into GitHub first.** If you're signed out, the repository page won't show a **Code** button with a **Codespaces** tab, and it's easy to assume something's broken. Log in at [github.com](https://github.com) before continuing.
+> **Make sure you're logged into GitHub first.**
 
 1. From the Launch Pad in the Lab Guide, open the repository link for the lab.
 
@@ -116,12 +114,9 @@ Because the environment lives in the cloud, the list is short. You need:
 
 ![Code button dropdown showing the Codespaces tab and Create codespace button](images/00-codespace-create-menu.png)
 
-3. Wait for the environment to finish building. When it is ready you will have a full VS Code editor and terminal in your browser, with the project already cloned and its dependencies installed.
+3. Wait for the environment to finish building **(it could take up to 20 minutes)**. When it is ready you will have a full VS Code editor and terminal in your browser with the cloned project.
 
 ![Codespace finished building with VS Code editor and terminal ready in the browser](images/00-codespace-ready.png)
-
-> [!TIP]
-> Prefer your own editor? You can connect the desktop VS Code app to a running Codespace, but it is not required. Everything in this lab works from the in-browser editor.
 
 > [!TIP]
 > **Already have a Codespace open?** If the lab material has been updated since you created it, make sure to pull the latest changes in the terminal before starting:
@@ -133,7 +128,10 @@ Because the environment lives in the cloud, the list is short. You need:
 
 ## Configure and provision your environment
 
-Once the Codespace finishes building, open a terminal. Set up your credentials **before** starting the app, so you never have to stop a running server partway through to fix a file path.
+Once the Codespace finishes building, open a terminal. 
+
+> [!IMPORTANT]
+> ***Before*** starting the app, run the below commands.
 
 ### Step 1: install dependencies and add your credentials to the newly created `.env`
 
@@ -142,13 +140,16 @@ cd demo-app
 npm install
 touch .env
 ```
+> [!IMPORTANT]
+> Make sure you put the .env file ***inside*** the demo-app folder.
 
 > [!NOTE]
-> `npm install` will likely print a line like `X vulnerabilities (...)` when it finishes. This refers to pre-existing advisories in third-party lab dependencies. It's expected in this environment and safe to ignore. Do not run `npm audit fix`.
-
-You already ran `cd demo-app` above, so the new file is at `demo-app/.env` on disk, but shows up simply as `.env` in your Codespace file tree and in any `cd demo-app`-relative terminal command.
+> `npm install` will likely print a line like `X vulnerabilities (...)` when it finishes. This is expected in this environment and safe to ignore. Do not run `npm audit fix`.
 
 Open `.env` in the editor and paste in the three values Nexus needs to connect to your Auth0 tenant, copying each from the **Launch Pad** on the right side of the screen:
+
+> [!TIP]
+> Your actual domain is `{{idp.tenantDomain}}`.
 
 ```
 AUTH0_DOMAIN=<your-tenant-name>.cic-demo-platform.auth0app.com
@@ -156,10 +157,7 @@ AUTH0_MGMT_CLIENT_ID=<management-client-id>
 AUTH0_MGMT_CLIENT_SECRET=<management-client-secret>
 ```
 
-> [!TIP]
-> Your actual domain will look like `aquamarine-koala-16644.cic-demo-platform.auth0app.com`. The Launch Pad shows the exact value for your tenant, so copy it from there instead of typing it by hand.
-
-**If the credentials are not shown in the Launch Pad,** navigate to the Auth0 dashboard and create a custom M2M client with the following permissions, then use its Client ID and Secret in place of the Launch Pad values above:
+If the credentials are **NOT** shown in the Launch Pad on the right, navigate to the Auth0 dashboard and create a custom M2M client with the following permissions, then use its Client ID and Secret in place of the Launch Pad values above:
 
 ```
 read:resource_servers
@@ -190,15 +188,16 @@ update:guardian_factors
 update:tenant_settings
 read:tenant_settings
 ```
-
 ![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
 
 > [!NOTE]
-> **Optional: bring your own OpenAI key.** Nexus can run on a real LLM or fall back to a built-in pattern-matching simulator, and every prompt, checkpoint, and negative test in this lab works either way, since every tool call is enforced by the same MCP, FGA, Token Vault, and CIBA layers regardless of which one chose the tool. If you have an OpenAI API key, add it to the same `.env` file:
+> **Optional: bring your own OpenAI key.** 
+>
+>If you have an OpenAI API key you would like to use, add it to the same `.env` file:
 > ```
 > OPENAI_API_KEY=<your-openai-api-key>
 > ```
-> Leave it blank if you don't have one. Nexus detects a missing key automatically and uses the simulator instead, no other change needed.
+> If you don't have one, no worries, leave it blank. Nexus detects a missing key automatically and uses the simulator instead so no other change needed.
 
 ### Step 2: start the app
 
@@ -206,27 +205,33 @@ read:tenant_settings
 npm run dev
 ```
 
-The Codespace will open a browser preview automatically. Because `.env` already has valid credentials, the app skips straight to the **Provision Resources** screen (Step 3 below).
+The Codespace should  open a browser preview automatically. Because `.env` already has valid credentials, the app skips straight to the **Provision Resources** screen (Step 3 below).
 
-> [!NOTE]
-> **Auth0 login only works on port 5173, not 3000.** `npm run dev` starts four processes: the API on 3000, MCP on 3001, the CRM mock on 3002, and the Vite frontend on 5173. The Codespace is preconfigured to open port 5173 automatically and keep the other three quiet in the background, so this should just work.
+> [!TIP]
+> **Prieview not open automatically?**
 >
-> If no preview opens automatically, or you're running locally instead of in the Codespace (where this auto-config doesn't apply), open the **Ports** tab, find port **5173**, and click the globe icon to open it manually. Watch out for any port pop-up that names a different port number (like 3000). That's an internal service, not the app, and login will fail with a callback-URL mismatch if you open it. Auth0 is only configured to redirect to the 5173 URL.
+> If no preview opens automatically, or you're running locally instead of in the Codespace, open the **Ports** tab, find port **5173**, and click the globe icon to open it manually.
 
 > [!NOTE]
-> **Started the app before adding your `.env` values?** You'll see a **setup screen** instead, showing the three environment variable names with a **Copy keys** button. Open `demo-app/.env` in the editor, paste the names, fill in the values from the Launch Pad, then stop the server (`Ctrl+C` in the terminal running `npm run dev`) and restart it with `npm run dev` so it picks up the change. The app will reload and advance to the next step automatically.
-
-![Nexus setup screen showing the three required environment variables](images/00-setup-screen-env-vars.png)
+> **Started the app before adding your `.env` values?
+> 
+> ** You'll see a **setup screen** instead, showing the three environment variable names with a **Copy keys** button. Open `demo-app/.env` in the editor, paste the names, fill in the values from the Launch Pad, then stop the server (`Ctrl+C` in the terminal running `npm run dev`) and restart it with `npm run dev` so it picks up the change. The app will reload and advance to the next step automatically.
+> ![Nexus setup screen showing the three required environment variables](images/00-setup-screen-env-vars.png)
 
 ### Step 3: provision Auth0 resources
 
 The app shows the **Provision Resources** screen. Click the **Provision Resources** button.
 
-Nexus calls the Auth0 Management API and creates the Auth0 API registrations your app will use throughout the lab: the backend API, MCP resource server, agent client, CRM connection, and where available, FGA store and CIBA client. This takes about 10 seconds.
+
+
+This button has Nexus call the Auth0 Management API and creates the other resources  .env variables your app will use throughout the lab: 
+- the backend API
+- MCP resource server
+- agent client
+- CRM connection
+- etc.
 
 When provisioning completes, the server restarts automatically and the app reloads into its normal state.
-
-![Nexus Provision Resources screen](images/00-provision-resources-screen.png)
 
 > [!NOTE]
 > If provisioning fails, the error message will tell you which step failed. The most common cause is incorrect management credentials. Double-check the values from the Launch Pad and try again.
@@ -237,19 +242,9 @@ After the reload, you should see the Nexus chat interface. You are now ready to 
 
 ![Nexus chat interface after successful provisioning](images/00-provisioning-complete.png)
 
-> [!NOTE]
-> Provisioning creates two demo employees in your Auth0 tenant. You will use both throughout the lab to observe access decisions:
-> - **`alice@docagent.demo`**: engineering team member with access to engineering documents
-> - **`bob@docagent.demo`**: all-company viewer only, denied on engineering and confidential documents
->
-> Both users are created with the password **`DevCamp1!`**
-
-> [!CAUTION]
-> **Do not log in yet.** *Every agent action has an owner* walks you through logging in for the first time. Logging in now can trigger an early Guardian MFA enrollment prompt before the lab guide explains what it's for.
-
 ## Confirm access to your Auth0 tenant
 
-If you have not already opened your Auth0 tenant (or if you closed it), launch into it from the Launch Pad in the Lab Guide. You will be using this throughout the lab, so we advise you keep a tab open.
+If you have not already opened your Auth0 tenant, launch into it from the Launch Pad in the Lab Guide. You will be using this throughout the lab, so we advise you keep a tab open.
 
 ![Auth0 Dashboard landing page after accepting invitation](images/00-auth0-dashboard-landing.png)
 
@@ -272,7 +267,7 @@ If you have not already opened your Auth0 tenant (or if you closed it), launch i
 
 *You have completed this module.*
 
-This module was entirely focused on activating your tenant, orienting you to the lab platform, and making sure your access and environment were all properly configured.
+This module was focused on activating your tenant, orienting you to the lab platform, and making sure your access and environment were all properly configured.
 
 You should have successfully:
 

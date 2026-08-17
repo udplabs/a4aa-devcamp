@@ -1,8 +1,14 @@
 ## Objective *(~20 min)*
 
-The MCP server now has a trust boundary: it can distinguish a first-party agent (CIMD identity) from an anonymous request and a valid token from a forged one. But OBO token exchange needs an employee identity to carry through to tool execution, and right now there is nothing to carry. This module wires Auth0 Universal Login so every session has a verifiable employee **sub**, the identity that CIMD's OBO exchange will preserve to every tool call downstream.
+The MCP server now has a trust boundary.
 
-This module is a **read-through**. The authentication wiring is pre-built in the starter. Your goal is to understand where the employee's identity enters the system and how it flows downstream.
+It can distinguish a first-party agent (CIMD identity) from an anonymous request and a valid token from a forged one. 
+
+But OBO token exchange needs an employee identity to carry through to tool execution and right now there is nothing to carry. 
+
+This module wires Auth0 Universal Login so every session has a verifiable employee **sub** that can be carries downstream.
+
+This module is a **read-through**. The authentication wiring is pre-built in the starter.
 
 By the end you will understand:
 
@@ -19,32 +25,25 @@ The commercial consequence is direct. Enterprise customers in regulated industri
 
 Every downstream control keys off that verified identity. Without it, Token Vault and CIBA work from a guess instead of a fact. A clean, attributable trail on document access compresses security review cycles from months to weeks. This acceleration shortens the path to contract signature.
 
-## Prerequisites
-
-- You completed *One trust boundary for every agent* (Auth for MCP), where the MCP server is up and the trust boundary is established.
-
 ## What's provisioned for you
 
-When you clicked **Provision Resources**, the app created everything Nexus needs in your tenant. By the time you read this, the tenant already has:
+When you clicked **Provision Resources**, the app created everything Nexus needs in your tenant:
 
 - **The Nexus API** (resource server `https://devcamp-docagent-api`, RS256) with the `chat:send` scope the SPA uses.
 - **The Nexus SPA application**, with callbacks, logout URLs, and web origins set to your Codespace URL.
-- **Two demo users** seeded with intentionally different document access so later modules have something to bite on:
+- **Two demo users** seeded with different access for the FGA module:
   - `alice@docagent.demo`: engineering team member, can read and share engineering documents
     - password: **`DevCamp1!`**
   - `bob@docagent.demo`: all-company access only, denied on engineering, HR, and executive documents
     - password: **`DevCamp1!`**
   
-
-The SPA pulls its Auth0 domain, client ID, and audience at runtime from **GET /api/config**, so the same build works for your tenant. There are no **VITE_AUTH0_\*** values for you to copy.
-
 ## Code Steps
 
-The app already has this wiring in place. Open each file in your editor as you go, tracing the employee's identity from the browser login all the way to the backend handler.
+Feel free to open each file in your editor as you go. We will be tracing the employee's identity from the browser login all the way to the backend handler.
 
 ### Step 1: The React tree is wrapped in **Auth0Provider**
 
-Open **src/main.jsx**. A **ConfigGate** checks setup status first, then the whole app is wrapped so every component can read the auth session:
+On **src/main.jsx**, a **ConfigGate** checks setup status first, then the whole app is wrapped so every component can read the auth session:
 
 ```jsx
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -60,9 +59,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 );
 ```
 
-**ConfigGate** fetches **GET /api/setup/status** on mount and renders the setup or provisioning UI if needed. **Auth0Provider** only mounts once the tenant is fully provisioned, ensuring the SDK never initializes with empty credentials. 
+**ConfigGate** fetches **GET /api/setup/status** on mount and renders the setup or provisioning UI if needed. 
 
-**RuntimeConfigProvider** fetches **GET /api/config** on mount, so the Auth0 domain, client ID, and audience come from your tenant at runtime instead of being baked in at build time. **src/auth/Auth0Provider.jsx** reads those values and configures the SDK:
+**Auth0Provider** only mounts once the tenant is fully provisioned, ensuring the SDK never initializes with empty credentials. 
+
+**RuntimeConfigProvider** fetches **GET /api/config** on mount, so the Auth0 domain, client ID, and audience come from your tenant at runtime instead of being baked in at build time. 
+
+**src/auth/Auth0Provider.jsx** reads those values and configures the SDK:
 
 ```jsx
 const { domain, clientId, audience } = useRuntimeConfig();
@@ -97,7 +100,7 @@ if (!isAuthenticated) {
 }
 ```
 
-Once authenticated, the header renders **user?.name** and a Log Out button.
+Once authenticated, the header renders the user's name and a Log Out button.
 
 ### Step 3: The login button calls Auth0
 
@@ -112,9 +115,11 @@ const { loginWithRedirect, isLoading } = useAuth0();
 ```
 
 > [!IMPORTANT]
-> **Log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!` (from Prerequisites). This is the first time you're using these credentials, and everything from here on assumes you're logged in.
+> **You can log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!`. 
+> 
+> Everything from here on assumes you're logged in.
 >
-> Guardian push MFA is enforced tenant-wide, so login also triggers an MFA enrollment or challenge. The first time, you'll be prompted to enroll a device in the Auth0 Guardian app; after that, expect a push challenge on every login. This is required. The Checkpoint below fails without it.
+> Guardian push MFA is enforced tenant-wide, so login also triggers an MFA enrollment in the Auth0 Guardian app.
 
 ### Step 4: The access token is attached to **/api/chat**
 
@@ -143,7 +148,7 @@ const response = await fetch("/api/chat", {
 
 ### Step 5: the backend validates JWTs
 
-**server/middleware/auth.js** verifies the token against the tenant's issuer and backend audience, then pulls the user's identity off the verified payload:
+**server/middleware/auth.js** verifies the token against the tenant's issuer and backend audience, then pulls the user's identity off the request:
 
 ```js
 import { getJwtValidator } from "../platform/jwt.js";
@@ -167,7 +172,7 @@ export function extractUser(req) {
 }
 ```
 
-The multi-tenant **getJwtValidator(issuer, audience)** factory lets a single build serve every demo subdomain. For single-tenant local development, it falls back to **AUTH0_DOMAIN** and **AUTH0_AUDIENCE** from the environment.
+The **getJwtValidator(issuer, audience)** lets a single build serve every demo subdomain. For single-tenant local development, it falls back to **AUTH0_DOMAIN** and **AUTH0_AUDIENCE** from the environment.
 
 ### Step 6: the middleware guards the chat route
 
@@ -185,12 +190,7 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
 });
 ```
 
-There is no mock **anonymous** user: a request without a valid token never reaches the handler.
-
 ## Checkpoint
-
-> [!NOTE]
-> **Run Checks** appears in two places that stay in sync: at the bottom of this Lab Guide page, and in the **Lab Progress** panel in the Nexus app (click the module row to expand it). Either one works.
 
 Click **Run Checks**. The verifier confirms:
 
@@ -200,7 +200,9 @@ Click **Run Checks**. The verifier confirms:
 - Guardian push MFA was completed at login.
 
 > [!TIP]
-> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the **aud**, **sub**, and **scope** claims directly. To get the raw token without needing chat unlocked, open your browser's DevTools console and run:
+> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the **aud**, **sub**, and **scope** claims directly. 
+>
+>To get the raw token without needing chat unlocked, open your browser's DevTools console and run:
 > ```js
 > await window.__nexusAuth.getAccessTokenSilently({ authorizationParams: { audience: window.__nexusAuth.audience, scope: "chat:send" } })
 > ```
