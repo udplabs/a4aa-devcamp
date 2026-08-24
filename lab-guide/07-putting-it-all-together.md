@@ -12,7 +12,13 @@
 - You have already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this,**log_crm_activity** fails with "No CRM account linked" instead of returning a live federated token in step 7 below.
 - Demo users: **`alice@docagent.demo`** (engineering team, editor on q3-roadmap), **`bob@docagent.demo`** (all-company docs only).
 
-## Reading the logs
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    How to read the logs
+  </summary>
 
 For a single end-to-end prompt, the trace looks roughly like:
 
@@ -32,6 +38,7 @@ Authenticated request from user: auth0|<alice-sub>
 The same user **sub** flows through every hop, giving you one audit key for every downstream decision.
 - All **'Server logs'** Will be in your codespaces terminal
 - For every prompt below, open the **Tool Logs** panel on the right side of the Nexus UI first. It shows the exact tool call the agent made, which is the fastest way to confirm you got the expected result instead of parsing the chat reply text alone.
+</details>
 
 ## Happy path: engineering document workflow
 
@@ -123,7 +130,13 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 - This is a real deny, not a fallback: once a real federated connection exists for a user, Auth0 rejecting the exchange is treated as a hard denial and surfaces as this specific error. It never silently succeeds via the in-memory mock credential, which only exists for the fully-offline case where no live connection is provisioned at all. A missing or disabled credential should never be papered over with a fake one.
 - Toggle the Token Vault purpose back on and re-confirm the Connected Accounts link (*The agent acts as the employee, not a shared bot*) when done.
 
-## What you learned
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    What you learned
+  </summary>
 
 Five controls are stacked behind one MCP server: MCP with CIMD, OBO, and PRM; Authentication; Token Vault; CIBA; and FGA. Each one mitigates a specific risk:
 
@@ -136,8 +149,9 @@ Five controls are stacked behind one MCP server: MCP with CIMD, OBO, and PRM; Au
 The commercial payoff is substantial. A document agent that finds and shares information faster than manual workflow, with CIBA clearing every routine call silently and only interrupting a human for the irreversible share, drives revenue through a world-class experience. Because CIMD, OBO, and FGA gave you one standardized authorization layer instead of one-off logic per runtime, the next model or framework arrives without re-buying identity work. Your architecture stays current instead of constantly chasing migrations. Because every decision traces back to a real employee, external shares are gated by approval, and no credential ever lived in agent memory, security review closes clean. The risk that would otherwise burden the platform team evaporates.
 
 That is the full Nexus workshop. The implementation you just walked through is the reference pattern for production-ready AI agent identity.
+</details>
 
-#### <span style="font-variant: small-caps">Congrats!</span>
+## <span style="font-variant: small-caps">Congrats!</span>
 
 *You have completed the end-to-end run.*
 

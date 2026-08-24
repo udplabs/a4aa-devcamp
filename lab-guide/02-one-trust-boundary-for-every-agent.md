@@ -16,7 +16,15 @@ By the end you will understand:
 - How the M2M confidential client performs OBO token exchange, preserving the user's **sub** through the agent boundary.
 - How a distinct scope per tool enforces least-privilege and enables **WWW-Authenticate** step-up hints for clients.
 
-### Why we're building this
+<br>
+
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    Why we're building this
+  </summary>
 
 Without a defined trust boundary, every agent runtime connecting to your MCP server becomes an implicit authorization decision made by whoever wrote the agent rather than by your platform. A new agent framework means a new security review, a compromised client has no scope boundary, and an audit log entry that says "agent called tool" tells you nothing about which employee was responsible.
 
@@ -24,7 +32,18 @@ The commercial consequence is direct. CIMD-based agent identity and PRM/AS disco
 
 The trust boundary is standardized to a spec rather than hardcoded to one agent framework. You can ship a new runtime or model without rearchitecting security, freeing you from being trapped by today's choices when the ecosystem moves. An agent carries a distinct, auditable, and revocable identity through CIMD. A compromised or forged client becomes a contained incident on one identity's permissions rather than a lateral movement vector across your whole platform.
 
-## Premise
+</details>
+
+<br>
+
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    Premise
+  </summary>
+
 
 The first-party Nexus agent connects with a stable published identity via CIMD, and uses a M2M client to exchange user tokens for MCP-scoped tokens. 
 
@@ -42,6 +61,10 @@ All of them must present a valid token, and when they do, OBO token exchange car
 > It follows the MCP authorization spec (revision 2025-11-25) and layers it on top of OAuth 2.1 so any conformant MCP client can discover and call your tools with the user's actual identity. 
 >
 > Product overview: [auth0.com/ai](https://auth0.com/ai).
+
+</details>
+
+## Features shown by RFC
 
 This module wires six features in one flow:
 
@@ -325,7 +348,13 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
 > [!TIP]
 > If a check fails, the result row shows the exact reason. Fix the flagged item and click **Re-run checks**.
 
-## What you learned
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    What we learned
+  </summary>
 
 Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the user's actual identity on a resource server that enforces scope. The trust boundary moves from the agent backend to the MCP server. That same boundary is where FGA and Token Vault will plug in later. This module builds the identity pipe they both depend on, but doesn't wire either one up yet. Concretely, you just walked through the full A4AA "Auth for MCP" pattern:
 
@@ -338,6 +367,8 @@ Why this matters beyond the lab:
 
 - **Opex.** Multiple agents (Claude Agent SDK, custom runtime, a future mobile client) inherit one authorization engine from one MCP server. You eliminate the burden of maintaining separate auth logic across each client.
 - **GTM.** A resource server with PRM, scope enforcement, CIMD identity, and a verified M2M exchanger is what a procurement team wants to see in the security questionnaire. It shortens the review cycle from months to weeks.
+
+</deatils>
 
 ### Further reading
 

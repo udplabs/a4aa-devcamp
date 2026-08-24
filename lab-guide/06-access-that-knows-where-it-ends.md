@@ -23,11 +23,18 @@ From those relationships, FGA derives the two decisions Nexus actually needs:
 1. Can this user **read** this document
 2. Can this user **share** it externally.
 
-### Why we're building this
-
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    Why we're building this
+  </summary>
 Role-based access control breaks down at enterprise scale. Assigning roles like "engineer" or "hr" cannot capture the real shape of a knowledge organization: who owns which documents, which departments share access to which resources, and where the boundary between read and share sits. The result is either over-permissioned access that fails compliance audits, or under-permissioned access that blocks legitimate use.
 
 The commercial consequence: relationship-based authorization at the data boundary ensures an AI agent only ever accesses data within strict, fine-grained permission boundaries, answering the "how do you prevent data leakage between departments?" question before it's asked in the security questionnaire. That same guarantee builds enterprise and buyer trust at the point of sale, because the relationship engine that enforces Alice's access over engineering docs also enforces a different customer's access over their own tenant, without custom access logic for each deployment.
+
+</details>
 
 ## What's provisioned for you
 
@@ -169,12 +176,19 @@ Once chat is unlocked, open the **Tool Logs** panel on the right side of the Nex
   - After approval, Alice's share of **q3-roadmap** succeeds because she has an editor tuple (**[FGA] Check: user:auth0|<alice_sub> can_share document:q3-roadmap -> ALLOWED**). 
   - Bob's share of **security-policy** is denied at the data boundary, since viewers do not meet the **can_share** condition, even though he can read it (**[FGA] Check: user:auth0|<bob_sub> can_share document:security-policy -> DENIED**).
 
-## What you learned
-
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    What you learned
+  </summary>
 Relationship-based authorization handles the real shape of a knowledge organization (individuals, departments, matrixed ownership, document tiers) without the rigid role explosion that RBAC forces on you. More importantly, FGA keeps confidential documents for HR from ever appearing in an engineer's search results, which is what the compliance team ultimately cares about. That keeps data classification risk off the quarterly risk register.
 
 You observed this implementation rather than building it yourself. The same **sub**-keyed decision you saw the store make has been firing inside the MCP server since *One trust boundary for every agent*. Token Vault, from *The agent acts as the employee, not a shared bot*, minted CRM credentials for the users FGA just authorized, and CIBA, from *Humans approve what can't be undone*, gated irreversible shares on the same identity. All five controls key off the same **sub**.
+</details>
 
+## Checkpoint 
 > [!NOTE]
 > This module has no **Run Checks** button. Instead, the Nexus app asks a short knowledge-check question about *why* Alice can read the Q3 roadmap and Bob can't. Answer it correctly to unlock the module.
 

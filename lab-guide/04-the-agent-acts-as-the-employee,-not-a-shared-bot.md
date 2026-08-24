@@ -20,11 +20,17 @@ In this module you will:
 - See how **log_crm_activity** calls the CRM API (port 3002) using the vaulted token.
 - Enable Token Vault on the CRM connection in the Auth0 Dashboard.
 
-### Why we're building this
-
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    Why we're building this
+  </summary>
 Shared bot tokens are an operational liability that scales with your user base: one token means one blast radius, zero attribution, and a manual rotation process every time someone leaves. For an AI agent platform serving multiple employees, this pattern becomes unsustainable. It compounds both security risk and recurring operational cost.
 
 The commercial consequence: Token Vault removes the bot token management lifecycle entirely, freeing your developers from manually managing and auditing agent credentials so they spend that time building instead of babysitting tokens. Because the credential lives in Auth0's vault and never lands in your application database, the high-value CRM token never becomes a target sitting in agent memory. Per-user, short-lived credentials mean every CRM action is attributable to a specific employee, offboarding is a single revocation instead of a coordination exercise across every system the agent touched, and that measurable reduction in operational overhead directly strengthens the security posture that enterprise procurement evaluates.
+</details>
 
 ## What's provisioned for you
 
@@ -194,11 +200,18 @@ Before running checks, complete the parts you can do right now: Dashboard config
 >
 > The **userId** in that activity record matches the Auth0 **sub** of the logged-in user rather than a service account, confirming the credential is scoped per-user.
 
-## What you learned
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    What you learned
+  </summary>
 
 Token Vault eliminates the operational and compliance burden of shared bot tokens. Instead of managing long-lived service credentials across teams, each call is scoped to the job and to the individual, every CRM record ties back to the employee's identity, and credential rotation becomes Auth0's responsibility.
 
 In the lab, the vault was auto-seeded with a simulated credential on your first tool call. In production, a real employee would go through an OAuth2 consent flow the first time they link their CRM account. Auth0 stores the resulting refresh token, and Token Vault exchanges it for short-lived access tokens on every subsequent call. Offboarding just means revoking that connection in Auth0, with no token spreadsheet to maintain.
+</details>
 
 #### <span style="font-variant: small-caps">Congrats!</span>
 

@@ -8,7 +8,10 @@ In this module you will:
 - See how the binding message ties the push notification to the exact action being approved.
 - Trigger a real Guardian push notification and watch the approval resolve the pending tool call.
 
-### Why we're building this
+<details>
+  <summary> 
+    Why we're building this
+  </summary>
 
 Fully automated irreversible actions represent one of the highest-risk categories of AI agent behavior. 
 
@@ -19,6 +22,8 @@ It surfaces a mobile approval only for the action that's genuinely irreversible:
 That eliminates execution friction everywhere except where it should exist, and it also stops rogue agent actions because no external share executes without an un-bypassable, device-bound human approval, whether the agent is behaving correctly or has been compromised. 
 
 Compliance teams at enterprise customers block deployments that skip this control. CIBA turns a blocked feature into an approved one, with a timestamped approval record on every share.
+
+</details>
 
 ## Prerequisites
 

@@ -157,7 +157,12 @@ AUTH0_MGMT_CLIENT_ID=<management-client-id>
 AUTH0_MGMT_CLIENT_SECRET=<management-client-secret>
 ```
 
-If the credentials are **NOT** shown in the Launch Pad on the right, navigate to the Auth0 dashboard and create a custom M2M client with the following permissions, then use its Client ID and Secret in place of the Launch Pad values above:
+<details>
+  <summary> 
+    If the credentials are NOT shown in the Launch Pad on the right
+  </summary>
+
+Navigate to the Auth0 dashboard and create a custom M2M client with the following permissions, then use its Client ID and Secret in place of the Launch Pad values above:
 
 ```
 read:resource_servers
@@ -189,15 +194,25 @@ update:tenant_settings
 read:tenant_settings
 ```
 ![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
+  
+</details>
 
-> [!NOTE]
-> **Optional: bring your own OpenAI key.** 
->
->If you have an OpenAI API key you would like to use, add it to the same `.env` file:
-> ```
-> OPENAI_API_KEY=<your-openai-api-key>
-> ```
-> If you don't have one, no worries, leave it blank. Nexus detects a missing key automatically and uses the simulator instead so no other change needed.
+<br>
+
+<details>
+  <summary> 
+    Optional: bring your own OpenAI key.
+  </summary>
+
+If you have an OpenAI API key you would like to use, add it to the same `.env` file:
+
+```
+ OPENAI_API_KEY=<your-openai-api-key>
+ ```
+
+If you don't have one, no worries, leave it blank. Nexus detects a missing key automatically and uses the simulator instead so no other change needed.
+
+</details>
 
 ### Step 2: start the app
 
