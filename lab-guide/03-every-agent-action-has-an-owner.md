@@ -17,13 +17,20 @@ By the end you will understand:
 - How JWTs are validated on the Express backend with **express-oauth2-jwt-bearer**.
 - How **sub**, **email**, and **scope** are extracted so downstream modules have a real user context.
 
-### Why we're building this
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    Why we're building this
+  </summary>
 
 AI agents that call tools without verified user identity cannot produce compliance-grade audit trails. Every downstream access decision depends on knowing which employee initiated the request. That identity determines which documents users can read. It also determines which credentials Token Vault returns and which shares CIBA approves.
 
 The commercial consequence is direct. Enterprise customers in regulated industries most often delay AI agent deployments due to the absence of user-level audit trails. Universal Login plugs your existing IdP into the agent's authorization chain. User Authentication requires zero migration: no new identity system, no re-enrollment, no parallel directory.
 
 Every downstream control keys off that verified identity. Without it, Token Vault and CIBA work from a guess instead of a fact. A clean, attributable trail on document access compresses security review cycles from months to weeks. This acceleration shortens the path to contract signature.
+</details>
 
 ## What's provisioned for you
 
@@ -208,7 +215,14 @@ Click **Run Checks**. The verifier confirms:
 > ```
 > Paste the result into jwt.io. The backend terminal also shows **Authenticated request from user: auth0|...** on every chat call once chat unlocks later, and the **sub** there will match the **sub** in this token.
 
-## What you learned
+
+<details>
+  <summary style='font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;'>
+    What you learned
+  </summary>
 
 Every Nexus call now carries a verifiable user identity. This becomes the foundational anchor for everything downstream.
 
@@ -219,11 +233,11 @@ A verifiable identity at every layer makes audit trails possible. Audit trails m
 > [!NOTE]
 > Business win: a clean user-level audit trail on document access is the difference between a six-month security review and a two-week one.
 
-#### <span style="font-variant: small-caps">Congrats!</span>
+</details>
 
-*You have completed this module.*
+## Checkpoint
 
-You should have successfully:
+Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms all five conditions automatically:
 
 <ul>
   <li style="list-style-type:'✅ ';">
