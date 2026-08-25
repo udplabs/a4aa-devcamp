@@ -9,7 +9,7 @@
 
 - All steps from all previous modules are completed.
 - Codespace port 3002 (CRM mock) is set to **Public** visibility, required for the CRM's OAuth redirect to complete.
-- You have already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this,**log_crm_activity** fails with "No CRM account linked" instead of returning a live federated token in step 7 below.
+- You've already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** fails with "No CRM account linked" instead of returning a live federated token in step 7 below.
 - Demo users: **`alice@docagent.demo`** (engineering team, editor on q3-roadmap), **`bob@docagent.demo`** (all-company docs only).
 
 <details>
@@ -33,10 +33,10 @@ Authenticated request from user: auth0|<alice-sub>
 ```
 
 > [!NOTE]
-> **auth0|<alice-sub>** represents the full Auth0 subject identifier for alice. It will look like **auth0|65d7f2a3b4c5e6f7...** rather than the email address.
+> **auth0|<alice-sub>** represents the full Auth0 subject identifier for Alice. It looks like **auth0|65d7f2a3b4c5e6f7...** rather than the email address.
 
 The same user **sub** flows through every hop, giving you one audit key for every downstream decision.
-- All **'Server logs'** Will be in your codespaces terminal
+- All server logs appear in your Codespace's terminal.
 - For every prompt below, open the **Tool Logs** panel on the right side of the Nexus UI first. It shows the exact tool call the agent made, which is the fastest way to confirm you got the expected result instead of parsing the chat reply text alone.
 </details>
 
@@ -60,7 +60,7 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 ## CIBA path: external document share
 
 1. Prompt: `Share the Q3 roadmap with external@partner.com.`
-  - Expected: 
+  - Expected:
     - Push notification card appears in the chat reading "Push notification sent Approve on your device" and showing the binding message **Approve: share Q3 Product Roadmap to external at partner.com**.
 2. Approve the push on your enrolled Guardian device.
 3. The UI flips; the share executes with a **sharedAt** timestamp.
@@ -69,15 +69,15 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 
 ### FGA deny: outside department
 
-1. Log in as Bob (**`bob@docagent.demo`** / **`DevCamp1!`**). You might be required to setup Guardian if you haven't already.
+1. Log in as Bob (**`bob@docagent.demo`** / **`DevCamp1!`**). You might need to set up Guardian if you haven't already.
 2. Prompt: `Show me the Q3 roadmap.` (Clicking the **Find the Q3 roadmap** suggestion chip also works, but routes to a different tool, per the note below.)
-- Expected: 
+- Expected:
   - Server log: **[FGA] Check: user:auth0|<bob_sub> can_read document:q3-roadmap -> DENIED**. No content returns.
 
 > [!NOTE]
 > Depending on the exact wording, this can route to either **get_document** or **search_documents**, and they handle denial differently by design. When you call **get_document** (triggered by "show", "open", "read", etc. plus a specific document name), it returns an explicit **{ success: false, error: "Access denied..." }** and logs the **DENIED** line. When you call **search_documents** (triggered by "find", "search", or the **Find the Q3 roadmap** chip), it never returns an explicit error. Instead, it silently filters denied documents out of the results, so you see **{ success: true, results: [], total: 0 }** with no "Access denied" message.
 >
-> This difference is intentional. A search that explicitly denies a match would leak information to Bob by confirming that a document exists matching his query. He would only know it's one he cannot access. By filtering silently, "nothing found" becomes indistinguishable from "nothing exists," which protects information without surfacing an error. **get_document**, by contrast, is asking for one specific, named resource. A clear explicit denial on a known, named document does not disclose anything Bob did not already know to ask for.
+> This difference is intentional. A search that explicitly denies a match would leak information to Bob by confirming that a document exists matching his query—he'd only know it's one he can't access. By filtering silently, "nothing found" becomes indistinguishable from "nothing exists," which protects information without surfacing an error. **get_document**, by contrast, is asking for one specific, named resource. A clear, explicit denial on a known, named document doesn't disclose anything Bob didn't already know to ask for.
 
 ### FGA deny: confidential document
 
@@ -92,21 +92,21 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 1. Log in as Bob (**`bob@docagent.demo`** / **`DevCamp1!`**).
 2. Prompt: `Share the employee handbook with external@partner.com`
 3. A push notification card appears. Approve it on your enrolled Guardian device.
-  - Expected server log after approval: **[FGA] Check: user:auth0|<bob_sub> can_share document:handbook -> DENIED**. 
-  - The share is blocked at the data boundary. Bob can read the handbook but viewers do not meet **can_share**.
+  - Expected server log after approval: **[FGA] Check: user:auth0|<bob_sub> can_share document:handbook -> DENIED**.
+  - The share is blocked at the data boundary. Bob can read the handbook but viewers don't meet **can_share**.
 
 ### CIBA timeout
 
 1. Initiate a share request as before, but do not approve it.
   - Expected: after 300 seconds, **/api/ciba/status/:id** returns **denied** and the share is silently aborted.
 
->[!TIP]  
-> You do not need to wait the full 5 minutes. Just confirm the pending state exists by runnin this in the codespaces terminal `curl http://localhost:3000/api/ciba/pending`, then move on.
+> [!TIP]
+> You don't need to wait the full 5 minutes. Just confirm the pending state exists by running this in the Codespace's terminal: `curl http://localhost:3000/api/ciba/pending`, then move on.
 
 ### Missing scope
 
 - In the Auth0 Dashboard, go to **APIs > Nexus Backend API > Settings**, scroll to **Application Access Policy**, and set **User Access** to **Per-app authorization** > **Save**
-- You need to do this because the API defaults to "All apps allowed," which grants every scope to every authorized app and makes individual scopes non-deselectable 
+- You need to do this because the API defaults to "All apps allowed," which grants every scope to every authorized app and makes individual scopes non-deselectable.
 
 ![Nexus Backend API Application Access Policy, User Access changed from All apps allowed to Per-app authorization](images/06-application-access-policy-per-app.png)
 
@@ -146,16 +146,16 @@ Five controls are stacked behind one MCP server: MCP with CIMD, OBO, and PRM; Au
 - CIBA, from *Humans approve what can't be undone*, prevents unilateral irreversible actions.
 - FGA, from *Access that knows where it ends*, prevents cross-user document access.
 
-The commercial payoff is substantial. A document agent that finds and shares information faster than manual workflow, with CIBA clearing every routine call silently and only interrupting a human for the irreversible share, drives revenue through a world-class experience. Because CIMD, OBO, and FGA gave you one standardized authorization layer instead of one-off logic per runtime, the next model or framework arrives without re-buying identity work. Your architecture stays current instead of constantly chasing migrations. Because every decision traces back to a real employee, external shares are gated by approval, and no credential ever lived in agent memory, security review closes clean. The risk that would otherwise burden the platform team evaporates.
+The commercial payoff is substantial. A document agent that finds and shares information faster than a manual workflow drives revenue through a world-class experience. CIBA clears every routine call silently and only interrupts a human for the irreversible share. Because CIMD, OBO, and FGA gave you one standardized authorization layer instead of one-off logic per runtime, the next model or framework arrives without re-buying identity work. Your architecture stays current instead of constantly chasing migrations. Because every decision traces back to a real employee, external shares are gated by approval, and no credential ever lived in agent memory, security review closes clean. The risk that would otherwise burden the platform team evaporates.
 
-That is the full Nexus workshop. The implementation you just walked through is the reference pattern for production-ready AI agent identity.
+That's the full Nexus workshop. The implementation you just walked through is the reference pattern for production-ready AI agent identity.
 </details>
 
 ## <span style="font-variant: small-caps">Congrats!</span>
 
-*You have completed the end-to-end run.*
+*You've completed the end-to-end run.*
 
-You should have successfully:
+You've successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
