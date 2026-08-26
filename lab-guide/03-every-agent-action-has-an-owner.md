@@ -2,15 +2,15 @@
 
 The MCP server now has a trust boundary.
 
-It can distinguish a first-party agent (CIMD identity) from an anonymous request and a valid token from a forged one. 
+It can distinguish a first-party agent (CIMD identity) from an anonymous request and a valid token from a forged one.
 
-But OBO token exchange needs an employee identity to carry through to tool execution and right now there is nothing to carry. 
+But OBO token exchange needs an employee identity to carry through to tool execution, and right now it has nothing to carry.
 
-This module wires Auth0 Universal Login so every session has a verifiable employee **sub** that can be carries downstream.
+This module wires Auth0 Universal Login so every session has a verifiable employee **sub** that carries downstream.
 
 This module is a **read-through**. The authentication wiring is pre-built in the starter.
 
-By the end you will understand:
+By the end, you'll understand:
 
 - How the chat UI is gated behind Auth0 Universal Login.
 - How the user's access token reaches every **/api/\*** call.
@@ -25,9 +25,9 @@ By the end you will understand:
     Why we're building this
   </summary>
 
-AI agents that call tools without verified user identity cannot produce compliance-grade audit trails. Every downstream access decision depends on knowing which employee initiated the request. That identity determines which documents users can read. It also determines which credentials Token Vault returns and which shares CIBA approves.
+AI agents that call tools without verified user identity can't produce compliance-grade audit trails. Every downstream access decision depends on knowing which employee initiated the request. That identity determines which documents users can read. It also determines which credentials Token Vault returns and which shares CIBA approves.
 
-The commercial consequence is direct. Enterprise customers in regulated industries most often delay AI agent deployments due to the absence of user-level audit trails. Universal Login plugs your existing IdP into the agent's authorization chain. User Authentication requires zero migration: no new identity system, no re-enrollment, no parallel directory.
+The commercial consequence is direct. Enterprise customers in regulated industries most often delay AI agent deployments because they lack user-level audit trails. Universal Login plugs your existing IdP into the agent's authorization chain. User Authentication requires zero migration: no new identity system, no re-enrollment, no parallel directory.
 
 Every downstream control keys off that verified identity. Without it, Token Vault and CIBA work from a guess instead of a fact. A clean, attributable trail on document access compresses security review cycles from months to weeks. This acceleration shortens the path to contract signature.
 </details>
@@ -43,12 +43,12 @@ When you clicked **Provision Resources**, the app created everything Nexus needs
     - password: **`DevCamp1!`**
   - `bob@docagent.demo`: all-company access only, denied on engineering, HR, and executive documents
     - password: **`DevCamp1!`**
-  
-## Code Steps
 
-Feel free to open each file in your editor as you go. We will be tracing the employee's identity from the browser login all the way to the backend handler.
+## Code steps
 
-### Step 1: The React tree is wrapped in **Auth0Provider**
+Feel free to open each file in your editor as you go. You'll trace the employee's identity from the browser login all the way to the backend handler.
+
+### Step 1: the React tree is wrapped in **Auth0Provider**
 
 On **src/main.jsx**, a **ConfigGate** checks setup status first, then the whole app is wrapped so every component can read the auth session:
 
@@ -66,11 +66,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 );
 ```
 
-**ConfigGate** fetches **GET /api/setup/status** on mount and renders the setup or provisioning UI if needed. 
+**ConfigGate** fetches **GET /api/setup/status** on mount and renders the setup or provisioning UI if needed.
 
-**Auth0Provider** only mounts once the tenant is fully provisioned, ensuring the SDK never initializes with empty credentials. 
+**Auth0Provider** only mounts once the tenant is fully provisioned, ensuring the SDK never initializes with empty credentials.
 
-**RuntimeConfigProvider** fetches **GET /api/config** on mount, so the Auth0 domain, client ID, and audience come from your tenant at runtime instead of being baked in at build time. 
+**RuntimeConfigProvider** fetches **GET /api/config** on mount, so the Auth0 domain, client ID, and audience come from your tenant at runtime instead of being baked in at build time.
 
 **src/auth/Auth0Provider.jsx** reads those values and configures the SDK:
 
@@ -92,7 +92,7 @@ return (
 );
 ```
 
-### Step 2: The app is gated behind login
+### Step 2: the app is gated behind login
 
 **src/App.jsx** uses the SDK's session state to decide what to render:
 
@@ -109,7 +109,7 @@ if (!isAuthenticated) {
 
 Once authenticated, the header renders the user's name and a Log Out button.
 
-### Step 3: The login button calls Auth0
+### Step 3: the login button calls Auth0
 
 **src/components/LoginScreen.jsx**:
 
@@ -122,13 +122,13 @@ const { loginWithRedirect, isLoading } = useAuth0();
 ```
 
 > [!IMPORTANT]
-> **You can log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!`. 
-> 
+> **You can log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!`.
+>
 > Everything from here on assumes you're logged in.
 >
 > Guardian push MFA is enforced tenant-wide, so login also triggers an MFA enrollment in the Auth0 Guardian app.
 
-### Step 4: The access token is attached to **/api/chat**
+### Step 4: the access token is attached to **/api/chat**
 
 **src/hooks/useChat.js** requests a token for the Nexus API audience and sends it on every chat call:
 
@@ -201,20 +201,19 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
 
 Click **Run Checks**. The verifier confirms:
 
-- You are logged in as `alice@docagent.demo`.
+- You're logged in as `alice@docagent.demo`.
 - The access token includes the Nexus API audience (`https://devcamp-docagent-api`).
 - The token carries the `chat:send` scope.
 - Guardian push MFA was completed at login.
 
 > [!TIP]
-> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the **aud**, **sub**, and **scope** claims directly. 
+> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the **aud**, **sub**, and **scope** claims directly.
 >
->To get the raw token without needing chat unlocked, open your browser's DevTools console and run:
+> To get the raw token without needing chat unlocked, open your browser's DevTools console and run:
 > ```js
 > await window.__nexusAuth.getAccessTokenSilently({ authorizationParams: { audience: window.__nexusAuth.audience, scope: "chat:send" } })
 > ```
-> Paste the result into jwt.io. The backend terminal also shows **Authenticated request from user: auth0|...** on every chat call once chat unlocks later, and the **sub** there will match the **sub** in this token.
-
+> Paste the result into jwt.io. The backend terminal also shows **Authenticated request from user: auth0|...** on every chat call once chat unlocks later, and the **sub** there matches the **sub** in this token.
 
 <details>
   <summary style='font-size: 1.5rem;
@@ -237,7 +236,7 @@ A verifiable identity at every layer makes audit trails possible. Audit trails m
 
 ## Checkpoint
 
-Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms all five conditions automatically:
+Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms all four conditions automatically:
 
 <ul>
   <li style="list-style-type:'✅ ';">
