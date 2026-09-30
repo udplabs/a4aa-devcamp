@@ -9,8 +9,9 @@
 //
 // CREATE provisions, for the demo's customer-identity tenant:
 //   - backend API + MCP API (resource servers)
-//   - M2M client (CIMD) with user-delegated OBO grant (Token Exchange
-//     must be enabled manually in the Dashboard -- Lab 04 Dashboard step)
+//   - M2M client, linked to an Agent as Principal record, with
+//     user-delegated OBO grant (Token Exchange must be enabled
+//     manually in the Dashboard -- Lab 04 Dashboard step)
 //   - CIBA-enabled client (CIBA must be enabled at tenant level -- bonus)
 //   - CRM OAuth2 connection (Token Vault storage off by default -- Lab 03)
 //   - per-demo FGA store + model (Lab 03, if settings)

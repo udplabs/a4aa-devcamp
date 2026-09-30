@@ -3,17 +3,17 @@
 This module wires the mechanism that makes everything else possible. Here's what you'll do:
 - Register Nexus's MCP server as an Auth0 resource
 - Give the first-party Nexus agent the two things it needs to call tools on behalf of users
-  - The first is a stable published identity via CIMD (Client ID Metadata Documents)
-  - The second is a confidential M2M client that performs the OBO token exchange
+  - The first is a durable, first-class identity via **Agent as Principal** — an Auth0 agent record with its own `agent_id`
+  - The second is a confidential M2M client, linked to that agent, that performs the OBO token exchange
 
-Once both items are in place, every tool call carries the employee's **sub** all the way to tool execution. That gives Token Vault, CIBA, and FGA the identity they need to enforce policy.
+Once both items are in place, every tool call carries the employee's **sub** *and* the agent's **agent_id** (as `act.sub`) all the way to tool execution. That gives Token Vault, CIBA, and FGA the identity they need to enforce policy, and gives you an agent identity that survives client credential rotation.
 
 By the end, you'll understand:
 
 - How JWT validation protects the MCP server on port 3001.
 - How `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414) enable zero-config client discovery.
-- What CIMD is and why a URL-based agent identity is better than an ephemeral UUID from Dynamic Client Registration.
-- How the M2M confidential client performs OBO token exchange, preserving the user's **sub** through the agent boundary.
+- What Agent as Principal is and why a durable `agent_id` is better than treating an M2M client's own credentials as the agent's identity.
+- How the M2M confidential client performs OBO token exchange, preserving the user's **sub** through the agent boundary while carrying the agent's `agent_id` as `act.sub`.
 - How a distinct scope per tool enforces least-privilege and enables **WWW-Authenticate** step-up hints for clients.
 
 <br>
@@ -26,11 +26,11 @@ By the end, you'll understand:
     Why we're building this
   </summary>
 
-Without a defined trust boundary, every agent runtime connecting to your MCP server becomes an implicit authorization decision made by whoever wrote the agent, not by your platform. A new agent framework means a new security review. A compromised client has no scope boundary. And an audit log entry that says "agent called tool" tells you nothing about which employee was responsible.
+Without a defined trust boundary, every agent runtime connecting to your MCP server becomes an implicit authorization decision made by whoever wrote the agent, not by your platform. A new agent framework means a new security review. A compromised client has no scope boundary. And an audit log entry that says "agent called tool" tells you nothing about which employee was responsible, or which agent was acting.
 
-The commercial consequence is direct. CIMD-based agent identity and PRM/AS discovery (Protected Resource Metadata and Authorization Server Metadata, covered later in this module) let a client discover and connect to your server on its own. That safely opens your MCP server to trusted partners without custom onboarding on either side—so you reach new customers and revenue through standardization, not one-off integration friction.
+The commercial consequence is direct. Agent-as-Principal identity and PRM/AS discovery (Protected Resource Metadata and Authorization Server Metadata, covered later in this module) let a client discover and connect to your server on its own. That safely opens your MCP server to trusted partners without custom onboarding on either side—so you reach new customers and revenue through standardization, not one-off integration friction.
 
-The trust boundary is standardized to a spec rather than hardcoded to one agent framework. You ship a new runtime or model without rearchitecting security, so you're never trapped by today's choices as the ecosystem moves. An agent carries a distinct, auditable, and revocable identity through CIMD. A compromised or forged client becomes a contained incident on one identity's permissions rather than a lateral movement vector across your whole platform.
+The trust boundary is standardized to a spec rather than hardcoded to one agent framework. You ship a new runtime or model without rearchitecting security, so you're never trapped by today's choices as the ecosystem moves. An agent carries a distinct, auditable, and revocable identity — its `agent_id` — independent of the M2M client credentials that happen to authenticate it today. A compromised or forged client becomes a contained incident on one identity's permissions rather than a lateral movement vector across your whole platform.
 
 </details>
 
@@ -45,11 +45,11 @@ The trust boundary is standardized to a spec rather than hardcoded to one agent 
   </summary>
 
 
-The first-party Nexus agent connects with a stable published identity via CIMD and uses an M2M client to exchange user tokens for MCP-scoped tokens.
+The first-party Nexus agent connects with a durable identity via Agent as Principal and uses an M2M client, linked to that agent record, to exchange user tokens for MCP-scoped tokens.
 
 Third-party integrations discover the server through PRM and AS metadata and connect without any configuration on their side.
 
-All of them must present a valid token, and when they do, OBO token exchange carries the employee's identity through the agent boundary to every tool call downstream.
+All of them must present a valid token, and when they do, OBO token exchange carries the employee's identity through the agent boundary to every tool call downstream — and now also carries the agent's own `agent_id` as `act.sub`.
 
 **MCP (Model Context Protocol)** is a standard surface for advertising tools. With Auth0 in front of it, every tool call is bearer-authenticated against a resource server that enforces FGA, Token Vault, and scope checks.
 
@@ -62,6 +62,11 @@ All of them must present a valid token, and when they do, OBO token exchange car
 >
 > Product overview: [auth0.com/ai](https://auth0.com/ai).
 
+> [!IMPORTANT]
+> **Agent as Principal is an Early Access feature** ([auth0.com/docs/ai-agents-mcp/agent-as-principal](https://auth0.com/docs/ai-agents-mcp/agent-as-principal)). It may not be enabled on your lab tenant by default — if the **Agents** section isn't visible in your Dashboard, contact your lab facilitator or Auth0 Support to have it enabled.
+>
+> If it isn't available in your session, skip Part B below and go straight to Part C. The rest of the module — OBO token exchange, PRM/AS discovery, per-tool scope enforcement — works exactly the same without it. You'll simply be missing the `act.sub`/`sub_profile` claims on the exchanged token and the second verification check.
+
 </details>
 
 ## Features shown by RFC
@@ -71,7 +76,7 @@ This module wires six features in one flow:
 | Part | Feature | RFC / Spec |
 |---|---|---|
 | A | Register MCP API + Backend API as Auth0 resource servers (per-tool scopes live on the Backend API) | OAuth 2.1 |
-| B | CIMD: publish the agent's identity as a metadata document URL | Client ID Metadata Documents (draft) |
+| B | Agent as Principal: register the agent as a first-class Auth0 identity | Early Access ([auth0.com/docs/ai-agents-mcp/agent-as-principal](https://auth0.com/docs/ai-agents-mcp/agent-as-principal)) |
 | C | Protected Resource Metadata (PRM) | RFC 9728 |
 | D | Authorization Server Metadata | RFC 8414 |
 | E | On-Behalf-Of token exchange with RFC 8707 resource indicator | RFC 8693 + RFC 8707 |
@@ -92,76 +97,36 @@ Your tenant already has:
 
 - **The Nexus SPA application**: your browser app for user login, already configured for your Codespace URL.
 
-**Two clients aren't provisioned for you.** You create both manually in this module. Your only manual Dashboard steps are below.
+The Nexus Backend API was also provisioned with `agent_subject_claims` set to `"auth0-v1"`, opting it into `sub_profile`/`act.sub` claims automatically once the M2M client below is linked to an agent record. There's nothing to toggle for this — it's already set.
+
+**Two things aren't provisioned for you.** You create both manually in this module. Your only manual Dashboard steps are below.
 
 ## Dashboard steps
 
 > [!NOTE]
-> **Two clients, two purposes:**
-> - **CIMD native app**: the agent's published identity document. *Anyone* can fetch the URL to learn what the agent is and what scopes it needs. This is what CIMD is: a stable, self-hosted identity that shows up in audit logs.
-> - **M2M confidential app**: performs the actual OBO token exchange server-side. It is suthorized against both the MCP API (the audience it exchanges from) and the Nexus Backend API (the audience it exchanges into, where the four per-tool scopes live).
+> **Two things, two purposes:**
+> - **Agent record (Agent as Principal)**: the agent's durable Auth0 identity, a first-class object with its own `agent_id`. This identity is what shows up in the exchanged token's `act.sub` claim and in Auth0 logs — independent of whichever M2M client happens to authenticate it.
+> - **M2M confidential app**: performs the actual OBO token exchange server-side. It is authorized against both the MCP API (the audience it exchanges from) and the Nexus Backend API (the audience it exchanges into, where the four per-tool scopes live). Once linked to the agent record, its exchanged tokens carry the agent's `agent_id`.
 
-### Part B: Register the agent's CIMD identity
-
-The Nexus MCP server publishes a metadata document at **/.well-known/client-metadata** on port 3001. Auth0 can fetch this URL and register the agent from it, and **the URL itself becomes the `client_id`**.
-
-**Step 1: Open the metadata document in your browser**
-
-> [!TIP]
-> **<your-codespace>** is the name shown in your Codespace's browser tab and URL bar (e.g. **fuzzy-space-potato-abc123**), or run `echo $CODESPACE_NAME` in the terminal to print it directly.
-
-```
-https://<your-codespace>-3001.app.github.dev/.well-known/client-metadata
-```
-
-You will see:
-
-```json
-{
-  "client_id": "https://<your-codespace>-3001.app.github.dev/.well-known/client-metadata",
-  "client_name": "Nexus Agent (DevCamp)",
-  "allowed_scopes": ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"]
-}
-```
+### Part B: Register the agent as a first-class Auth0 identity
 
 > [!IMPORTANT]
-> The **client_id** field is the URL of this document.
->
-> That is the point of CIMD. The agent's identity is self-described and self-hosted. Compare this to Dynamic Client Registration (DCR, RFC 7591), where a new opaque UUID is minted on every install and audit logs become meaningless at scale across deploys.
+> **Agent as Principal is an Early Access feature.** If you don't see an **Agents** item in the Dashboard's left nav, it isn't enabled on your lab tenant. Skip this Part and go straight to **Part C** — the rest of the module works identically, you'll just be missing the `act.sub`/`sub_profile` claims and the second verification check below.
 
-**Step 2: Make port 3001 public in your Codespace**
+**Step 1: Create the agent record**
 
-Auth0 needs to be able to see the metadata document to register the agent.
+1. Auth0 Dashboard → **Agents** → **Create New Agent**
+2. Name it exactly `Nexus Agent (DevCamp)` — the in-app verifier looks this up by name
+3. Click **Create**
 
-1. In the Codespace VS Code editor, open the **PORTS** tab (bottom panel)
-2. Find port **3001**
-3. Right-click → **Port Visibility → Public**
-
-*You should see: the visibility icon on port 3001 changes to show it is publicly accessible.*
+*You should see: the new agent record with a generated **Agent ID** in the form `agt_...`.*
 
 > [!NOTE]
-> Codespaces can reset port visibility back to Private after the Codespace restarts or rebuilds. If a step that depends on port 3001 or 3002 starts failing, re-check its visibility here before troubleshooting anything else.
+> Screenshot placeholders: this section needs new screenshots from a live Early-Access tenant (Agents list, Create Agent form, and the created agent's detail view). None are included yet.
 
-**Step 3: Register in Auth0 using Import from URL**
+**Step 2: Note the Agent ID**
 
-1. Auth0 Dashboard → **Applications → Applications → Create Application**
-2. Select **Import from URL**
-3. Paste the metadata document URL and click **Preview**
-
-*You should see: Auth0 fetches the document and shows a preview with **client_name** and **external_client_id** from your metadata.*
-
-![Import from URL preview showing client_name and allowed_scopes](images/01-cimd-import-preview.png)
-
-4. Click **Create**
-
-*Auth0 creates a Native application with the metadata URL as the **client_id**. This is the agent's published identity. It plays no role in the OBO exchange itself, but it does show up in Auth0 logs wherever the agent's identity is referenced.*
-
-![Created CIMD native application with client_id set to the metadata URL](images/01-cimd-client-created.png)
-
-> [!IMPORTANT]
-> One step requires manual confirmation in the Dashboard. This screen shows two different IDs. Don't confuse them:
-> - **Client ID**: Auth0's own internal identifier for the application record. This is always an opaque UUID, even for a CIMD app, and that's expected.
-> - **External Client ID** (or, on the API tab, wherever the CIMD **client_id** value is displayed): this is the one that must equal the metadata document URL. That's the field to check.
+Copy the **agt_...** value somewhere handy — you'll confirm it shows up as `act.sub` on the exchanged token later in this module, once the M2M client is linked to it in Part C.
 
 ### Part C: Create the M2M client for OBO token exchange
 
@@ -213,7 +178,20 @@ Both APIs default to Application Access Policy "All apps allowed," so every scop
 >
 > Until this is enabled, the OBO exchange returns a **403** and every tool call will fail.
 
-**Step 3: Add the M2M credentials to `.env`**
+**Step 3: Link the M2M client to the agent record**
+
+*Skip this step if you skipped Part B (Early Access not enabled on your tenant).*
+
+1. Auth0 Dashboard → **Agents** → **Nexus Agent (DevCamp)** → **Applications** tab
+2. Click **Add Application**
+3. Select `docagent-mcp-obo` and confirm
+
+*You should see: `docagent-mcp-obo` listed under the agent's Applications tab. Under the hood this is a `PATCH /api/v2/clients/{id}` call setting `agent_id` to the agent's `agt_...` value.*
+
+> [!NOTE]
+> Screenshot placeholder: this step needs a screenshot of the Agent's Applications tab with `docagent-mcp-obo` added.
+
+**Step 4: Add the M2M credentials to `.env`**
 
 From the `docagent-mcp-obo` application settings, copy the **Client ID** and **Client Secret**. Open `demo-app/.env` and add:
 
@@ -222,7 +200,7 @@ AUTH0_OBO_CLIENT_ID=<client-id-from-dashboard>
 AUTH0_OBO_CLIENT_SECRET=<client-secret-from-dashboard>
 ```
 
-**Step 4: Restart the app**
+**Step 5: Restart the app**
 
 If the app doesn't auto-refresh, stop the running app (`Ctrl+C`) and restart:
 
@@ -240,30 +218,27 @@ The MCP client is now configured and can perform OBO token exchanges.
 > [!NOTE]
 > This code is already implemented in the demo-app. The steps below are a structured walk-through. Open each file in your editor as you go. **You are not writing new code in this module.**
 
-### Part B: CIMD metadata endpoint
+### Part B: Agent as Principal claims
 
-The MCP server serves the agent's identity document at **/.well-known/client-metadata**. The **client_id** is derived from the request URL, since the endpoint returns itself as the identity.
+The Nexus Backend API opts into agent-aware claims at provisioning time, before you ever create the agent record.
 
-**server/mcp/cimd.js** and **server/mcp/server.js**:
+**server/platform/provision.js**:
 
 ```js
-app.get("/.well-known/client-metadata", (req, res) => {
-  const proto = req.headers["x-forwarded-proto"] || req.protocol;
-  const host  = req.headers["x-forwarded-host"]  || req.headers.host;
-  const clientId = `${proto}://${host}/.well-known/client-metadata`;
-  const frontendOrigin = /* derived from host, swapping 3001 → 5173 */;
-  res.json({
-    client_id:   clientId,   // the URL is the identity
-    client_name: "Nexus Agent (DevCamp)",
-    grant_types: ["authorization_code"],
-    redirect_uris: [frontendOrigin, `${frontendOrigin}/`],
-    token_endpoint_auth_method: "none",
-    scope: "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share",
-  });
+await createResourceServer(ctx, {
+  identifier: BACKEND_API_IDENTIFIER,
+  name: "Nexus Backend API",
+  scopes: BACKEND_SCOPES,
+  rbac: true,
+  // Opts this API into agent-aware claims (sub_profile, act.sub = agent_id)
+  // once docagent-mcp-obo is linked to an Agent record.
+  agentSubjectClaims: true,
 });
 ```
 
-This is what Auth0 fetched when you registered the CIMD app. The same URL appears in Auth0 logs wherever the agent's identity is referenced.
+which sets `agent_subject_claims: "auth0-v1"` on the resource server via the Management API. Once `docagent-mcp-obo` is linked to the `Nexus Agent (DevCamp)` record (Part C above), every OBO-exchanged token targeting this API carries the agent's `agent_id` as `act.sub`.
+
+You can see this directly: **server/mcp/server.js** logs the full decoded token payload on every tool call. After completing Part C above, make a tool call and look for the `act` claim in that log line — its `sub` will equal the `agt_...` value from Part B.
 
 ### Part C: Protected Resource Metadata (PRM, RFC 9728)
 
@@ -320,7 +295,7 @@ body: JSON.stringify({
 }),
 ```
 
-The `client_id` here is the M2M app's opaque UUID, the confidential exchanger you created. The CIMD native app's URL is the agent's *published identity*; the M2M client is its *exchange credential*. Both are necessary and serve different roles.
+The `client_id` here is the M2M app's opaque UUID, the confidential exchanger you created. The agent record's `agent_id` is the agent's *durable identity*; the M2M client is its *exchange credential*, now linked to that identity. Both are necessary and serve different roles.
 
 ### Part E: route the agent's tool calls through MCP
 
@@ -337,13 +312,14 @@ result = await executeTool(toolName, parameters, user.accessToken);
 
 ## Checkpoint
 
-Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms all five conditions automatically:
+Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms these conditions automatically:
 
-- The CIMD metadata document is reachable and **client_id** equals the URL itself.
+- An agent named **Nexus Agent (DevCamp)** exists and is linked (`agent_id`) to `docagent-mcp-obo`. *(Skipped/failing if Agent as Principal isn't enabled on your tenant — see the Early Access note in Part B.)*
+- The Nexus Backend API has **agent_subject_claims** set to `"auth0-v1"`.
 - The Protected Resource Metadata endpoint returns **resource**, **authorization_servers**, and **scopes_supported**.
 - The AS Metadata endpoint returns **issuer**, **token_endpoint**, the four scopes, and **"metadata"** in **client_registration_types_supported**.
 - An unauthenticated **GET /mcp/tools** returns **401** with a **WWW-Authenticate** header.
-- The On-Behalf-Of Token Exchange toggle is active on your M2M client.
+- The On-Behalf-Of Token Exchange toggle is active on your M2M client, and it holds a user-delegated grant on the Nexus Backend API.
 
 > [!TIP]
 > If a check fails, the result row shows the exact reason. Fix the flagged item and click **Re-run checks**.
@@ -358,20 +334,21 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
 
 Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the user's actual identity on a resource server that enforces scope. The trust boundary moves from the agent backend to the MCP server. That same boundary is where FGA and Token Vault plug in later. This module builds the identity pipe they both depend on, but doesn't wire either one up yet. Concretely, you just walked through the full A4AA "Auth for MCP" pattern:
 
-- **CIMD: stable published identity.** The CIMD native app gives the agent a URL-based identity that survives redeploys. Anyone can fetch it to learn what the agent is. DCR (RFC 7591) mints a new opaque UUID on every install instead, so audit logs become meaningless across deploys. CIMD avoids both problems.
-- **M2M client: confidential OBO exchanger.** The M2M client is authorized against both the MCP API and the Backend API, and performs token exchanges with its own credentials. The issued token preserves the **sub** from the user's token, so FGA and Token Vault evaluate identity against the human rather than the agent.
+- **Agent as Principal: durable agent identity.** The agent record gives the agent an `agent_id` that survives M2M client credential rotation. It shows up as `act.sub` on every OBO-exchanged token once the client is linked, and as `event.agent` in Actions at token-issuance time, giving you a real identity to key audit and policy off of, rather than a proxy for "whichever client happened to authenticate." Multi-hop delegation preserves this through nested `act` claims.
+- **M2M client: confidential OBO exchanger.** The M2M client is authorized against both the MCP API and the Backend API, and performs token exchanges with its own credentials. The issued token preserves the **sub** from the user's token, so FGA and Token Vault evaluate identity against the human rather than the agent — and now also carries the agent's `agent_id` alongside it.
 - **Discovery without config.** RFC 9728 PRM and RFC 8414 AS metadata let a new MCP client point at your server URL and resolve the issuer, scopes, and grant types on its own.
 - **Graceful step-up.** **403 insufficient_scope** tells the client exactly which scope is missing, so the next OBO exchange can request it and retry.
 
 Why this matters beyond the lab:
 
 - **Opex.** Multiple agents (Claude Agent SDK, custom runtime, a future mobile client) inherit one authorization engine from one MCP server. You eliminate the burden of maintaining separate auth logic across each client.
-- **GTM.** A resource server with PRM, scope enforcement, CIMD identity, and a verified M2M exchanger is what a procurement team wants to see in the security questionnaire. It shortens the review cycle from months to weeks.
+- **GTM.** A resource server with PRM, scope enforcement, a durable agent identity, and a verified M2M exchanger is what a procurement team wants to see in the security questionnaire. It shortens the review cycle from months to weeks.
 
 </details>
 
 ### Further reading
 
+- Agent as Principal (Early Access): [auth0.com/docs/ai-agents-mcp/agent-as-principal](https://auth0.com/docs/ai-agents-mcp/agent-as-principal)
 - Auth for AI Agents product overview: [auth0.com/ai](https://auth0.com/ai)
 - MCP authorization spec (2025-11-25): [modelcontextprotocol.io/specification](https://modelcontextprotocol.io/specification)
 - RFC 9728 Protected Resource Metadata, RFC 8414 AS Metadata, RFC 8693 Token Exchange, RFC 8707 Resource Indicators
@@ -384,7 +361,7 @@ You've successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      Published the agent's CIMD identity by registering its metadata document URL in Auth0;
+      Registered the agent as a first-class Auth0 identity (Agent as Principal) and linked it to the M2M client;
   </li>
   <li style="list-style-type:'✅ '">
       Created an M2M confidential client from the MCP API resource server screen, authorized it on the Backend API, and enabled Token Exchange;
@@ -400,3 +377,7 @@ You've successfully:
 The MCP server now has a trust boundary: it validates every caller and scopes every tool call to a resource and an identity. The next step is making sure that identity belongs to a verified employee, not just a token. *Every agent action has an owner* wires that up.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>
+
+
+
+

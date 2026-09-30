@@ -5,7 +5,8 @@
 // customer-identity (Auth0) tenant. We exchange those for a
 // Management API token and provision the lab's footprint:
 //   - resource servers (backend API + MCP API)
-//   - an M2M client (CIMD) with user-delegated OBO grant
+//   - an M2M client (linked to an Agent as Principal record) with
+//     user-delegated OBO grant
 //   - a CIBA-enabled client
 //   - CRM OAuth2 connection (Token Vault storage NOT auto-enabled)
 //   - reconfigure the platform-created SPA app for the subdomain
@@ -85,6 +86,12 @@ export async function createResourceServer(ctx, opts) {
     body.enforce_policies = true;
     body.token_dialect = "access_token_authz";
   }
+  // Agent as Principal (Early Access): opts a resource server into receiving
+  // sub_profile/client_profile claims, and act.sub = agent_id on OBO-issued
+  // tokens once the client is linked to an agent record.
+  if (opts.agentSubjectClaims) {
+    body.agent_subject_claims = "auth0-v1";
+  }
   const created = await mgmt(ctx, "POST", "/resource-servers", body);
   return { id: created.id, identifier: created.identifier };
 }
@@ -143,14 +150,35 @@ export async function deleteDemoUser(ctx, email) {
   }
 }
 
-// Find and delete any CIMD native app registered for this lab by name.
-// The client_id is a URL so we look it up by client_name instead.
-export async function deleteCimdApp(ctx) {
+// Legacy cleanup: earlier versions of this lab registered a CIMD native app
+// (client_id = the /.well-known/client-metadata URL) under this display name.
+// Agent as Principal replaced that flow, but tenants provisioned before the
+// switch may still have one lying around -- delete it if found, no-op otherwise.
+export async function deleteLegacyCimdApp(ctx) {
   const clients = await mgmt(ctx, "GET", "/clients?fields=client_id,name&page=0&per_page=100").catch(() => []);
   const cimd = (clients || []).find(c => c.name === "Nexus Agent (DevCamp)");
   if (cimd) {
     await mgmt(ctx, "DELETE", `/clients/${encodeURIComponent(cimd.client_id)}`);
-    console.log(`[provision] deleted CIMD app: ${cimd.client_id}`);
+    console.log(`[provision] deleted legacy CIMD app: ${cimd.client_id}`);
+  }
+}
+
+// ---- Agents (Agent as Principal, Early Access) -------------------
+
+// Find the agent record registered for this lab by name. Auth0 does not
+// support filtering /api/v2/agents by name server-side, so page through
+// and filter client-side (same pattern as deleteLegacyCimdApp above).
+export async function findAgentByName(ctx, name) {
+  const result = await mgmt(ctx, "GET", "/agents?page=0&per_page=100").catch(() => null);
+  const agents = result?.agents || result || [];
+  return (agents || []).find((a) => a.name === name) || null;
+}
+
+export async function deleteAgentByName(ctx, name) {
+  const agent = await findAgentByName(ctx, name);
+  if (agent) {
+    await mgmt(ctx, "DELETE", `/agents/${encodeURIComponent(agent.agent_id)}`);
+    console.log(`[provision] deleted agent: ${agent.agent_id} (${name})`);
   }
 }
 

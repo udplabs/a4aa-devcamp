@@ -2,7 +2,7 @@
 
 The MCP server now has a trust boundary.
 
-It can distinguish a first-party agent (CIMD identity) from an anonymous request and a valid token from a forged one.
+It can distinguish a first-party agent (Agent as Principal identity) from an anonymous request and a valid token from a forged one.
 
 But OBO token exchange needs an employee identity to carry through to tool execution, and right now it has nothing to carry.
 

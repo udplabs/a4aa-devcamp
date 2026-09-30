@@ -138,7 +138,7 @@ The same user **sub** flows through every hop, giving you one audit key for ever
     What you learned
   </summary>
 
-Five controls are stacked behind one MCP server: MCP with CIMD, OBO, and PRM; Authentication; Token Vault; CIBA; and FGA. Each one mitigates a specific risk:
+Five controls are stacked behind one MCP server: MCP with Agent as Principal, OBO, and PRM; Authentication; Token Vault; CIBA; and FGA. Each one mitigates a specific risk:
 
 - MCP, from *One trust boundary for every agent*, prevents anonymous callers and agent-framework lock-in on your authorization code.
 - JWT validation, from *Every agent action has an owner*, prevents unauthenticated use and anchors every downstream decision to a person.
@@ -146,7 +146,7 @@ Five controls are stacked behind one MCP server: MCP with CIMD, OBO, and PRM; Au
 - CIBA, from *Humans approve what can't be undone*, prevents unilateral irreversible actions.
 - FGA, from *Access that knows where it ends*, prevents cross-user document access.
 
-The commercial payoff is substantial. A document agent that finds and shares information faster than a manual workflow drives revenue through a world-class experience. CIBA clears every routine call silently and only interrupts a human for the irreversible share. Because CIMD, OBO, and FGA gave you one standardized authorization layer instead of one-off logic per runtime, the next model or framework arrives without re-buying identity work. Your architecture stays current instead of constantly chasing migrations. Because every decision traces back to a real employee, external shares are gated by approval, and no credential ever lived in agent memory, security review closes clean. The risk that would otherwise burden the platform team evaporates.
+The commercial payoff is substantial. A document agent that finds and shares information faster than a manual workflow drives revenue through a world-class experience. CIBA clears every routine call silently and only interrupts a human for the irreversible share. Because Agent as Principal, OBO, and FGA gave you one standardized authorization layer instead of one-off logic per runtime, the next model or framework arrives without re-buying identity work. Your architecture stays current instead of constantly chasing migrations. Because every decision traces back to a real employee, external shares are gated by approval, and no credential ever lived in agent memory, security review closes clean. The risk that would otherwise burden the platform team evaporates.
 
 That's the full Nexus workshop. The implementation you just walked through is the reference pattern for production-ready AI agent identity.
 </details>

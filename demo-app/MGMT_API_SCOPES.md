@@ -9,11 +9,13 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 | `read:resource_servers` | `GET /resource-servers` | Check if API exists before create |
 | `create:resource_servers` | `POST /resource-servers` | Create backend API + MCP API resource servers |
 | `delete:resource_servers` | `DELETE /resource-servers/{id}` | Teardown |
-| `read:clients` | `GET /clients` | List clients, look up CIMD app by name |
+| `read:clients` | `GET /clients` | List clients, look up legacy CIMD app by name |
 | `create:clients` | `POST /clients` | Create SPA, CIBA client |
 | `update:clients` | `PATCH /clients/{id}` | Reconfigure SPA callbacks/origins (platform path only) |
-| `delete:clients` | `DELETE /clients/{id}` | Teardown SPA, CIBA, CIMD clients |
+| `delete:clients` | `DELETE /clients/{id}` | Teardown SPA, CIBA, legacy CIMD clients |
 | `create:client_grants` | `POST /client-grants` | Grant SPA → MCP API, CIBA → MCP/backend APIs |
+| `read:agents` | `GET /agents` | Teardown: look up the "Nexus Agent (DevCamp)" agent record by name |
+| `delete:agents` | `DELETE /agents/{agent_id}` | Teardown: delete the agent record |
 | `read:connections` | `GET /connections` | Look up CRM OAuth2 connection |
 | `create:connections` | `POST /connections` | Create CRM OAuth2 connection |
 | `delete:connections` | `DELETE /connections/{id}` | Teardown CRM connection |
@@ -36,8 +38,10 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 
 | Scope | Endpoint(s) | Used for |
 |---|---|---|
-| `read:clients` | `GET /clients?external_client_id=...` | Module 01: verify CIMD client registered |
-| `read:clients` | `GET /clients/{id}?fields=...` | Module 01: verify OBO client config; Module 03: Token Vault grant on OBO client; Module 04: CIBA grant + channels |
+| `read:agents` | `GET /agents` | Module 01: find the "Nexus Agent (DevCamp)" agent record by name |
+| `read:clients` | `GET /clients/{id}?fields=agent_id` | Module 01: verify docagent-mcp-obo is linked to the agent record |
+| `read:resource_servers` | `GET /resource-servers?identifier=...` | Module 01: verify `agent_subject_claims` is set on the Nexus Backend API |
+| `read:clients` | `GET /clients/{id}?fields=...` | Module 03: Token Vault grant on OBO client; Module 04: CIBA grant + channels |
 | `read:client_grants` | `GET /client-grants?client_id=...&audience=...` | Module 01: verify user-delegated OBO grant + scopes; Module 03: verify SPA authorized for Auth0 My Account API Connected Accounts scopes |
 | `read:connections` | `GET /connections?name=...` | Module 03: verify Token Vault purpose on CRM connection |
 | `read:users` | `GET /users-by-email`, `GET /users/{id}/enrollments` | Module 04: look up alice + check her Guardian push enrollments |
@@ -81,4 +85,6 @@ delete:actions
 update:guardian_factors
 update:tenant_settings
 read:tenant_settings
+read:agents
+delete:agents
 ```

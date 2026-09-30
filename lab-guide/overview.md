@@ -28,7 +28,7 @@ Here's what each module covers:
 1. **One trust boundary for every agent**: ***Auth for MCP***
    - Registers the MCP server as an Auth0 resource
    - Publishes Protected Resource Metadata (PRM) and Authorization Server (AS) discovery for zero-config registration
-   - Pre-registers the first-party Nexus agent via CIMD, so it has a stable, auditable identity across deploys
+   - Registers the first-party Nexus agent via Agent as Principal, so it has a durable, auditable identity independent of client credential rotation
    - Carries the employee's **sub** through the agent boundary via On-Behalf-Of (OBO) token exchange, so every downstream tool call identifies exactly who triggered it
 
 2. **Every agent action has an owner**: ***User Authentication***

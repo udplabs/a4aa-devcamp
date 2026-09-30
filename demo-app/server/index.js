@@ -34,7 +34,7 @@ import { listTuples } from "./fga/client.js";
 import { executeTool } from "./tools/registry.js";
 import { getClientMetadata } from "./mcp/cimd.js";
 import { getManagementToken } from "./platform/auth0Management.js";
-import { runProvision, runDeprovision, deploymentDataToEnvVars } from "./platform/provision.js";
+import { runProvision, runDeprovision, deploymentDataToEnvVars, AGENT_NAME, BACKEND_API_IDENTIFIER } from "./platform/provision.js";
 import { fgaSettingsFromEnvOrRecord } from "./platform/fgaProvision.js";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -268,60 +268,62 @@ app.get("/api/verify/module01", async (req, res) => {
   const mcpBase = `http://localhost:${mcpPort}`;
   const checks = [];
 
-  // Derive the public CIMD URL from the incoming request's forwarded host,
-  // swapping the API port for the MCP port. This matches what Auth0 sees
-  // when the participant imports the metadata URL in the Dashboard.
-  const mcpPortStr = String(mcpPort);
-  const reqProto = req.headers["x-forwarded-proto"] || req.protocol || "http";
-  const reqHost  = req.headers["x-forwarded-host"]  || req.headers.host || `localhost:${mcpPort}`;
-  // Replace whatever port is in the host with the MCP port — the x-forwarded-host
-  // carries the browser-facing port (e.g. 5173 for Vite, or 3000 for the API direct),
-  // but the CIMD URL that was registered in Auth0 uses the MCP port.
-  const publicMcpHost = reqHost.includes(".app.github.dev")
-    ? reqHost.replace(/-\d+(\.app\.github\.dev)$/, `-${mcpPortStr}$1`)
-    : reqHost.replace(/:\d+$/, `:${mcpPortStr}`);
-  const publicCimdUrl = `${reqProto}://${publicMcpHost}/.well-known/client-metadata`;
-
-  // 1. CIMD metadata document (verify endpoint is responding locally)
-  let cimdUrl = publicCimdUrl;
-  try {
-    const r = await fetch(`${mcpBase}/.well-known/client-metadata`);
-    const body = await r.json();
-    const isUrl = typeof body.client_id === "string" && body.client_id.startsWith("http");
-    checks.push({ id: "cimd", name: "CIMD identity document reachable", pass: isUrl,
-      message: isUrl ? `client_id: ${publicCimdUrl}` : "client_id is not a URL — is port 3001 public?" });
-    if (!isUrl) cimdUrl = null;
-  } catch (e) {
-    checks.push({ id: "cimd", name: "CIMD identity document reachable", pass: false, message: e.message });
-    cimdUrl = null;
-  }
-
-  // 1b. Verify Auth0 has a client registered with the public CIMD URL as its client_id
   const domain = process.env.AUTH0_DOMAIN;
   const mgmtId = process.env.AUTH0_MGMT_CLIENT_ID;
   const mgmtSecret = process.env.AUTH0_MGMT_CLIENT_SECRET;
-  if (cimdUrl && domain && mgmtId && mgmtSecret) {
+  const oboClientId = process.env.AUTH0_OBO_CLIENT_ID;
+
+  // 1. Agent as Principal (Early Access): an agent record named AGENT_NAME
+  // exists and is linked (agent_id) to the docagent-mcp-obo M2M client.
+  let mgmtToken = null;
+  if (domain && mgmtId && mgmtSecret) {
     try {
-      const { getManagementToken } = await import("./platform/auth0Management.js");
+      const { getManagementToken, findAgentByName } = await import("./platform/auth0Management.js");
       const { token } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
-      const mgmtUrl = `https://${domain}/api/v2/clients?external_client_id=${encodeURIComponent(cimdUrl)}&fields=client_id,name&include_fields=true`;
-      const clientsR = await fetch(mgmtUrl,
-        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
-      );
-      const clients = await clientsR.json();
-      console.log(`[verify/module01] CIMD lookup url=${mgmtUrl}`);
-      console.log(`[verify/module01] CIMD lookup status=${clientsR.status} body=${JSON.stringify(clients)}`);
-      const found = Array.isArray(clients) && clients.length > 0 ? clients[0] : null;
-      checks.push({ id: "cimd_registered", name: "CIMD client registered in Auth0", pass: !!found,
-        message: found
-          ? `Found: ${found.name} (${cimdUrl})`
-          : `No Auth0 client with client_id = ${cimdUrl} — import the metadata URL in the Dashboard` });
+      mgmtToken = token;
+      const agent = await findAgentByName({ domain, token }, AGENT_NAME);
+      if (!agent) {
+        checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false,
+          message: `No agent named "${AGENT_NAME}" found — create it under Dashboard → Agents` });
+      } else if (!oboClientId) {
+        checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false,
+          message: `Found agent ${agent.agent_id}, but AUTH0_OBO_CLIENT_ID is not set — complete Part C first` });
+      } else {
+        const clientR = await fetch(`https://${domain}/api/v2/clients/${oboClientId}?fields=agent_id&include_fields=true`,
+          { headers: { Authorization: `Bearer ${token}` } });
+        const client = await clientR.json();
+        const linked = client?.agent_id === agent.agent_id;
+        checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: linked,
+          message: linked
+            ? `Agent ${agent.agent_id} ("${AGENT_NAME}") linked to docagent-mcp-obo`
+            : `Agent ${agent.agent_id} exists but docagent-mcp-obo is not linked to it — open the agent's Applications tab and add it` });
+      }
     } catch (e) {
-      checks.push({ id: "cimd_registered", name: "CIMD client registered in Auth0", pass: false, message: e.message });
+      checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false, message: e.message });
     }
-  } else if (cimdUrl) {
-    checks.push({ id: "cimd_registered", name: "CIMD client registered in Auth0", pass: false,
+  } else {
+    checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false,
       message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
+  }
+
+  // 1b. Backend API opted into agent subject claims (sub_profile / act.sub)
+  if (domain && mgmtToken) {
+    try {
+      const rsR = await fetch(`https://${domain}/api/v2/resource-servers?identifier=${encodeURIComponent(BACKEND_API_IDENTIFIER)}`,
+        { headers: { Authorization: `Bearer ${mgmtToken}` } });
+      const list = await rsR.json();
+      const rs = Array.isArray(list) ? list.find((r) => r.identifier === BACKEND_API_IDENTIFIER) : null;
+      const enabled = rs?.agent_subject_claims === "auth0-v1";
+      checks.push({ id: "agent_subject_claims", name: "Backend API accepts agent subject claims", pass: enabled,
+        message: enabled
+          ? "agent_subject_claims = auth0-v1"
+          : "Nexus Backend API is missing agent_subject_claims — re-run Provision Resources" });
+    } catch (e) {
+      checks.push({ id: "agent_subject_claims", name: "Backend API accepts agent subject claims", pass: false, message: e.message });
+    }
+  } else {
+    checks.push({ id: "agent_subject_claims", name: "Backend API accepts agent subject claims", pass: false,
+      message: "Management credentials not set — cannot verify" });
   }
 
   // 2. Protected Resource Metadata

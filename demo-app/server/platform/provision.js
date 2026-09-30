@@ -27,7 +27,8 @@ import {
   deleteResourceServerByIdentifier,
   createDemoUser,
   deleteDemoUser,
-  deleteCimdApp,
+  deleteLegacyCimdApp,
+  deleteAgentByName,
   enableGuardianPush,
   disableGuardianPush,
   setMfaPolicyAlways,
@@ -62,6 +63,11 @@ export const BACKEND_SCOPES = [
   "mcp:docs:share",
 ];
 const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
+// Agent as Principal (Early Access): display name participants use when
+// registering the agent record in the Dashboard and linking it to
+// docagent-mcp-obo. Kept as a constant so provisioning, verification,
+// and the frontend copy-paste helper all agree on the exact string.
+export const AGENT_NAME = "Nexus Agent (DevCamp)";
 
 export async function safe(label, fn) {
   try {
@@ -83,6 +89,9 @@ export async function runProvision(
       name: "Nexus Backend API",
       scopes: BACKEND_SCOPES,
       rbac: true,
+      // Opts this API into agent-aware claims (sub_profile, act.sub = agent_id)
+      // once docagent-mcp-obo is linked to an Agent record -- see Module 01.
+      agentSubjectClaims: true,
     })
   );
   await safe("mcp resource server", () =>
@@ -97,10 +106,12 @@ export async function runProvision(
   // 2. M2M confidential client (OBO) — NOT auto-provisioned.
   // Participants create this manually in Module 01 from the MCP API
   // resource server screen (APIs → devcamp-mcp-server → Applications).
-  // They also register a separate CIMD native app (public) via
-  // Applications → Import from URL using the /.well-known/client-metadata
-  // URL. The M2M client performs OBO exchanges; the CIMD native app
-  // establishes the agent's published identity document.
+  // They also register a separate Agent record (Agent as Principal,
+  // Early Access) via Dashboard → Agents → Create New Agent, then link
+  // it to this M2M client from the agent's Applications tab. The M2M
+  // client performs OBO exchanges; the linked agent_id is what shows up
+  // as act.sub in every OBO-issued token, giving the agent a durable,
+  // auditable identity independent of the client's own credentials.
   const m2m = null;
 
   // 4. SPA client — reconfigure if the platform created one, otherwise create new.
@@ -308,7 +319,8 @@ export async function runDeprovision(ctx) {
   if (spaClientId) await safe("del spa client", () => deleteClient(ctx, spaClientId));
   if (m2mClientId) await safe("del obo m2m client", () => deleteClient(ctx, m2mClientId));
   if (cibaClientId) await safe("del ciba client", () => deleteClient(ctx, cibaClientId));
-  await safe("del cimd app", () => deleteCimdApp(ctx));
+  await safe("del legacy cimd app", () => deleteLegacyCimdApp(ctx));
+  await safe("del agent", () => deleteAgentByName(ctx, AGENT_NAME));
   if (crmConnName) await safe("del crm connection", () => deleteConnectionByName(ctx, crmConnName));
   await safe("del backend api", () => deleteResourceServerByIdentifier(ctx, BACKEND_API_IDENTIFIER));
   await safe("del mcp api", () => deleteResourceServerByIdentifier(ctx, MCP_API_IDENTIFIER));

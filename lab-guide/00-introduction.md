@@ -28,9 +28,9 @@ Every one of these is an identity problem, and no single mechanism ties the auth
 
 ## The solution
 
-With Auth0 for AI Agents, we're going to close this gap. Using CIMD and OBO Token Exchange, we give the agent a stable identity and carry the employee's **sub** through the exchange. Now Token Vault, CIBA, and FGA all have the signals they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
+With Auth0 for AI Agents, we're going to close this gap. Using Agent as Principal and OBO Token Exchange, we give the agent a durable identity and carry the employee's **sub** through the exchange. Now Token Vault, CIBA, and FGA all have the signals they need. Across five core modules, Nexus goes from an open platform to a production-ready MCP server deployment:
 
-- **Auth for MCP** makes the MCP server the trust boundary via CIMD, PRM, and token exchange
+- **Auth for MCP** makes the MCP server the trust boundary via Agent as Principal, PRM, and token exchange
 - **User Authentication** gives the server a verified employee identity on every request, even when it comes from an agent.
 - **Token Vault** holds each employee's credential and hands the server a short-lived, scoped token for exactly one downstream call.
 - **Async Authorization (CIBA)** puts a human in the loop for irreversible external sharing. The agent proposes the action, and it only executes once the employee approves it.
@@ -40,9 +40,9 @@ With Auth0 for AI Agents, we're going to close this gap. Using CIMD and OBO Toke
 
 These five controls aren't just security requirements—they're what your enterprise customers demand every day. Each maps directly to one of three commercial outcomes:
 
-- **Drive revenue through world-class experiences**: PRM and CIMD let you safely expose your MCP server to trusted partners, unlocking integrations you couldn't support before. CIBA cuts friction the same way: agents run pre-approved tasks silently and only interrupt a human for the one action that's genuinely high-stakes.
+- **Drive revenue through world-class experiences**: PRM and Agent as Principal let you safely expose your MCP server to trusted partners, unlocking integrations you couldn't support before. CIBA cuts friction the same way: agents run pre-approved tasks silently and only interrupt a human for the one action that's genuinely high-stakes.
 - **Stay ahead of the curve**: A single, standardized authorization engine lets you swap in a new agent framework or model without re-architecting security. And because Universal Login plugs directly into the systems you already run, User Authentication ships with nearly zero migration. Token Vault offloads the burden of managing and auditing agent credentials, freeing developers to focus on building. FGA's fine-grained permission boundaries earn enterprise and buyer trust.
-- **Reduce risk and protect your brand**: Token Vault keeps high-risk credentials out of your application database entirely, shrinking the attack surface. CIMD gives every agent a distinct, auditable, revocable identity, closing the blind spot a shared service account creates. CIBA requires human approval on irreversible actions, with no exceptions—so no rogue or compromised agent acts alone on your most consequential operations.
+- **Reduce risk and protect your brand**: Token Vault keeps high-risk credentials out of your application database entirely, shrinking the attack surface. Agent as Principal gives every agent a distinct, auditable, revocable identity, closing the blind spot a shared service account creates. CIBA requires human approval on irreversible actions, with no exceptions—so no rogue or compromised agent acts alone on your most consequential operations.
 
 ## The journey
 

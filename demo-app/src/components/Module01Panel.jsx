@@ -1,19 +1,11 @@
 import { useEffect, useState } from "react";
 
-function deriveCimdUrl() {
-  const origin = window.location.origin;
-  // GitHub Codespace: swap the frontend port for the MCP server port (3001)
-  if (origin.includes(".app.github.dev")) {
-    return origin.replace(/-\d+(\.app\.github\.dev)/, "-3001$1") + "/.well-known/client-metadata";
-  }
-  // Local dev: replace whatever port Vite is on with 3001
-  const mcpOrigin = origin.replace(/:\d+$/, ":3001");
-  return mcpOrigin + "/.well-known/client-metadata";
-}
+// Must match AGENT_NAME in server/platform/provision.js exactly -- the
+// backend verifier looks up the agent record by this display name.
+const AGENT_NAME = "Nexus Agent (DevCamp)";
 
 export function Module01Panel({ onReady }) {
-  const [copiedCimd, setCopiedCimd] = useState(false);
-  const cimdUrl = deriveCimdUrl();
+  const [copiedAgentName, setCopiedAgentName] = useState(false);
 
   useEffect(() => {
     const id = setInterval(async () => {
@@ -31,10 +23,10 @@ export function Module01Panel({ onReady }) {
     return () => clearInterval(id);
   }, [onReady]);
 
-  function copyCimdUrl() {
-    navigator.clipboard.writeText(cimdUrl).catch(() => {});
-    setCopiedCimd(true);
-    setTimeout(() => setCopiedCimd(false), 2000);
+  function copyAgentName() {
+    navigator.clipboard.writeText(AGENT_NAME).catch(() => {});
+    setCopiedAgentName(true);
+    setTimeout(() => setCopiedAgentName(false), 2000);
   }
 
   return (
@@ -48,21 +40,21 @@ export function Module01Panel({ onReady }) {
         <p className="setup-desc">
           Resources are provisioned. Before you can log in and use Nexus,
           follow <strong>Module 01</strong> (Parts B &amp; C) in your Lab Guide to register the
-          agent's CIMD identity and create the M2M client for OBO token exchange.
+          agent's identity (Agent as Principal) and create the M2M client for OBO token exchange.
         </p>
 
         <div className="setup-resource-list">
-          <span className="setup-resource-pill">Part B: CIMD Identity</span>
+          <span className="setup-resource-pill">Part B: Agent Identity</span>
           <span className="setup-resource-pill">Part C: M2M Client</span>
         </div>
 
         <p className="setup-terminal-hint">
-          Your agent's CIMD metadata URL (generated for your Codespace):
+          Use this exact name when creating the agent in Dashboard → Agents:
         </p>
         <div className="setup-code-block">
-          <code>{cimdUrl}</code>
-          <button className="setup-copy-btn" onClick={copyCimdUrl}>
-            {copiedCimd ? "Copied" : "Copy"}
+          <code>{AGENT_NAME}</code>
+          <button className="setup-copy-btn" onClick={copyAgentName}>
+            {copiedAgentName ? "Copied" : "Copy"}
           </button>
         </div>
 

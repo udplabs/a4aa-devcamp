@@ -12,7 +12,7 @@ Nexus exposes four tools through an MCP server: document search, document retrie
 
 | Module | Title | Primitive | Outcome |
 |---|--------|-----------|---------|
-| 02 | Auth for MCP | RFC 9728 + RFC 8414 + RFC 8693 + RFC 8707 + CIMD | MCP server becomes the trust boundary; every tool call is bearer-authenticated and OBO-scoped to the employee |
+| 02 | Auth for MCP | RFC 9728 + RFC 8414 + RFC 8693 + RFC 8707 + Agent as Principal | MCP server becomes the trust boundary; every tool call is bearer-authenticated and OBO-scoped to the employee |
 | 03 | User Authentication | Auth0 Universal Login, `express-oauth2-jwt-bearer` | Employee logs in, JWT `sub` flows to every downstream tool call |
 | 04 | Token Vault | Per-user federated CRM credentials | Agent calls the CRM with the employee's identity, refreshed automatically, never held in agent memory |
 | 05 | Async Authorization (CIBA) | Client-Initiated Backchannel Authentication + Auth0 Guardian push | External document shares require out-of-band employee approval with a binding message |

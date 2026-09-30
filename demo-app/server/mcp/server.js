@@ -92,9 +92,10 @@ const validateMCPToken = (req, res, next) => {
 // RFC 9728: Protected Resource Metadata
 app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata);
 
-// CIMD: the URL of this endpoint IS the agent's client_id.
-// Participants register the Nexus agent in Auth0 by providing this
-// URL; Auth0 creates the application with the URL as client_id.
+// CIMD: the URL of this endpoint IS the client's client_id, for any
+// third-party CIMD-compliant MCP client that wants to self-register.
+// Nexus itself no longer registers its own identity this way -- see
+// Agent as Principal in provision.js / auth0Management.js instead.
 app.get("/.well-known/client-metadata", (req, res) => {
   res.json(getClientMetadata(req));
 });

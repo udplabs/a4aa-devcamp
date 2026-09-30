@@ -1,30 +1,24 @@
 // =============================================================
-// Client ID Metadata Document (CIMD) -- Module 01 (Auth for MCP)
+// Client ID Metadata Document (CIMD) -- generic MCP client discovery
 //
-// In true CIMD (per the MCP authorization spec), the agent's
+// In true CIMD (per the MCP authorization spec), a client's
 // client_id IS the URL of this metadata document. The authorization
-// server fetches the URL at registration time to learn the agent's
-// name, description, and allowed scopes. After that, the URL is
-// the stable, pre-registered identity used in every OBO exchange
-// and audit log entry.
+// server fetches the URL at registration time to learn the client's
+// name, description, and allowed scopes.
 //
-// Why this matters:
-//   - The URL is self-describing: anyone can fetch it and learn
-//     what the agent is and what it is authorized to do.
-//   - The identity survives redeploys: the URL doesn't change
-//     even if the underlying M2M client secret rotates.
-//   - Audit trail: every token exchange carries the URL as
-//     client_id, so logs name the agent, not an opaque UUID.
+// This endpoint stays live so any third-party, CIMD-compliant MCP
+// client can still discover and register against this server without
+// custom onboarding. It is NOT what Nexus itself registers as its own
+// identity, though -- Module 01 uses Agent as Principal for that: the
+// Nexus agent is registered as an Auth0 agent record (agent_id) and
+// linked to the docagent-mcp-obo M2M client, so agent_id shows up as
+// act.sub in every OBO-issued token and in tenant logs/Actions
+// (event.agent), independent of this metadata document.
 //
 // Contrast with Dynamic Client Registration (DCR, RFC 7591):
 //   - DCR mints a new ephemeral client_id on every install.
 //   - Audit logs become meaningless (different UUID each time).
 //   - Admin consent cannot be pre-approved.
-//
-// In this lab, participants register the Nexus agent in Auth0 by
-// providing the URL of this endpoint. Auth0 creates the application
-// with the URL as the client_id and issues a client_secret.
-// The participant adds both to .env so the OBO exchange works.
 // =============================================================
 
 export function getClientMetadata(req) {

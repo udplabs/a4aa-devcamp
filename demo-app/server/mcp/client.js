@@ -13,8 +13,10 @@
 //   - The audience is locked to the MCP server via the resource
 //     parameter, so the exchanged token cannot be replayed against
 //     the backend API or any other resource.
-//   - The CIMD client_id (pre-registered M2M app) identifies the
-//     agent in Auth0 logs; every exchange is auditable.
+//   - The M2M client is linked to an Agent as Principal record
+//     (agent_id), so the exchanged token's act.sub identifies the
+//     agent in Auth0 logs; every exchange is auditable independent
+//     of the client's own credentials.
 //
 // Lab 04 orientation:
 //   - resolveConfig(): reads the tenant's provisioned M2M creds

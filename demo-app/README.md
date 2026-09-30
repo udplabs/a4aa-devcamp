@@ -45,7 +45,7 @@ The SPA fetches `/api/config` on mount (`src/config/runtimeConfig.jsx`) and gate
 4. **CRM connection**: A federated OAuth2 connection pointing at the CRM mock (Module 04), created when CRM OAuth credentials are supplied.
 5. **FGA store + model**: An Okta FGA store with the document authorization model written (Module 06), created only when FGA credentials are supplied.
 
-Each optional step is wrapped in a `safe()` helper, so a missing credential logs a warning and falls back to simulation rather than aborting provisioning entirely. Two clients, the CIMD native app and the OBO M2M client, are deliberately left for participants to create by hand in Module 02, since walking through that Dashboard flow is the point of the module.
+Each optional step is wrapped in a `safe()` helper, so a missing credential logs a warning and falls back to simulation rather than aborting provisioning entirely. The agent record (Agent as Principal) and the OBO M2M client are deliberately left for participants to create by hand in Module 02, since walking through that Dashboard flow is the point of the module.
 
 ### FGA: live store vs. in-memory simulation
 
@@ -131,7 +131,7 @@ demo-app/
 │   ├── mcp/
 │   │   ├── server.js             ← [Module 02] MCP server :3001, token validation + scope enforcement
 │   │   ├── client.js             ← [Module 02] OBO token exchange
-│   │   ├── cimd.js               ← [Module 02] Client ID Metadata Document endpoint
+│   │   ├── cimd.js               ← Client ID Metadata Document endpoint (generic MCP client discovery, not Nexus's own identity)
 │   │   ├── metadata.js           ← [Module 02] PRM (RFC 9728) + AS metadata (RFC 8414)
 │   │   └── toolLog.js            ← structured tool call event log (streamed to the UI)
 │   │
@@ -160,7 +160,7 @@ demo-app/
     │   ├── LabGuide.jsx           ← in-app lab guide viewer, renders lab-guide/*.md
     │   ├── ModuleChecks.jsx       ← per-module Run Checks verifier + the Module 06 FGA quiz
     │   ├── ProgressTracker.jsx    ← "Lab Progress" sidebar, one row per module, embeds ModuleChecks
-    │   ├── Module01Panel.jsx      ← CIMD + M2M credential setup UI for Auth for MCP (Module 02)
+    │   ├── Module01Panel.jsx      ← Agent as Principal + M2M credential setup UI for Auth for MCP (Module 02)
     │   ├── VaultStatus.jsx        ← Connected Accounts / Token Vault link status + Connect button
     │   ├── LoginScreen.jsx        ← pre-auth landing screen
     │   ├── SetupBanner.jsx        ← environment variable setup screen

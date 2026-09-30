@@ -192,6 +192,8 @@ delete:actions
 update:guardian_factors
 update:tenant_settings
 read:tenant_settings
+read:agents
+delete:agents
 ```
 ![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
   
