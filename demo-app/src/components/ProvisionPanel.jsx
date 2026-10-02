@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 
 const STEPS = [
-  "Creating Backend API resource server",
-  "Creating MCP API resource server",
+  "Enabling Auth for MCP tenant settings",
+  "Creating Nexus MCP Server resource server",
+  "Creating Nexus Agent API resource server",
+  "Creating the MCP server's Custom API client",
   "Creating SPA client",
   "Creating CIBA client",
   "Creating CRM OAuth2 connection",
   "Creating demo users (Alice + Bob)",
+  "Promoting the login connection to domain level",
   "Creating Nexus User role",
   "Enabling Guardian push factor",
   "Creating post-login MFA action",
@@ -14,8 +17,10 @@ const STEPS = [
 ];
 
 const RESOURCE_PILLS = [
-  "Backend API",
-  "MCP API",
+  "Nexus MCP Server API",
+  "Nexus Agent API",
+  "MCP Server Client",
+  "Auth for MCP Settings",
   "SPA Client",
   "CIBA Client",
   "CRM Connection",

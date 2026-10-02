@@ -24,8 +24,9 @@ In this module, you'll:
 ## What's provisioned for you
 
 - A CRM OAuth2 connection on your tenant pointing to the CRM mock running on port 3002 of your Codespace.
-- The `docagent-mcp-obo` client you created in *One trust boundary for every agent* is a **Custom API Client** in Auth0. Custom API Clients have the **Token Vault** grant type enabled by default under Advanced Settings → Grant Types.
-  - This means the same client that performs OBO token exchange for the MCP server also performs the Token Vault federated credential exchange for the CRM, so no additional client is required.
+- **nexus-mcp-server-codespace**, the MCP server's own **Custom API Client**, linked to the Nexus MCP Server API, with the **Token Vault** grant type (Advanced Settings → Grant Types).
+  - Auth0 only lets a client exchange a token at Token Vault if the client is linked to the API in that token's `aud`. Every tool call reaches the MCP server with a token for the Nexus MCP Server, from Nexus or from Acme, so the MCP server's own client is the one that can exchange it. The MCP server never borrows a caller's credentials.
+- `docagent-mcp-obo`, the Custom API Client you created in *One trust boundary for every agent*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the employee's Nexus Agent API token.
 
 **Nothing is provisioned for GitHub.** Unlike the CRM connection, the GitHub social connection is entirely your responsibility to create, mirroring how a real enterprise admin onboards a new federated credential by hand.
 
@@ -160,14 +161,21 @@ If either condition isn't met, it falls back to the in-memory mock so the lab ca
 > - OBO preserves user identity across the agent boundary.
 > - This one retrieves a stored third-party credential from Token Vault.
 >
-> There's also a role reversal worth noticing. In *One trust boundary for every agent*, the MCP server only ever validated tokens — the agent's backend did the exchanging. Here, the MCP server itself becomes the client: it calls out to Auth0 to exchange the user's token for a CRM credential before calling the CRM API. Same OBO pattern, one hop further down the chain.
+> There's also a role reversal worth noticing. In *One trust boundary for every agent*, the MCP server only validated tokens and the agent's backend did the exchanging. Here, the MCP server itself becomes a client. It exchanges the token it just validated, using its own Custom API client, for a CRM credential before calling the CRM API.
+>
+> **Token Vault and the `act` claim.** Both agents' tokens carry an `act` delegation chain once their clients are linked to Agent records. If your tenant refuses to exchange such a token at Token Vault, the MCP server can fall back, for the first-party agent only, to the employee's original Nexus Agent API token. It does so only after verifying that token's signature and audience, that it belongs to the same employee, and that it was issued to a client in the bearer's own `act` chain. Set `TOKEN_VAULT_FIRST_PARTY_FALLBACK=false` in `.env` to turn the fallback off and run strictly to the MCP spec's no-token-passthrough rule.
 
 ```js
+// Pick the Custom API client linked to the API in the subject token's `aud`:
+//   aud = Nexus MCP Server -> the MCP server's own client (MCP_SERVER_CLIENT_ID)
+//   aud = Nexus Agent API  -> docagent-mcp-obo (AUTH0_OBO_CLIENT_ID)
+function exchangerFor(tenant, subjectToken) { /* ... */ }
+
 // Live path: Token Vault exchange
 async function getLiveToken(userId, provider, tenant, userAccessToken) {
   const connection = connectionFor(tenant, provider); // resolves "crm" -> connection name
-  const dd = tenant?.deploymentData;
-  if (!connection || !userAccessToken || !tenant?.domain || !dd?.m2m_client_id) return null;
+  const exchanger = userAccessToken ? exchangerFor(tenant, userAccessToken) : null;
+  if (!connection || !userAccessToken || !tenant?.domain || !exchanger) return null;
 
   const response = await fetch(`https://${tenant.domain}/oauth/token`, {
     method: "POST",
@@ -178,8 +186,8 @@ async function getLiveToken(userId, provider, tenant, userAccessToken) {
       subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
       requested_token_type: "http://auth0.com/oauth/token-type/federated-connection-access-token",
       connection,
-      client_id: dd.m2m_client_id,
-      client_secret: dd.m2m_client_secret,
+      client_id: exchanger.clientId,
+      client_secret: exchanger.clientSecret,
     }),
   });
   // returns { token, provider } or null on failure
@@ -199,7 +207,8 @@ The CRM app signs its own JWTs and validates them on every **POST /crm/activitie
 ```js
 case "log_crm_activity": {
   const { action, documentId, documentTitle, notes } = args;
-  const tokenResult = await getToken(userSub, "crm", tenant, userAccessToken);
+  // vaultSubject = { token: the bearer this server just validated, fallbackToken }
+  const tokenResult = await getToken(userSub, "crm", tenant, vaultSubject);
   if (!tokenResult) {
     return { success: false, error: "No CRM account linked. Ask the user to connect their CRM." };
   }
@@ -222,7 +231,7 @@ case "log_crm_activity": {
 
 ```js
 case "check_github_identity": {
-  const tokenResult = await getToken(userSub, "github", tenant, userAccessToken);
+  const tokenResult = await getToken(userSub, "github", tenant, vaultSubject);
   // ... same getToken(userSub, provider, ...) call as log_crm_activity,
   // just against the built-in GitHub social connection instead of the
   // custom CRM OAuth2 one.

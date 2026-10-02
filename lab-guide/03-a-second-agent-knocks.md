@@ -1,195 +1,212 @@
-## Objective *(~15 min)*
+## Objective *(~20 min)*
 
-<!-- TODO: Flow screenshot here - CIMD discovery document to manual admin review to a second Agent as Principal record. -->
+<!-- TODO: Flow screenshot here - CIMD document → admin import → reviewed grant → second Agent as Principal record → user consent. -->
 
-Nexus doesn't just talk to its own first-party agent. In the real world, a partner ships a custom agent of their own and asks for access to your MCP server.
+Nexus doesn't just talk to its own first-party agent. In the real world, a partner ships an agent of their own and asks for access to your MCP server.
 
-This module walks through onboarding that second agent, "Acme Partner Agent," the same way a real enterprise onboards a vendor's agent after security review: the vendor publishes a discovery document, an admin reviews it, and only then does the admin hand-provision a trust relationship.
+This module onboards that second agent, **Acme Partner Agent**, the way Auth0 and the MCP authorization spec define for third-party clients: the partner publishes a **Client ID Metadata Document (CIMD)**, an admin imports and reviews it, the admin grants a deliberately smaller set of scopes, and each employee consents before Acme acts for them.
 
 By the end, you'll understand:
 
-- Why Client ID Metadata Documents (CIMD) have no cryptographic proof of ownership, so there's no automated way to turn one into a trust decision.
-- Why a manual admin review is the only spec-accurate path today, not a shortcut you're taking because the automation isn't built yet.
-- How a second Agent as Principal record gives the partner's agent its own durable identity, scoped identically to your first-party agent but fully distinguishable from it.
-- How to confirm Nexus's OBO-exchanged token carries an `act.sub` claim naming the acting agent, while Acme's directly-granted token carries no `act` claim at all, even though both enforce the same scopes identically.
+- What a CIMD is, why its URL *is* the client's `client_id`, and what proves it belongs to the partner.
+- What an admin does to onboard a third-party agent: tenant toggles, import, a reviewed per-app grant, a domain-level connection, and an agent record.
+- How a third-party agent finds your MCP server and Auth0 on its own: a 401 or PRM, then Auth0's metadata, then Authorization Code + PKCE with the RFC 8707 `resource` parameter.
+- How to tell the two agents apart in their tokens: same employee `sub`, different `act.sub`, nested versus single-level `act`, and different `client_id`.
+- Why least privilege for third parties is enforced by the authorization server, not by trusting what the partner asked for.
 
 ## What's provisioned for you
 
-Nothing in this module is auto-provisioned. That's the point: a third party's agent is never something your tenant creates on its own. You, acting as the admin, hand-provision every piece.
+Nothing Acme-specific is provisioned. A third party's agent is never something your tenant creates on its own. You, acting as the admin, make each trust decision.
 
-Your tenant already has the pieces from *One trust boundary for every agent*: the Nexus Backend API with its four `mcp:*` scopes, plus a fifth scope, `mcp:github:read`, used by the Token Vault GitHub tool later. Acme's agent will request the same scopes.
+Provisioning did lay the groundwork every third-party client needs:
+
+- **Client ID Metadata Document Registration** is on (**Settings → Advanced**). Auth0's authorization server metadata now advertises `client_id_metadata_document_supported: true`.
+- **Username-Password-Authentication** is promoted to a **domain-level connection**. Third-party applications, including every CIMD client, can only sign users in through domain-level connections.
+- The **Nexus MCP Server** API uses **per-app authorization** for user-delegated access. A newly imported client gets *nothing* until you grant it.
+
+> [!IMPORTANT]
+> Auth0 fetches Acme's CIMD over the public internet, so Acme's port must be **public**. In the Codespace **Ports** tab, confirm port **3003** (Acme), **3001** (MCP server), and **3002** (CRM) show **Public** visibility. If not, right-click each → **Port Visibility → Public**. Auth0 rejects `localhost` CIMD URLs, so this module needs Codespaces, or a tunnel URL in `ACME_CIMD_URL`.
 
 ### First-party vs. third-party, at a glance
 
 |  | First-party (Nexus Agent) | Third-party (Acme Partner Agent) |
 |---|---|---|
-| Who builds the agent | Your team | A vendor, outside your tenant |
-| Where it's discovered | Not discovered — you built it, you know it | A CIMD document the vendor publishes |
-| Where that CIMD document lives | N/A | Acme's own server, on its own port; in production, the vendor's own domain |
-| What decides trust | Nothing to decide — it's yours | A human admin, reviewing requested scopes |
+| Who builds the agent | Your team | A partner, outside your tenant |
+| How it's registered | You create a Custom API client | You **import** the partner's CIMD URL |
+| `client_id` | Auth0-generated | The CIMD URL itself |
+| Client authentication | Client secret (confidential) | None + PKCE (public); `private_key_jwt` if confidential; never a shared secret |
+| Consent | Skipped (first-party) | Always shown (strict third-party) |
+| Login connections | Any enabled for the app | Domain-level only |
+| How it gets an MCP server token | OBO exchange of the employee's Nexus Agent API token | Authorization Code + PKCE, with `resource` = the MCP server |
+| Access | Full `mcp:*` set, narrowed by role | A reviewed subset you grant: `mcp:docs:search`, `mcp:docs:read` |
 | Agent record | `Nexus Agent (DevCamp)` | `Acme Partner Agent (DevCamp)` |
-| Credential type | Confidential M2M client (OBO exchange) | Public native client (PKCE, no secret) |
-| Access granted | Four (then five) `mcp:*` scopes | The identical scope set |
-| What's different in the token | `act.sub` = the Nexus agent's `agt_...` id | No `act` claim at all — the token's own `sub` is Acme's granted identity |
+| `act` claim | Nested: the agent, then the SPA | Single level: Acme's agent |
 
-Same access, same enforcement, two fundamentally different grant types. One token carries an `act.sub`; the other doesn't need to.
+The MCP server treats both the same way: validate `aud`, enforce per-tool scope, and act for `sub`.
 
 ## Dashboard steps
 
-> [!NOTE]
-> **CIMD has no cryptographic ownership proof.** A Client ID Metadata Document is just a URL an authorization server fetches at registration time. Nothing cryptographically ties that document to the vendor who published it. Auth0 doesn't automate a path from "I fetched this document" to "I trust this agent" — and no MCP-ecosystem tool does today. The only spec-accurate way to onboard a third party is the manual admin trust decision below.
+### Step 1: discover the resource, as Acme will
 
-### Step 1: discover the resource
-
-Fetch the Protected Resource Metadata document. This is the same document any MCP client fetches first, first-party or third-party, so there's nothing new here.
+Any MCP client that only knows your server's URL starts here. Call a tool endpoint with no token:
 
 ```bash
-curl https://<your-codespace-url>-3001.app.github.dev/.well-known/oauth-protected-resource
+curl -i https://<your-codespace-name>-3001.app.github.dev/mcp/tools
 ```
 
-*You should see: `resource`, `authorization_servers`, and `scopes_supported` listing the four `mcp:*` scopes plus `mcp:github:read`.*
+*You should see: `401` with `WWW-Authenticate: Bearer resource_metadata="https://...-3001.app.github.dev/.well-known/oauth-protected-resource"`.*
 
-### Step 2: discover the third party's CIMD document
-
-Now fetch Acme's self-published client metadata, hosted on Acme's own server.
-
-> [!NOTE]
-> **Acme really is a separate server in this lab.** It runs as its own Express process (`demo-app/server/acme/`), on its own port, independent of Nexus's MCP server. That's deliberate: a genuine third party publishes its CIMD document on its own domain, not on yours. That's the whole point of CIMD: the document lives wherever the vendor says it lives, and the URL *is* the `client_id` — there's no registry to look it up in.
+Follow the pointer:
 
 ```bash
-curl https://<your-codespace-url>-3002.app.github.dev/.well-known/client-metadata
+curl https://<your-codespace-name>-3001.app.github.dev/.well-known/oauth-protected-resource
 ```
 
-If you're running locally instead of in Codespaces, use `http://localhost:3002/.well-known/client-metadata`.
+*You should see: `resource` (the MCP server's URL), `authorization_servers` (your Auth0 tenant), and the five `mcp:*` scopes.*
+
+Then Auth0's own metadata, which the PRM points to:
+
+```bash
+curl https://<your-auth0-domain>/.well-known/openid-configuration | grep -E 'code_challenge|client_id_metadata'
+```
+
+*You should see: `code_challenge_methods_supported` including `S256`, and `client_id_metadata_document_supported: true`.* That's how a client learns, without asking anyone, that it can register with a CIMD and must use PKCE.
+
+### Step 2: read the partner's CIMD
+
+Acme publishes its client metadata on its own server.
+
+> [!NOTE]
+> **Acme really is a separate server in this lab.** It runs as its own Express process (`demo-app/server/acme/`) on its own port and public URL, independent of Nexus. A real partner publishes its CIMD on its own domain. The document lives wherever the partner says, and its URL *is* the `client_id`.
+
+```bash
+curl https://<your-codespace-name>-3003.app.github.dev/.well-known/client-metadata
+```
 
 *You should see:*
 
 ```json
 {
-  "client_id": "https://.../.well-known/client-metadata",
+  "client_id": "https://<your-codespace-name>-3003.app.github.dev/.well-known/client-metadata",
   "client_name": "Acme Partner Agent",
+  "application_type": "web",
   "grant_types": ["authorization_code"],
-  "redirect_uris": ["http://localhost:3002/callback"],
+  "response_types": ["code"],
+  "redirect_uris": ["https://<your-codespace-name>-3003.app.github.dev/callback"],
   "token_endpoint_auth_method": "none",
   "scope": "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share mcp:github:read"
 }
 ```
 
-This is Acme's entire pitch for access: a name, a redirect URI, and a requested scope list. Nothing more. The `client_id` is the URL of the document itself, self-referential to Acme's own server — CIMD is self-referential by design, so there's no separate registration step to forge or spoof around. `token_endpoint_auth_method: "none"` is the detail to remember here: Acme is declaring itself a public client from the start, with no secret and no credential to exchange.
+Copy the `client_id` value. You'll import it in the next step.
 
-### Step 3: review the requested scopes (manual, no automation exists)
+Notice three things:
+- `client_id` equals the document's own URL. Auth0 refuses to register it otherwise. Controlling that HTTPS origin is the proof that this is Acme's document, the same proof a TLS certificate gives any website.
+- `token_endpoint_auth_method: "none"` means Acme is a public client: no secret, PKCE instead. CIMD clients can't use shared secrets at all. A confidential partner would use `private_key_jwt` with a `jwks_uri` on the same origin.
+- Acme asks for **everything**, including `mcp:docs:share` and the Token Vault tools. Asking isn't receiving.
 
-Before trusting anything, review Acme's requested scope list against least privilege.
+### Step 3: import the CIMD
 
-- Does `mcp:docs:search` and `mcp:docs:read` make sense for a partner agent that needs document access? Yes.
-- Does `mcp:crm:log` make sense? Only if the partnership calls for CRM activity logging.
-- Does `mcp:docs:share` make sense for a partner agent, given it triggers an external share and a CIBA approval? Only if the partnership explicitly requires it.
+1. Auth0 Dashboard → **Applications → Applications** → **Create Application** → **Import from URL**
+2. Paste the CIMD URL from Step 2 → **Preview**.
 
-There's no automated gate for this today. No tool in Auth0 or the broader MCP ecosystem evaluates a CIMD document and emits an approve/deny decision. A human reviews the request and decides, exactly like approving any other vendor's access request.
+    Auth0 fetches the document and validates it: HTTPS, no localhost, no redirects, 120-byte URL limit, `client_id` matching the URL, and allowed grant types and auth methods. Review the preview and any warnings.
+3. Select **Create**.
 
-### Step 4: hand-provision the trust artifacts
+*You should see: a new application named **Acme Partner Agent**. In **Settings**, its client is identified by the CIMD URL, it's a third-party application, and there's no client secret.*
 
-Once you decide to trust Acme, you provision two artifacts by hand: an agent record for its durable identity, and a public Auth0 application for its actual sign-in credential. The CIMD document itself can never be used as a credential — it just describes what Acme is asking for. The application below is the real thing: a public client with no secret, since Acme authenticates its own users directly through standard consent, not through a shared service credential.
+Auth0 stores a copy of the metadata, but the partner's hosted document stays the source of truth. If Acme changes it (say, a new redirect URI), you pull the update with **Refresh Client Metadata**.
 
-**Create the agent record:**
+### Step 4: review and grant a smaller scope set
+
+Review Acme's request against least privilege:
+
+- `mcp:docs:search`, `mcp:docs:read`: a partner agent that answers questions from shared documents needs these. **Grant.**
+- `mcp:docs:share`: an irreversible external share. **Don't grant** to a third party.
+- `mcp:crm:log`, `mcp:github:read`: these act in *other* systems with the employee's own federated credentials (Token Vault). **Don't grant** unless the partnership specifically requires it.
+
+Now encode that decision:
+
+1. Auth0 Dashboard → **Applications → APIs → Nexus MCP Server → Application Access** tab
+2. Find **Acme Partner Agent** → **Edit**
+3. Under **User-Delegated Access**, select **Grant Access**, then select only:
+    - `mcp:docs:search`
+    - `mcp:docs:read`
+4. Select **Save**.
+
+This grant is what Auth0 enforces. When Acme requests all five scopes, the token it receives carries only these two.
+
+### Step 5: give Acme's agent its own identity
 
 1. Auth0 Dashboard → **Agents** → **Create New Agent**
-2. Name it ***exactly*** `Acme Partner Agent (DevCamp)`
-3. Click **Create**
+2. Name it ***exactly*** `Acme Partner Agent (DevCamp)` → **Create**
+3. On the new agent, open the **Applications** tab → **Add Application** → select **Acme Partner Agent** → confirm.
 
-*You should see: a new agent record with a generated **Agent ID** in the form `agt_...`, distinct from your first-party agent's ID.*
+*You should see: a second agent record with its own `agt_...` ID, distinct from your first-party agent's.*
 
-**Create the public native application:**
+Once linked, every token Acme obtains through a normal login carries `act.sub` = this agent's ID and `client_profile: "ai_agent"`. Tenant logs record the agent ID on every token issuance, so the partner's activity is auditable separately from your own agent's.
 
-1. Auth0 Dashboard → **Applications** → **Create Application**
-2. Name it `Acme Partner Agent`
-3. Choose **Native** as the application type → **Create**
+### Step 6: connect as Acme and consent
 
-*You should see: a new application with no client secret displayed, since native applications authenticate without one.*
-
-**Turn off first-party status:**
-
-1. On the new application's **Settings** tab, scroll to **Advanced Settings → Application Properties**
-2. Turn off **This is a first party application** → **Save Changes**
-
-This is the detail that makes Acme behave like a real third party. Every other application in this lab is first-party, so Auth0 skips the consent screen for them. With first-party status off, Auth0 shows Acme's users a real consent screen before granting any scope — the first time you'll see one in this lab.
-
-**Set the allowed callback URL:**
-
-1. Still on the **Settings** tab, find **Application URIs → Allowed Callback URLs**
-2. Add `http://localhost:3002/callback` (or your Codespace equivalent, `https://<your-codespace-url>-3002.app.github.dev/callback`) → **Save Changes**
-
-**Grant the application access to the Nexus Backend API:**
-
-1. Auth0 Dashboard → **Applications → APIs → Nexus Backend API → Applications tab**
-2. Confirm the new `Acme Partner Agent` application is listed with the same scope set Acme requested in its CIMD document:
-   - `mcp:docs:search`
-   - `mcp:docs:read`
-   - `mcp:crm:log`
-   - `mcp:docs:share`
-   - `mcp:github:read`
-
-This is the same scope set `docagent-mcp-obo` holds for the first-party agent — Acme's agent gets identical access, just under a separate, independently auditable identity, and without a shared credential of any kind.
-
-**Link the public application to the agent record:**
-
-1. Auth0 Dashboard → **Agents** → **Acme Partner Agent (DevCamp)** → **Applications** tab
-2. Click **Add Application**
-3. Select `Acme Partner Agent` and confirm
-
-**Add the client ID to `.env`:**
-
-From the `Acme Partner Agent` application settings, copy the **Client ID**. Open `demo-app/.env` and add:
+Open Acme's login route in a new tab:
 
 ```
-AUTH0_ACME_CLIENT_ID=<client-id-from-dashboard>
+https://<your-codespace-name>-3003.app.github.dev/login
 ```
 
-There's no secret to copy. This is a public client — the whole point is that it has none.
+Acme discovers the MCP server and Auth0 (Step 1's chain), then starts Authorization Code + PKCE with:
+- `client_id` = its CIMD URL
+- `resource` = the MCP server's URL (RFC 8707)
+- `code_challenge_method=S256`
 
-Restart the app (`Ctrl+C`, then `npm run dev`) if it doesn't auto-refresh.
-
-### Step 5: prove the two agents are distinct
-
-First, connect as Acme. Visit:
-
-```
-http://localhost:3002/login
-```
-
-(or your Codespace equivalent). This kicks off Acme's own Authorization Code + PKCE flow directly against Auth0 — no client secret involved, since Acme is a public client. Log in and approve the requested `mcp:*` scopes.
+Sign in as **alice@docagent.demo**.
 
 > [!NOTE]
-> **This is the first real consent screen in this lab.** Every other application you've used so far is first-party, so Auth0 skips the prompt. Acme isn't first-party, so Auth0 asks you to explicitly approve what it's requesting, exactly like signing in to a vendor's app with your work account.
+> **This is the first consent screen in this lab.** Every other application you've used is first-party, so Auth0 skips the prompt. Acme is a third party, so Auth0 shows Acme's `client_name` and the scopes it will actually receive, and asks you to approve.
 
-Confirm the connection:
+*You should see: "Acme connected." with the granted scope `mcp:docs:search mcp:docs:read`.*
 
 ```bash
-curl http://localhost:3002/status
+curl https://<your-codespace-name>-3003.app.github.dev/status
 ```
 
-*You should see: `{"connected": true, "sub": "...", "scope": "..."}`.*
+*You should see: `connected: true`, `client_id` = the CIMD URL, `aud` = the MCP server URL, and `act.sub` = Acme's `agt_...`.*
 
-Now open the **Tool Tester** tab in the Nexus app and compare the two agents.
+### Step 7: prove the two agents are distinct
+
+Open the **Tool Tester** tab in the Nexus app.
 
 1. Set **Call as** to **Nexus Agent (first-party)**. Call `search_documents` with any query.
-2. Open the **Tool Logs** panel and note the `act.sub` value — it's Nexus's OBO-exchanged token, so it carries an `act` claim identifying the first-party agent.
-3. Set **Call as** to **Acme Partner Agent (third-party)**. Call the same tool with the same query.
-4. Check **Tool Logs** again — this token has no `act` claim at all. Acme never exchanged anything; its token's own `sub` directly reflects the identity it was granted through consent.
+2. Set **Call as** to **Acme Partner Agent (third-party)**. Call the same tool with the same query.
+3. Open **Tool Logs** and expand both entries. Compare the **Caller** blocks:
 
-Both calls succeed with the same scopes and identical enforcement, but by fundamentally different grant types: one arrives through token exchange with an `act.sub` naming the acting agent, the other arrives through a direct, user-delegated authorization with no exchange step at all. That's the proof point: the MCP server's authorization is grant-type-agnostic. It enforces scope the same way regardless of how the caller got its token.
+    |  | Nexus | Acme |
+    |---|---|---|
+    | `sub` | alice | alice |
+    | `client_id` | `docagent-mcp-obo`'s ID | the CIMD URL |
+    | `act.sub` | `agt_...` (Nexus) | `agt_...` (Acme) |
+    | `act` depth | 2: agent, then the SPA | 1: agent |
+
+4. As Acme, call `share_document`.
+
+    *You should see: a 403 `insufficient_scope` error naming `mcp:docs:share`.* The MCP server's `WWW-Authenticate` challenge names the missing scope. Acme asked for it, but you didn't grant it, so Auth0 never put it in the token.
+
+Same employee, same server, same enforcement code, two distinguishable agents with different, admin-decided privileges.
 
 ## Checkpoint
 
 Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms these conditions automatically:
 
-- The third-party CIMD document is discoverable at Acme's own `/.well-known/client-metadata` endpoint and has the expected shape (name, redirect URIs, scope list). This is a shape check only — no cryptographic verification exists, so it doesn't claim to prove ownership.
-- The Management API confirms the Acme application is genuinely public: no retrievable secret, `token_endpoint_auth_method: "none"`.
-- An agent named **Acme Partner Agent (DevCamp)** exists and is linked to that public application.
-- Acme has completed its PKCE consent flow — its `/status` endpoint reports `connected: true`.
+- Acme serves a CIMD document Auth0 can import: HTTPS, not localhost, under 120 bytes, `client_id` equal to its URL, public client.
+- **Client ID Metadata Document Registration** is on for the tenant.
+- **Username-Password-Authentication** is a domain-level connection.
+- A client with `external_client_id` = Acme's CIMD URL exists and is third-party.
+- Acme's user-delegated grant on the Nexus MCP Server is exactly `mcp:docs:search` and `mcp:docs:read`.
+- An agent named **Acme Partner Agent (DevCamp)** exists and is linked to Acme's client.
+- Acme completed its consent flow and holds a token whose `client_id` is its CIMD URL and whose `aud` is the MCP server.
 
 > [!TIP]
-> If a check fails, the result row shows the exact reason. Fix the flagged item and click **Re-run checks**.
+> If a check fails, the result row shows the exact reason. Fix the flagged item and select **Re-run checks**.
 
 <details>
   <summary style='font-size: 1.5rem;
@@ -199,16 +216,20 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
     What we learned
   </summary>
 
-CIMD gets a vendor's agent in front of you with zero pre-shared secrets, but it stops there by design. There's no cryptographic signature tying the document to its publisher, so Auth0 — and every other MCP-ecosystem tool today — treats it as a discovery artifact, not a credential. Trust still comes from a human decision.
+A CIMD gets a partner's agent in front of you with no pre-shared secret and no open registration endpoint. Its URL is a stable, human-readable `client_id` that appears as-is in tokens and logs, and controlling that HTTPS origin is the proof of who published it.
 
-Once you make that decision, the mechanism is agent-record-plus-public-client-and-PKCE-consent: a durable `agent_id` paired with a public application that Acme's own users consent to directly. The partner's agent gets its own identity and its own audit trail, fully separable from your first-party agent even though both carry identical scopes.
+The trust decision is still yours, and Auth0 gives it concrete shape:
 
-On-behalf-of token exchange is correctly reserved for first-party agents acting on behalf of a backend you own, like Nexus exchanging a user's token to call its own MCP server. A genuine third party should never hold a shared service credential like that. It gets its own user-delegated token through standard consent instead, exactly as Acme does here.
+- **Import** registers the partner as a strict third-party client. Consent is always shown, shared secrets are impossible, and only domain-level connections are allowed.
+- **A per-app grant** sets the ceiling on what it can ever receive, whatever it asks for.
+- **An agent record** gives it a durable identity in `act.sub` and in tenant logs, separate from your own agent.
+
+On-Behalf-Of exchange stays a first-party pattern: a backend you own, exchanging a token for its own API, using a confidential Custom API client. A third party authenticates employees directly, with their consent, and holds no credential of yours.
 
 Why this matters beyond the lab:
 
-- **Security.** Every vendor integration gets a distinct, revocable identity. Pulling a partner's access later means deleting one agent record and one client, not auditing which calls came from which shared credential.
-- **GTM.** A documented manual-review step for third-party agents is exactly what a security questionnaire asks for. It's a defensible, repeatable process rather than an ad hoc exception.
+- **Security.** Every partner integration is a distinct, revocable identity with a reviewed scope set. Pulling a partner's access means deleting one grant or one client, not untangling a shared credential.
+- **GTM.** "Partners register with a domain-verified metadata document, an admin approves a least-privilege grant, and every employee consents" is exactly what a security questionnaire wants to read.
 
 </details>
 
@@ -222,9 +243,12 @@ Why this matters beyond the lab:
     Further reading
   </summary>
 
-- Agent as Principal (Early Access): [auth0.com/docs/ai-agents-mcp/agent-as-principal](https://auth0.com/docs/ai-agents-mcp/agent-as-principal)
-- MCP authorization spec (2025-11-25), Client ID Metadata Documents: [modelcontextprotocol.io/specification](https://modelcontextprotocol.io/specification)
-- RFC 7591 Dynamic Client Registration (the alternative CIMD avoids — contrast noted in `server/acme/cimd.js`)
+- Register applications with CIMD: [auth0.com/docs/get-started/auth0-overview/create-applications/register-applications-with-cimd](https://auth0.com/docs/get-started/auth0-overview/create-applications/register-applications-with-cimd)
+- Manual CIMD registration for MCP clients: [auth0.com/ai/docs/mcp/guides/registering-your-mcp-client-application/manual-cimd-registration](https://auth0.com/ai/docs/mcp/guides/registering-your-mcp-client-application/manual-cimd-registration)
+- Third-party applications: [auth0.com/docs/get-started/applications/third-party-applications](https://auth0.com/docs/get-started/applications/third-party-applications)
+- Agent identity in tokens: [auth0.com/docs/ai-agents-mcp/agent-as-principal/agent-identity-in-tokens](https://auth0.com/docs/ai-agents-mcp/agent-as-principal/agent-identity-in-tokens)
+- MCP authorization spec (2025-11-25), Client ID Metadata Documents: [modelcontextprotocol.io/specification/2025-11-25/basic/authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
+- RFC 7591 Dynamic Client Registration (the alternative CIMD avoids; see `server/acme/cimd.js`)
 
 </details>
 
@@ -238,19 +262,19 @@ You've successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      Fetched a third party's self-published CIMD document and reviewed its requested scopes;
+      Discovered the MCP server and Auth0 the way any third-party MCP client does;
   </li>
   <li style="list-style-type:'✅ '">
-      Hand-provisioned a separate Agent as Principal record and a public client for that third party;
+      Imported a partner's CIMD as a third-party client and granted it a reviewed, read-only scope set;
   </li>
   <li style="list-style-type:'✅ '">
-      Granted it the same scoped access as your first-party agent;
+      Given the partner's agent its own Agent as Principal identity;
   </li>
   <li style="list-style-type:'✅ '">
-      Confirmed Nexus's token carries an <code>act.sub</code> claim while Acme's carries none at all, despite both calls succeeding with identical scope enforcement.
+      Confirmed both agents act for the same employee with distinguishable <code>act.sub</code> values, and that Acme can't use a scope you didn't grant.
   </li>
 </ul>
 
-Two agents now call Nexus with equivalent access and fully separable identities. The next module anchors every one of those calls to a real, verified employee.
+Two agents now call Nexus with fully separable identities and admin-decided access. The next module anchors every one of those calls to a real, verified employee.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

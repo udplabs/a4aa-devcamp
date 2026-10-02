@@ -8,10 +8,11 @@
 //   POST /hooks/destroy  -- best-effort teardown + drop cache
 //
 // CREATE provisions, for the demo's customer-identity tenant:
-//   - backend API + MCP API (resource servers)
-//   - M2M client, linked to an Agent as Principal record, with
-//     user-delegated OBO grant (Token Exchange must be enabled
-//     manually in the Dashboard -- Lab 04 Dashboard step)
+//   - Nexus Agent API + Nexus MCP Server (resource servers)
+//   - the MCP server's own Custom API client (Token Vault exchanger)
+//   - Auth for MCP tenant settings + a domain-level login connection
+//   (the OBO Custom API client and both Agent records are created by
+//   participants in the Dashboard -- Modules 02 and 03)
 //   - CIBA-enabled client (CIBA must be enabled at tenant level -- bonus)
 //   - CRM OAuth2 connection (Token Vault storage off by default -- Lab 03)
 //   - per-demo FGA store + model (Lab 03, if settings)
@@ -30,8 +31,8 @@ import { fgaSettingsFromEnvOrRecord, deleteFgaStore } from "./fgaProvision.js";
 import {
   runProvision,
   safe,
-  BACKEND_API_IDENTIFIER,
-  MCP_API_IDENTIFIER,
+  AGENT_API_IDENTIFIER,
+  DEFAULT_MCP_RESOURCE_IDENTIFIER,
 } from "./provision.js";
 
 const router = Router();
@@ -141,11 +142,15 @@ router.post("/hooks/destroy", (req, res) => {
       const dd = body?.deploymentData || {};
 
       if (dd.m2m_client_id) await safe("del m2m", () => deleteClient(ctx, dd.m2m_client_id));
+      if (dd.mcp_server_client_id)
+        await safe("del mcp server client", () => deleteClient(ctx, dd.mcp_server_client_id));
       if (dd.ciba_client_id) await safe("del ciba", () => deleteClient(ctx, dd.ciba_client_id));
       if (dd.vault_connections?.crm)
         await safe("del crm conn", () => deleteConnectionByName(ctx, dd.vault_connections.crm));
-      await safe("del backend api", () => deleteResourceServerByIdentifier(ctx, BACKEND_API_IDENTIFIER));
-      await safe("del mcp api", () => deleteResourceServerByIdentifier(ctx, MCP_API_IDENTIFIER));
+      await safe("del mcp server api", () =>
+        deleteResourceServerByIdentifier(ctx, dd.backend_audience || DEFAULT_MCP_RESOURCE_IDENTIFIER));
+      await safe("del agent api", () =>
+        deleteResourceServerByIdentifier(ctx, dd.mcp_audience || AGENT_API_IDENTIFIER));
 
       const fgaSettings = fgaSettingsFromEnvOrRecord(readSettings(body));
       if (fgaSettings && dd.fga_store_id) {

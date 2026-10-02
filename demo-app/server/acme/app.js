@@ -1,21 +1,42 @@
 // =============================================================
-// Acme Partner Agent server -- genuine third-party OAuth client
+// Acme Partner Agent server -- a genuine third-party MCP client
 //
-// Acme is a real standalone public client: Authorization Code +
-// PKCE (RFC 7636), no client secret, nothing confidential. There
-// is one shared in-memory identity for the whole demo session (no
-// session store, no multi-user support -- this is a lab tool, not
-// production code). Once connected, Acme proxies tool calls to the
-// Nexus MCP server using its own user-delegated access token --
-// there is no RFC 8693 token-exchange step anywhere in this path.
+// Acme behaves the way any spec-compliant third-party MCP client does:
+//
+//   1. Discover. Fetch the MCP server's Protected Resource Metadata
+//      (RFC 9728) to learn its `resource` identifier and authorization
+//      server, then fetch the authorization server's OWN metadata from
+//      Auth0 and confirm it supports PKCE S256.
+//   2. Authorize. Authorization Code + PKCE (RFC 7636) as a public
+//      client, with client_id = Acme's CIMD URL and the RFC 8707
+//      `resource` parameter naming the MCP server. Auth0 shows a consent
+//      screen because Acme is a third-party client.
+//   3. Call tools with that token -- and nothing else. No token
+//      exchange, no client secret, no extra headers.
+//
+// The token Acme receives:
+//   sub       = the employee who consented
+//   client_id = Acme's CIMD URL
+//   act.sub   = Acme's agent id (once the admin links the CIMD client to
+//               the "Acme Partner Agent (DevCamp)" Agent record)
+//   scope     = only what the admin's grant allows, not what Acme asked for
+//
+// One shared in-memory identity for the whole demo (no session store,
+// no multi-user support) -- this is a lab tool, not production code.
 // =============================================================
 
 import express from "express";
 import cors from "cors";
-import { getClientMetadata } from "./cimd.js";
+import {
+  getClientMetadata,
+  acmeClientId,
+  acmeRedirectUri,
+  ACME_REQUESTED_SCOPE,
+} from "./cimd.js";
 import { generatePkcePair } from "./pkce.js";
 import { decodeUnverified } from "../platform/jwt.js";
 import { wrongPortFallback } from "../utils/wrongPortPage.js";
+import { acmePort, mcpPort } from "../utils/publicUrl.js";
 
 const app = express();
 // The SPA (a different origin/port) fetches /status directly from the
@@ -23,23 +44,64 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const SCOPE = "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share mcp:github:read";
+// Acme reaches the MCP server the way any client would: by URL. In this
+// lab it's co-located, so the default is the local port.
+const MCP_SERVER_URL =
+  process.env.ACME_MCP_SERVER_URL || `http://localhost:${mcpPort()}`;
 
-// Single shared in-memory PKCE attempt (set on /login, consumed on /callback).
-let pendingAuth = null; // { verifier, state }
+// In-flight authorization requests, keyed by `state`.
+const pendingAuth = new Map(); // state -> { verifier, issuer, tokenEndpoint, resource, clientId, redirectUri }
 
 // Single shared in-memory connected identity.
-let acmeToken = null; // { accessToken, sub, scope, expiresAt }
-
-function getOrigin(req) {
-  const proto = req.headers["x-forwarded-proto"] || req.protocol;
-  const host  = req.headers["x-forwarded-host"]  || req.headers.host;
-  return `${proto}://${host}`;
-}
+let acmeToken = null; // { accessToken, sub, scope, clientId, act, expiresAt }
 
 function isConnected() {
   return !!acmeToken && Date.now() < acmeToken.expiresAt;
 }
+
+// ---- Discovery ----------------------------------------------------
+
+async function fetchJson(url) {
+  const r = await fetch(url, { redirect: "error" });
+  if (!r.ok) throw new Error(`GET ${url} -> ${r.status}`);
+  return r.json();
+}
+
+// RFC 9728 -> RFC 8414 / OIDC discovery, as the MCP spec prescribes.
+async function discover() {
+  const prm = await fetchJson(`${MCP_SERVER_URL}/.well-known/oauth-protected-resource`);
+  const resource = prm.resource;
+  const issuer = prm.authorization_servers?.[0];
+  if (!resource || !issuer) {
+    throw new Error("MCP server's Protected Resource Metadata is missing resource or authorization_servers");
+  }
+
+  const base = issuer.replace(/\/$/, "");
+  let as;
+  try {
+    as = await fetchJson(`${base}/.well-known/oauth-authorization-server`);
+  } catch {
+    as = await fetchJson(`${base}/.well-known/openid-configuration`);
+  }
+  // MCP clients MUST refuse to proceed without S256 PKCE support.
+  if (!as.code_challenge_methods_supported?.includes("S256")) {
+    throw new Error("Authorization server does not advertise PKCE S256 support; refusing to continue");
+  }
+  if (as.client_id_metadata_document_supported !== true) {
+    console.warn(
+      "[Acme] Authorization server does not advertise client_id_metadata_document_supported -- " +
+      "turn on Client ID Metadata Document Registration in the tenant's Advanced settings."
+    );
+  }
+  return {
+    resource,
+    issuer: as.issuer || issuer,
+    authorizationEndpoint: as.authorization_endpoint,
+    tokenEndpoint: as.token_endpoint,
+  };
+}
+
+// ---- Routes -------------------------------------------------------
 
 // CIMD -- Acme's own self-published client metadata document.
 app.get("/.well-known/client-metadata", (req, res) => {
@@ -47,49 +109,65 @@ app.get("/.well-known/client-metadata", (req, res) => {
 });
 
 // Kick off Authorization Code + PKCE against the AS.
-app.get("/login", (req, res) => {
-  const { verifier, challenge, state } = generatePkcePair();
-  pendingAuth = { verifier, state };
+app.get("/login", async (req, res) => {
+  let meta;
+  try {
+    meta = await discover();
+  } catch (err) {
+    return res.status(502).send(`Acme discovery failed: ${err.message}`);
+  }
 
-  const redirectUri = `${getOrigin(req)}/callback`;
+  const { verifier, challenge, state } = generatePkcePair();
+  const clientId = acmeClientId(req);
+  const redirectUri = acmeRedirectUri(req);
+  pendingAuth.set(state, { verifier, ...meta, clientId, redirectUri });
+
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: process.env.AUTH0_ACME_CLIENT_ID,
+    client_id: clientId,
     redirect_uri: redirectUri,
-    audience: process.env.AUTH0_TOOL_AUDIENCE,
-    scope: SCOPE,
+    scope: ACME_REQUESTED_SCOPE,
+    // RFC 8707: name the MCP server the token is for. Auth0 honors this
+    // when the tenant's Resource Parameter Compatibility Profile is on.
+    resource: meta.resource,
     code_challenge: challenge,
     code_challenge_method: "S256",
     state,
   });
 
-  res.redirect(`https://${process.env.AUTH0_DOMAIN}/authorize?${params.toString()}`);
+  console.log(`[Acme] Authorizing as client_id=${clientId} for resource=${meta.resource}`);
+  res.redirect(`${meta.authorizationEndpoint}?${params.toString()}`);
 });
 
-// Redeem the authorization code -- PKCE verifier replaces the client secret.
+// Redeem the authorization code -- the PKCE verifier replaces a client secret.
 app.get("/callback", async (req, res) => {
-  const { code, state } = req.query;
+  const { code, state, iss, error, error_description } = req.query;
+  const pending = state ? pendingAuth.get(state) : null;
+  if (state) pendingAuth.delete(state);
 
-  if (!pendingAuth || state !== pendingAuth.state) {
+  if (error) {
+    return res.status(400).send(`Authorization failed: ${error} ${error_description || ""}`);
+  }
+  if (!pending) {
     return res.status(400).send("Invalid or expired state parameter.");
   }
+  // RFC 9207 mix-up defense: the response must come from the AS we used.
+  if (iss && iss.replace(/\/$/, "") !== pending.issuer.replace(/\/$/, "")) {
+    return res.status(400).send(`Unexpected issuer in authorization response: ${iss}`);
+  }
 
-  const { verifier } = pendingAuth;
-  const redirectUri = `${getOrigin(req)}/callback`;
-
-  const response = await fetch(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, {
+  const response = await fetch(pending.tokenEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
       grant_type: "authorization_code",
-      client_id: process.env.AUTH0_ACME_CLIENT_ID,
-      code_verifier: verifier,
+      client_id: pending.clientId,
+      code_verifier: pending.verifier,
       code,
-      redirect_uri: redirectUri,
+      redirect_uri: pending.redirectUri,
+      resource: pending.resource,
     }),
   });
-
-  pendingAuth = null;
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -103,24 +181,34 @@ app.get("/callback", async (req, res) => {
     accessToken: data.access_token,
     sub: payload.sub,
     scope: payload.scope || data.scope,
+    clientId: payload.client_id || payload.azp,
+    aud: payload.aud,
+    act: payload.act || null,
     expiresAt: Date.now() + data.expires_in * 1000,
   };
 
-  console.log(`[Acme] Connected as sub=${acmeToken.sub} scope=${acmeToken.scope}`);
-  res.send("<h2>Acme connected. You can close this tab.</h2>");
+  console.log(
+    `[Acme] Connected as sub=${acmeToken.sub} client_id=${acmeToken.clientId} act.sub=${acmeToken.act?.sub || "(none)"} scope=${acmeToken.scope}`
+  );
+  res.send(
+    `<h2>Acme connected.</h2><p>Granted scope: <code>${acmeToken.scope || "(none)"}</code></p><p>You can close this tab.</p>`
+  );
 });
 
-// Connection status for the demo UI.
+// Connection status for the demo UI and the Module 03 checkpoint.
 app.get("/status", (_req, res) => {
+  const connected = isConnected();
   res.json({
-    connected: isConnected(),
-    sub: isConnected() ? acmeToken.sub : null,
-    scope: isConnected() ? acmeToken.scope : null,
+    connected,
+    sub: connected ? acmeToken.sub : null,
+    scope: connected ? acmeToken.scope : null,
+    client_id: connected ? acmeToken.clientId : null,
+    aud: connected ? acmeToken.aud : null,
+    act: connected ? acmeToken.act : null,
   });
 });
 
-// Proxy a tool call to the Nexus MCP server using Acme's own
-// user-delegated token -- no OBO/token-exchange step on this path.
+// Call a tool on the Nexus MCP server with Acme's own token.
 app.post("/api/call-tool", async (req, res) => {
   const { name, arguments: args } = req.body;
 
@@ -128,20 +216,25 @@ app.post("/api/call-tool", async (req, res) => {
     return res.status(400).json({ error: "Acme is not connected. Visit /login to connect as Acme first." });
   }
 
-  const mcpServerUrl = `http://localhost:${process.env.MCP_SERVER_PORT || 3001}`;
-  const response = await fetch(`${mcpServerUrl}/mcp/tools/call`, {
+  const response = await fetch(`${MCP_SERVER_URL}/mcp/tools/call`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${acmeToken.accessToken}`,
-      "X-User-Token": acmeToken.accessToken,
     },
     body: JSON.stringify({ name, arguments: args }),
   });
 
   if (response.status === 403) {
-    const error = await response.json();
-    return res.status(403).json({ error: error.error, required: error.required });
+    // The MCP server's WWW-Authenticate challenge names the missing scope.
+    const challenge = response.headers.get("www-authenticate") || "";
+    const required = /scope="([^"]+)"/.exec(challenge)?.[1];
+    const error = await response.json().catch(() => ({}));
+    return res.status(403).json({
+      error: `insufficient_scope: Acme's grant does not include ${required || error.required}`,
+      required: required || error.required,
+      challenge,
+    });
   }
 
   if (!response.ok) {
@@ -166,7 +259,7 @@ app.get(
 );
 
 export function startAcmeServer() {
-  const port = process.env.ACME_SERVER_PORT || 3002;
+  const port = acmePort();
   app.listen(port, () => {
     console.log(`Acme Agent server running on http://localhost:${port}`);
   });

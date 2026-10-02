@@ -18,9 +18,17 @@
 //
 // Paths:
 //   - LIVE: the tenant has provisioned federated connections
-//     (deploymentData.vault_connections[provider]). The M2M client
-//     exchanges the rep's bearer token with Auth0 Token Vault to
-//     get a short-lived federated-connection access token.
+//     (deploymentData.vault_connections[provider]). The access token
+//     exchange with Token Vault is performed by the Custom API client
+//     linked to the API in the subject token's `aud` -- Auth0 rejects
+//     the exchange from any other client:
+//       aud = Nexus MCP Server -> the MCP server's own client
+//                                (MCP_SERVER_CLIENT_ID, provisioned)
+//       aud = Nexus Agent API  -> docagent-mcp-obo (AUTH0_OBO_CLIENT_ID)
+//     So a tool call from ANY agent -- Nexus via OBO, or Acme via its
+//     own login -- is exchanged by the MCP server with the token it
+//     validated, and the MCP server never needs a token it didn't
+//     receive as its bearer.
 //   - SIMULATED: in-memory Map mints fake tokens so the lab runs
 //     offline without real Google / Slack OAuth apps.
 //
@@ -33,6 +41,8 @@
 //   - storeToken / removeToken / listLinkedProviders: back the
 //     /api/vault/* REST endpoints for the link/unlink UI.
 // =============================================================
+
+import { decodeUnverified } from "../platform/jwt.js";
 
 // Thrown when Auth0 explicitly rejects the federated-connection token
 // exchange (e.g. the connection is set to "Authentication only" and
@@ -59,6 +69,39 @@ function vaultKey(userId, provider) {
 
 // Resolve the provisioned connection name for a provider, or null
 // when this tenant has no federated connection for it.
+function audiences(token) {
+  const aud = decodeUnverified(token)?.aud;
+  return (Array.isArray(aud) ? aud : [aud]).filter(Boolean).map((a) => a.replace(/\/$/, ""));
+}
+
+// Pick the Custom API client that is allowed to exchange this token.
+function exchangerFor(tenant, subjectToken) {
+  const dd = tenant?.deploymentData || {};
+  const auds = audiences(subjectToken);
+  const mcpResource = (tenant?.mcpResource || process.env.AUTH0_TOOL_AUDIENCE || "").replace(/\/$/, "");
+  const agentApi = (tenant?.agentAudience || process.env.AUTH0_AUDIENCE || "").replace(/\/$/, "");
+  if (mcpResource && auds.includes(mcpResource)) {
+    const clientId = dd.mcp_server_client_id || process.env.MCP_SERVER_CLIENT_ID;
+    const clientSecret = dd.mcp_server_client_secret || process.env.MCP_SERVER_CLIENT_SECRET;
+    return clientId ? { clientId, clientSecret, label: "nexus-mcp-server" } : null;
+  }
+  if (agentApi && auds.includes(agentApi)) {
+    const clientId = dd.m2m_client_id || process.env.AUTH0_OBO_CLIENT_ID;
+    const clientSecret = dd.m2m_client_secret || process.env.AUTH0_OBO_CLIENT_SECRET;
+    return clientId ? { clientId, clientSecret, label: "docagent-mcp-obo" } : null;
+  }
+  return null;
+}
+
+// Callers pass either a raw Auth0 access token, or (from the MCP server)
+// { token, fallbackToken } -- the validated bearer plus, optionally, a
+// first-party subject token the MCP server has already verified.
+function normalizeSubject(subject) {
+  if (!subject) return { token: null, fallbackToken: null };
+  if (typeof subject === "string") return { token: subject, fallbackToken: null };
+  return { token: subject.token || null, fallbackToken: subject.fallbackToken || null };
+}
+
 function connectionFor(tenant, provider) {
   const conns = tenant?.deploymentData.vault_connections;
   if (!conns) return null;
@@ -70,8 +113,8 @@ function connectionFor(tenant, provider) {
 // usable (missing config/token) so the caller falls back to sim.
 async function getLiveToken(userId, provider, tenant, userAccessToken) {
   const connection = connectionFor(tenant, provider);
-  const dd = tenant?.deploymentData;
-  if (!connection || !userAccessToken || !tenant?.domain || !dd?.m2m_client_id) {
+  const exchanger = userAccessToken ? exchangerFor(tenant, userAccessToken) : null;
+  if (!connection || !userAccessToken || !tenant?.domain || !exchanger) {
     return null;
   }
 
@@ -91,8 +134,8 @@ async function getLiveToken(userId, provider, tenant, userAccessToken) {
         subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
         requested_token_type: FEDERATED_TOKEN_TYPE,
         connection,
-        client_id: dd.m2m_client_id,
-        client_secret: dd.m2m_client_secret,
+        client_id: exchanger.clientId,
+        client_secret: exchanger.clientSecret,
       }),
     });
 
@@ -111,7 +154,7 @@ async function getLiveToken(userId, provider, tenant, userAccessToken) {
     const data = await response.json();
     const expiresAt = Date.now() + ((data.expires_in || 3600) - 60) * 1000;
     liveTokens.set(cacheKey, { token: data.access_token, expiresAt });
-    console.log(`[Token Vault] (live) federated token for ${userId} @ ${provider}`);
+    console.log(`[Token Vault] (live) federated token for ${userId} @ ${provider} (exchanged by ${exchanger.label})`);
     return { token: data.access_token, provider };
   } catch (err) {
     if (err instanceof TokenVaultAccessDeniedError) throw err;
@@ -132,9 +175,26 @@ export function storeToken(userId, provider, accessToken, refreshToken, expiresI
   console.log(`[Token Vault] Stored token for ${userId} @ ${provider}`);
 }
 
-export async function getToken(userId, provider, tenant, userAccessToken) {
+export async function getToken(userId, provider, tenant, subject) {
+  const { token, fallbackToken } = normalizeSubject(subject);
   // Prefer the live federated-connection exchange when provisioned.
-  const live = await getLiveToken(userId, provider, tenant, userAccessToken);
+  let live;
+  try {
+    live = await getLiveToken(userId, provider, tenant, token);
+  } catch (err) {
+    // Auth0 may refuse a subject token that already carries an `act`
+    // delegation chain (both agents' tokens do, once linked to an Agent
+    // record). If the MCP server verified a first-party fallback token
+    // (see validatedNexusSubjectToken in mcp/server.js), retry with it.
+    if (!(err instanceof TokenVaultAccessDeniedError) || !fallbackToken) throw err;
+    console.warn(`[Token Vault] bearer exchange refused for ${provider}; retrying with verified first-party subject token`);
+    live = await getLiveToken(userId, provider, tenant, fallbackToken);
+  }
+  // No client able to exchange the bearer (e.g. MCP_SERVER_CLIENT_ID unset
+  // on a tenant provisioned before this client existed).
+  if (!live && fallbackToken) {
+    live = await getLiveToken(userId, provider, tenant, fallbackToken);
+  }
   if (live) return live;
 
   const key = vaultKey(userId, provider);
@@ -189,7 +249,8 @@ export function listLinkedProviders(userId) {
 // live federated connections provisioned, real tokens are fetched
 // on demand via Token Vault, so seeding is a no-op. Otherwise we
 // seed the in-memory simulation so the lab runs offline.
-export async function seedVaultForUser(userId, tenant, userAccessToken) {
+export async function seedVaultForUser(userId, tenant, subject) {
+  const userAccessToken = normalizeSubject(subject).token;
   const hasLiveCrm = !!connectionFor(tenant, "crm");
   if (!(hasLiveCrm && userAccessToken)) {
     storeToken(

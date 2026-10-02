@@ -1,4 +1,5 @@
 import { createMCPClient } from "../mcp/client.js";
+import { acmePort } from "../utils/publicUrl.js";
 
 // =============================================================
 // Tool Registry -- Nexus (Company Knowledge Assistant)
@@ -85,7 +86,7 @@ export async function executeTool(toolName, parameters, userAccessToken, agent =
   try {
     if (agent === "acme") {
       const res = await fetch(
-        `http://localhost:${process.env.ACME_SERVER_PORT || 3002}/api/call-tool`,
+        `http://localhost:${acmePort()}/api/call-tool`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

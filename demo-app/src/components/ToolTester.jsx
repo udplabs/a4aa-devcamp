@@ -13,13 +13,14 @@ const PARAM_PLACEHOLDER = {
 
 export function ToolTester() {
   const { getAccessTokenSilently } = useAuth0();
-  const { audience, acmePort }     = useRuntimeConfig();
+  const { audience, acmePort, acmeUrl } = useRuntimeConfig();
 
   // Acme runs as its own Express process on a separate port, so the SPA can't
   // reach it through the same-origin /api/... proxy used for the Nexus app.
-  // Demo-only convenience: assumes local/dev usage and doesn't account for
-  // forwarded-port URLs (e.g. GitHub Codespaces).
-  const ACME_SERVER_URL = `${window.location.protocol}//${window.location.hostname}:${acmePort}`;
+  // The backend reports Acme's public origin (the Codespace forwarded URL,
+  // or localhost when running locally).
+  const ACME_SERVER_URL =
+    acmeUrl || `${window.location.protocol}//${window.location.hostname}:${acmePort}`;
 
   const [tools, setTools]       = useState([]);
   const [selected, setSelected] = useState("");
@@ -28,11 +29,12 @@ export function ToolTester() {
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState(null);
   // "nexus" = first-party agent (docagent-mcp-obo). It exchanges the user's
-  // token via RFC 8693 On-Behalf-Of, so its token carries an act.sub claim
-  // identifying the agent. "acme" = a genuine third-party agent with its own
-  // standalone server -- it completes its own Authorization Code + PKCE flow
-  // directly with Auth0, with no token exchange and no act claim at all.
-  // Compare the two in Tool Logs after calling.
+  // token via RFC 8693 On-Behalf-Of, so its token carries a nested act claim:
+  // act.sub = the Nexus agent, act.act.sub = the SPA the request started in.
+  // "acme" = a genuine third-party agent with its own standalone server. It
+  // signs the user in directly (Authorization Code + PKCE, client_id = its
+  // CIMD URL), so its token carries a single-level act.sub = Acme's agent
+  // and only the scopes the admin granted. Compare the two in Tool Logs.
   const [agent, setAgent] = useState("nexus");
   const [acmeConnected, setAcmeConnected] = useState(null);
 
@@ -119,7 +121,7 @@ export function ToolTester() {
               <option value="acme">Acme Partner Agent (third-party)</option>
             </select>
             <span className="tester-field-hint">
-              Both reach the same scopes on the Nexus Backend API, but by different means — Nexus's token carries an act.sub claim from its OBO exchange, while Acme's token has no act claim at all, since it's a direct user-delegated token from its own PKCE consent flow. Compare the two in Tool Logs after calling.
+              Both call the same Nexus MCP Server for the same employee, with different agent identities: Nexus's OBO token carries a nested act claim (agent, then the SPA), while Acme's token from its own consent flow carries a single-level act claim and Acme's CIMD URL as client_id. Acme only holds the read scopes its admin granted, so share_document returns 403 insufficient_scope. Expand a Tool Logs entry to compare.
             </span>
             {agent === "acme" && acmeConnected === false && (
               <span className="tester-field-hint">

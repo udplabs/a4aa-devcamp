@@ -41,3 +41,26 @@ export function bearerFromHeader(req) {
   const h = req.headers?.authorization || "";
   return h.startsWith("Bearer ") ? h.slice(7) : null;
 }
+
+// Verify a JWT that did NOT arrive in this request's Authorization header
+// (signature, issuer, audience, expiry) by running the same cached
+// validator against a minimal request object. Resolves to the payload.
+export function verifyJwt(token, issuerBaseURL, audience) {
+  const validator = getJwtValidator(issuerBaseURL, audience);
+  const fakeReq = {
+    headers: { authorization: `Bearer ${token}` },
+    method: "GET",
+    protocol: "http",
+    url: "/",
+    query: {},
+    body: {},
+    is: () => false,
+    get: () => undefined,
+  };
+  return new Promise((resolve, reject) => {
+    validator(fakeReq, {}, (err) => {
+      if (err) return reject(err);
+      resolve(fakeReq.auth?.payload);
+    });
+  });
+}

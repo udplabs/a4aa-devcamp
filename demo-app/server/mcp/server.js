@@ -1,41 +1,42 @@
 // =============================================================
-// MCP Server (Auth0-secured) -- Lab 04
+// MCP Server (Auth0-secured) -- Modules 02 and 03
 //
-// The trust boundary. Every tool call Nexus makes
-// arrives here as an authenticated HTTP request, never as a raw
-// function call. Auth0 secures this server via:
+// The trust boundary. Every agent that calls a tool -- the
+// first-party Nexus agent and the third-party Acme agent alike --
+// arrives here as an HTTP request carrying an Auth0 access token,
+// and gets exactly the same treatment:
 //
-//   - JWT validation: tokens must have audience = MCP_AUTH0_AUDIENCE.
-//     Tokens issued for the backend API are rejected here -- the
-//     OBO exchange in client.js mints a separate MCP-scoped token.
-//   - Per-tool scope enforcement: each tool has a requiredScope.
-//     A 403 with { error: "Insufficient scope", required: "..." }
-//     tells a compliant MCP client exactly which scope to re-request.
-//   - RFC 9728 PRM: /.well-known/oauth-protected-resource tells any
-//     compliant MCP client which AS issues tokens for this server.
-//   - RFC 8414 AS Metadata: /.well-known/oauth-authorization-server
-//     advertises the token endpoint, JWKS, and supported grants.
+//   - Discovery (RFC 9728): /.well-known/oauth-protected-resource
+//     names this server's resource identifier and its authorization
+//     server (Auth0). A 401 carries
+//       WWW-Authenticate: Bearer resource_metadata="..."
+//     so a client that only knows the URL can find its way to Auth0.
+//   - Audience (RFC 8707): the token's `aud` must equal this server's
+//     resource identifier (AUTH0_TOOL_AUDIENCE). Tokens for any other
+//     API are rejected -- this server never accepts or passes through
+//     tokens issued for someone else.
+//   - Per-tool scope: each tool declares a requiredScope. A missing
+//     scope returns 403 with
+//       WWW-Authenticate: Bearer error="insufficient_scope", scope="..."
+//     which tells the client exactly what to step up to.
+//   - Identity: `sub` is always the employee. `act.sub` names the agent
+//     acting for them (Agent as Principal) -- nested for Nexus's OBO
+//     exchange, single-level for Acme's direct login -- and `client_id`
+//     names the OAuth client (for Acme, its CIMD URL).
 //
-// User identity (sub) is preserved across the OBO exchange
-// (see server/mcp/client.js). FGA checks and Token Vault lookups
-// below key off that sub -- the user, not the agent.
-//
-// Lab 04 orientation:
-//   - validateMCPToken: the per-request JWT verifier. Note how it
-//     decodes the token's `iss` to resolve the tenant, not a static
-//     env var -- this is what makes it multi-tenant.
-//   - TOOLS array: each entry declares a requiredScope. Add a new
-//     tool here and the scope check is automatic.
-//   - executeToolLogic: where FGA checks (canReadDocument,
-//     canShareDocument) and Token Vault calls (getToken) happen.
-//     The sub in the MCP token is the user's real identity --
-//     that is the key invariant to observe.
+// FGA checks and Token Vault lookups below key off `sub` -- the user,
+// not the agent. Token Vault exchanges use this server's OWN Custom
+// API client (see ../token-vault/vault.js), never the caller's.
 // =============================================================
 
 import express from "express";
-import { protectedResourceMetadata } from "./metadata.js";
+import {
+  protectedResourceMetadata,
+  resourceMetadataUrl,
+  mcpResource,
+} from "./metadata.js";
 import { findAvailablePort } from "../utils/port.js";
-import { getJwtValidator, decodeUnverified, bearerFromHeader } from "../platform/jwt.js";
+import { getJwtValidator, decodeUnverified, bearerFromHeader, verifyJwt } from "../platform/jwt.js";
 import { tenantResolver } from "../platform/tenantResolver.js";
 import {
   canReadDocument,
@@ -60,25 +61,23 @@ const SEARCH_STOPWORDS = new Set([
   "about", "our", "find", "show", "me", "get", "and", "to", "with",
 ]);
 
-// OAuth 2.0 token validation -- validates OBO-issued backend API tokens.
-// The MCP server accepts tokens with audience = AUTH0_TOOL_AUDIENCE
-// (the backend/tool API), which are minted by docagent-mcp-obo via OBO
-// from the user's MCP token. Per-tool scopes on those tokens enforce
-// least-privilege at the tool boundary.
+// OAuth 2.1 resource-server token validation. Signature, issuer, expiry,
+// and -- the MCP-specific part -- audience = this server's resource
+// identifier. The issuer is looked up from the (unverified) `iss` only to
+// pick which known tenant's keys to verify against; an unknown issuer
+// falls back to the env tenant and fails signature verification.
 const validateMCPToken = (req, res, next) => {
   const token = bearerFromHeader(req);
   const payload = token ? decodeUnverified(token) : null;
-  let issuer = `https://${process.env.AUTH0_DOMAIN}`;
-  let audience = process.env.AUTH0_TOOL_AUDIENCE || "";
+  let issuer = `https://${process.env.AUTH0_DOMAIN}/`;
+  let audience = mcpResource();
 
   if (payload?.iss) {
     try {
       const tenant = tenantResolver.getByDomain(new URL(payload.iss).host);
       if (tenant) {
         issuer = tenant.issuer;
-        // Use deploymentData.backend_audience directly — backendAudience getter
-        // falls back to AUTH0_AUDIENCE which now points to the MCP server, not the tool API.
-        audience = process.env.AUTH0_TOOL_AUDIENCE || audience;
+        audience = (tenant.mcpResource || audience).replace(/\/$/, "");
         req.tenant = tenant;
       }
     } catch {
@@ -88,32 +87,59 @@ const validateMCPToken = (req, res, next) => {
   return getJwtValidator(issuer, audience)(req, res, next);
 };
 
-// RFC 9728: Protected Resource Metadata
+// RFC 9728: Protected Resource Metadata. Served at the root well-known
+// path because the resource identifier is this server's origin. There is
+// deliberately no /.well-known/oauth-authorization-server here: the
+// authorization server (Auth0) publishes its own metadata.
 app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata);
 
-// OAuth 2.0 Authorization Server Metadata
-app.get("/.well-known/oauth-authorization-server", (_req, res) => {
-  res.json({
-    issuer: `https://${process.env.AUTH0_DOMAIN}/`,
-    authorization_endpoint: `https://${process.env.AUTH0_DOMAIN}/authorize`,
-    token_endpoint: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
-    jwks_uri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
-    // Per-tool scopes live on the backend/tool API (AUTH0_TOOL_AUDIENCE).
-    // OBO exchanges the user's MCP token for a backend API token carrying
-    // one of these scopes, which the MCP server then enforces per tool call.
-    scopes_supported: [
-      "mcp:docs:search",
-      "mcp:docs:read",
-      "mcp:crm:log",
-      "mcp:docs:share",
-      "mcp:github:read",
-    ],
-    grant_types_supported: [
-      "urn:ietf:params:oauth:grant-type:token-exchange",
-    ],
-    client_registration_types_supported: ["metadata"],
-  });
-});
+// Who is calling? `sub` is the user; `act` (Agent as Principal) is the
+// delegation chain, outermost actor first; client_id/azp is the OAuth
+// client (for a CIMD client, its CIMD URL).
+function describeCaller(payload) {
+  const chain = [];
+  for (let a = payload.act; a; a = a.act) {
+    chain.push({ sub: a.sub, client_id: a.client_id, sub_profile: a.sub_profile });
+  }
+  const outer = chain[0];
+  return {
+    sub: payload.sub,
+    client_id: payload.client_id || payload.azp,
+    client_profile: payload.client_profile,
+    agent: outer && (outer.sub_profile === "ai_agent" || String(outer.sub || "").startsWith("agt_"))
+      ? outer.sub
+      : null,
+    act_chain: chain,
+  };
+}
+
+// First-party fallback for Token Vault (see ../token-vault/vault.js).
+// Only used if Auth0 refuses to exchange the bearer itself. The Nexus
+// backend may attach the user's original Nexus Agent API token in
+// X-Nexus-Subject-Token. It is NOT trusted on presentation: it must
+// verify against the tenant's keys with aud = Nexus Agent API, belong
+// to the same user as the bearer, and have been issued to a client that
+// appears in the bearer's own `act` delegation chain -- i.e. it is
+// provably the token the bearer was exchanged from.
+async function validatedNexusSubjectToken(req, bearerPayload) {
+  if (process.env.TOKEN_VAULT_FIRST_PARTY_FALLBACK === "false") return null;
+  const raw = req.headers["x-nexus-subject-token"];
+  if (typeof raw !== "string" || !raw) return null;
+  const tenant = req.tenant;
+  const issuer = tenant?.issuer || `https://${process.env.AUTH0_DOMAIN}/`;
+  const agentAudience = tenant?.agentAudience || process.env.AUTH0_AUDIENCE;
+  try {
+    const inner = await verifyJwt(raw, issuer, agentAudience);
+    if (inner.sub !== bearerPayload.sub) return null;
+    const innerClient = inner.client_id || inner.azp;
+    const chainClients = [];
+    for (let a = bearerPayload.act; a; a = a.act) chainClients.push(a.client_id, a.sub);
+    if (!innerClient || !chainClients.includes(innerClient)) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
 
 // ---- Tool catalog -------------------------------------------------
 
@@ -201,18 +227,18 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
   const userEmail = payload.email;
   const tokenScopes = (payload.scope || "").split(" ").filter(Boolean);
   const tenant = req.tenant;
-  const userAccessToken = bearerFromHeader(req) || undefined;
-  // The OBO token above authenticates this MCP call but carries an `act`
-  // claim chain that Token Vault rejects. The original user token (aud:
-  // MCP server, no `act`) is what Token Vault needs as subject_token.
-  const originalUserToken = req.headers["x-user-token"] || userAccessToken;
+  // The only token this server uses is the one it just validated.
+  const bearerToken = bearerFromHeader(req);
+  const caller = describeCaller(payload);
 
   console.log(
-    `[MCP Server] Tool call: ${name}, sub=${userSub}, scopes=${tokenScopes.join(",")}`
+    `[MCP Server] Tool call: ${name}, sub=${userSub}, client_id=${caller.client_id}, scopes=${tokenScopes.join(",")}`
   );
   console.log(`[MCP Server] Full token payload:`, JSON.stringify(payload));
   if (payload.act?.sub) {
-    console.log(`[MCP Server] Acting agent (act.sub): ${payload.act.sub}`);
+    console.log(`[MCP Server] Acting agent (act.sub): ${payload.act.sub} (delegation depth ${caller.act_chain.length})`);
+  } else {
+    console.log("[MCP Server] No act claim -- client is not linked to an Agent record");
   }
 
   const tool = TOOLS.find((t) => t.name === name);
@@ -220,13 +246,19 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
     return res.status(404).json({ error: `Unknown tool: ${name}` });
   }
 
-  // Lab 04 -- per-tool scope enforcement.
-  // A 403 here means the OBO token was not issued with the scope
-  // needed for this tool. A compliant MCP client treats this as
-  // a step-up signal and re-requests the missing scope.
+  // Per-tool scope enforcement (MCP "Scope Challenge Handling").
+  // A 403 here means the token was not issued with the scope this tool
+  // needs -- for Nexus, the OBO grant lacks it; for Acme, the admin's
+  // reviewed grant doesn't include it. The WWW-Authenticate challenge
+  // tells a compliant MCP client exactly which scope to step up to.
   if (!tokenScopes.includes(tool.requiredScope)) {
     console.log(
       `[MCP Server] DENIED -- required=${tool.requiredScope}, have=${tokenScopes.join(",")}`
+    );
+    addLog({ tool: name, userSub, caller, args, result: { error: "insufficient_scope", required: tool.requiredScope }, status: "denied" });
+    res.set(
+      "WWW-Authenticate",
+      `Bearer error="insufficient_scope", scope="${tool.requiredScope}", resource_metadata="${resourceMetadataUrl(req)}", error_description="This tool requires ${tool.requiredScope}"`
     );
     return res.status(403).json({
       error: "Insufficient scope",
@@ -237,24 +269,28 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
 
   try {
     // Seed demo FGA tuples + vault entries on first call per user.
+    const vaultSubject = {
+      token: bearerToken,
+      fallbackToken: await validatedNexusSubjectToken(req, payload),
+    };
     await seedTuplesForUser(userSub, userEmail, tenant);
-    await seedVaultForUser(userSub, tenant, originalUserToken);
+    await seedVaultForUser(userSub, tenant, vaultSubject);
 
-    const result = await executeToolLogic(name, args, userSub, tenant, originalUserToken);
+    const result = await executeToolLogic(name, args, userSub, tenant, vaultSubject);
     console.log(`[MCP Server] Tool ${name} executed`);
-    addLog({ tool: name, userSub, args, result, status: "success" });
+    addLog({ tool: name, userSub, caller, args, result, status: "success" });
     res.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
   } catch (err) {
     console.error(`[MCP Server] Tool ${name} failed: ${err.message}`);
-    addLog({ tool: name, userSub, args, result: { error: err.message }, status: "error" });
+    addLog({ tool: name, userSub, caller, args, result: { error: err.message }, status: "error" });
     res.status(500).json({ error: err.message });
   }
 });
 
-// Lab 04 -- tool execution. userSub here is the user's Auth0 user id
-// preserved through the OBO exchange. Every FGA check and Token Vault
-// call below keys off the user, not the agent client.
-async function executeToolLogic(name, args, userSub, tenant, userAccessToken) {
+// Tool execution. userSub is the user's Auth0 user id -- preserved through
+// Nexus's OBO exchange, and the direct subject of Acme's login. Every FGA
+// check and Token Vault call below keys off the user, not the agent.
+async function executeToolLogic(name, args, userSub, tenant, vaultSubject) {
   switch (name) {
     case "search_documents": {
       const { query } = args;
@@ -303,12 +339,12 @@ async function executeToolLogic(name, args, userSub, tenant, userAccessToken) {
       // CRM credential scoped to this user. No shared bot token.
       let tokenResult;
       try {
-        tokenResult = await getToken(userSub, "crm", tenant, userAccessToken);
+        tokenResult = await getToken(userSub, "crm", tenant, vaultSubject);
       } catch (err) {
         if (err instanceof TokenVaultAccessDeniedError) {
           return {
             success: false,
-            error: "CRM connection does not allow API access (it's set to authentication-only). Ask the user to enable API access for this connection, or reconnect via Connected Accounts.",
+            error: `Token Vault refused the CRM exchange: ${err.message}. Check that the CRM connection's Purpose includes Connected Accounts for Token Vault and that the user has connected their CRM account.`,
           };
         }
         throw err;
@@ -342,12 +378,12 @@ async function executeToolLogic(name, args, userSub, tenant, userAccessToken) {
       // connection instead of the custom CRM OAuth2 one.
       let tokenResult;
       try {
-        tokenResult = await getToken(userSub, "github", tenant, userAccessToken);
+        tokenResult = await getToken(userSub, "github", tenant, vaultSubject);
       } catch (err) {
         if (err instanceof TokenVaultAccessDeniedError) {
           return {
             success: false,
-            error: "GitHub connection does not allow API access (it's set to authentication-only). Ask the user to enable Token Vault for this connection, or reconnect via Connected Accounts.",
+            error: `Token Vault refused the GitHub exchange: ${err.message}. Check that the GitHub connection's Purpose includes Connected Accounts for Token Vault and that the user has connected their GitHub account.`,
           };
         }
         throw err;
@@ -413,10 +449,20 @@ app.get(
 );
 
 // express-oauth2-jwt-bearer sets err.status = 401 on auth failures.
-// Without this handler Express would fall back to a 500, breaking the
-// Module 01 check that expects a clean 401 from /mcp/tools.
+// Per the MCP authorization spec (RFC 9728 §5.1), a 401 must point the
+// client at this server's Protected Resource Metadata so it can discover
+// the authorization server without any prior configuration.
 app.use((err, req, res, _next) => {
   const status = err.status || 500;
+  if (status === 401) {
+    const parts = [`resource_metadata="${resourceMetadataUrl(req)}"`];
+    // No credentials at all -> bare challenge; a bad token -> invalid_token.
+    if (bearerFromHeader(req)) {
+      parts.unshift('error="invalid_token"');
+      parts.push(`error_description="${String(err.message || "invalid token").replace(/"/g, "'")}"`);
+    }
+    res.set("WWW-Authenticate", `Bearer ${parts.join(", ")}`);
+  }
   res.status(status).json({ error: err.message || "Internal server error" });
 });
 
@@ -426,7 +472,7 @@ export async function startMCPServer() {
   app.listen(port, () => {
     console.log(`[MCP Server] Running on http://localhost:${port}`);
     console.log(`[MCP Server] PRM: http://localhost:${port}/.well-known/oauth-protected-resource`);
-    console.log(`[MCP Server] OAuth: http://localhost:${port}/.well-known/oauth-authorization-server`);
+    console.log(`[MCP Server] Resource identifier: ${mcpResource() || "(AUTH0_TOOL_AUDIENCE not set)"}`);
   });
 }
 

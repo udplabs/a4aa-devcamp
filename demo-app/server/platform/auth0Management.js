@@ -4,9 +4,10 @@
 // The CREATE hook receives `idp.management_credentials` for the
 // customer-identity (Auth0) tenant. We exchange those for a
 // Management API token and provision the lab's footprint:
-//   - resource servers (backend API + MCP API)
-//   - an M2M client (linked to an Agent as Principal record) with
-//     user-delegated OBO grant
+//   - resource servers (Nexus Agent API + Nexus MCP Server)
+//   - the MCP server's own Custom API client (Token Vault exchanger)
+//   - tenant settings Auth for MCP needs (resource parameter, iss,
+//     CIMD registration) and a domain-level login connection
 //   - a CIBA-enabled client
 //   - CRM OAuth2 connection (Token Vault storage NOT auto-enabled)
 //   - reconfigure the platform-created SPA app for the subdomain
@@ -92,6 +93,16 @@ export async function createResourceServer(ctx, opts) {
   if (opts.agentSubjectClaims) {
     body.agent_subject_claims = "auth0-v1";
   }
+  // Per-app authorization: a client (first- or third-party) gets no
+  // user-delegated access to this API until an admin creates a client
+  // grant for it. This is what makes the third-party trust decision in
+  // Module 03 an explicit, reviewable admin action.
+  if (opts.requireClientGrant) {
+    body.subject_type_authorization = {
+      user: { policy: "require_client_grant" },
+      client: { policy: "require_client_grant" },
+    };
+  }
   const created = await mgmt(ctx, "POST", "/resource-servers", body);
   return { id: created.id, identifier: created.identifier };
 }
@@ -113,6 +124,23 @@ export async function createClient(ctx, opts) {
   if (opts.async_approval_notification_channels) body.async_approval_notification_channels = opts.async_approval_notification_channels;
   const created = await mgmt(ctx, "POST", "/clients", body);
   return created;
+}
+
+export async function getClient(ctx, clientId, fields) {
+  const qs = fields ? `?fields=${fields.join(",")}&include_fields=true` : "";
+  return mgmt(ctx, "GET", `/clients/${encodeURIComponent(clientId)}${qs}`);
+}
+
+// CIMD clients are addressed by their CIMD URL (external_client_id); the
+// Management API still assigns them an internal client_id.
+export async function findClientByExternalId(ctx, externalClientId) {
+  const list = await mgmt(
+    ctx,
+    "GET",
+    `/clients?external_client_id=${encodeURIComponent(externalClientId)}`
+  );
+  const clients = Array.isArray(list) ? list : list?.clients || [];
+  return clients.find((c) => c.external_client_id === externalClientId) || null;
 }
 
 export async function updateClient(ctx, clientId, patch) {
@@ -213,6 +241,56 @@ export async function grantClientToApi(ctx, clientId, audience, scopes, opts = {
   const body = { client_id: clientId, audience, scope: scopes };
   if (opts.subject_type) body.subject_type = opts.subject_type;
   await mgmt(ctx, "POST", "/client-grants", body);
+}
+
+export async function listClientGrants(ctx, clientId, audience) {
+  const qs = new URLSearchParams({ client_id: clientId });
+  if (audience) qs.set("audience", audience);
+  const list = await mgmt(ctx, "GET", `/client-grants?${qs.toString()}`);
+  return Array.isArray(list) ? list : list?.client_grants || [];
+}
+
+// ---- Tenant settings (Auth for MCP prerequisites) ----------------
+
+export async function getTenantSettings(ctx) {
+  return mgmt(ctx, "GET", "/tenants/settings");
+}
+
+// The three toggles Auth for MCP relies on (Dashboard → Settings → Advanced):
+//   - Resource Parameter Compatibility Profile: accept RFC 8707 `resource`
+//     in place of Auth0's `audience` (MCP clients MUST send `resource`).
+//   - Include Issuer in Authorization Responses: RFC 9207 `iss`, which
+//     protects MCP clients against mix-up attacks.
+//   - Client ID Metadata Document Registration: advertises
+//     client_id_metadata_document_supported in the AS metadata and lets
+//     admins import CIMD clients (Early Access).
+export async function enableAuthForMcpTenantSettings(ctx) {
+  await mgmt(ctx, "PATCH", "/tenants/settings", {
+    resource_parameter_profile: "compatibility",
+    authorization_response_iss_parameter_supported: true,
+  });
+  // Sent separately: if the tenant isn't in the CIMD Early Access program
+  // this field is rejected, and that must not undo the two settings above.
+  await mgmt(ctx, "PATCH", "/tenants/settings", {
+    client_id_metadata_document_supported: true,
+  });
+}
+
+// ---- Connections ------------------------------------------------
+
+// Third-party applications (including every CIMD client) can only log
+// users in through domain-level connections.
+export async function promoteConnectionToDomainLevel(ctx, name) {
+  const list = await mgmt(ctx, "GET", `/connections?name=${encodeURIComponent(name)}`);
+  const conn = (list || [])[0];
+  if (!conn?.id) throw new Error(`Connection ${name} not found`);
+  await mgmt(ctx, "PATCH", `/connections/${conn.id}`, { is_domain_connection: true });
+  return conn.id;
+}
+
+export async function getConnectionByName(ctx, name) {
+  const list = await mgmt(ctx, "GET", `/connections?name=${encodeURIComponent(name)}`);
+  return (list || [])[0] || null;
 }
 
 // ---- Token Vault connections (Lab 4) ----------------------------
