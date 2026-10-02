@@ -320,6 +320,11 @@ export async function createVaultConnection(ctx, opts) {
     client_secret: opts.clientSecret,
     scope: opts.scopes.join(" "),
     token_endpoint_auth_method: "client_secret_post",
+    // This connection exists only for Token Vault linking via the Connected
+    // Accounts flow -- it must not double as a primary sign-in option, or a
+    // user clicking it on the login screen gets logged in without Auth0
+    // ever storing the refresh token Token Vault needs.
+    show_as_button: false,
     // Required by Auth0 for the oauth2 strategy even when used purely for Token Vault.
     scripts: {
       fetchUserProfile: [
