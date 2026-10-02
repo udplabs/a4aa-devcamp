@@ -5,11 +5,12 @@ import { ModuleChecks } from "./ModuleChecks";
 const MODULES = [
   { id: "00", label: "Prerequisites" },
   { id: "01", label: "Auth for MCP" },
-  { id: "02", label: "User Auth" },
-  { id: "03", label: "Token Vault" },
-  { id: "04", label: "CIBA" },
-  { id: "05", label: "FGA" },
-  { id: "06", label: "End-to-End" },
+  { id: "02", label: "Third-Party Agent" },
+  { id: "03", label: "User Auth" },
+  { id: "04", label: "Token Vault" },
+  { id: "05", label: "CIBA" },
+  { id: "06", label: "FGA" },
+  { id: "07", label: "End-to-End" },
 ];
 
 export function ProgressTracker() {

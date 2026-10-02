@@ -20,11 +20,12 @@ export const LABS = [
   { id: "00-introduction",                                             title: "Introduction",                    module: null },
   { id: "01-prerequisites",                                            title: "Module 01: Prerequisites",        module: "00" },
   { id: "02-one-trust-boundary-for-every-agent",                       title: "Module 02: Auth for MCP",         module: "01" },
-  { id: "03-every-agent-action-has-an-owner",                         title: "Module 03: User Authentication",  module: "02" },
-  { id: "04-the-agent-acts-as-the-employee,-not-a-shared-bot",        title: "Module 04: Token Vault",          module: "03" },
-  { id: "05-humans-approve-what-can't-be-undone",                     title: "Module 05: CIBA",                 module: "04" },
-  { id: "06-access-that-knows-where-it-ends",                         title: "Module 06: FGA",                  module: "05" },
-  { id: "07-putting-it-all-together",                                 title: "Module 07: End-to-End",           module: "06" },
+  { id: "03-a-second-agent-knocks",                                   title: "Module 03: Third-Party Agent Onboarding", module: "02" },
+  { id: "04-every-agent-action-has-an-owner",                         title: "Module 04: User Authentication",  module: "03" },
+  { id: "05-the-agent-acts-as-the-employee,-not-a-shared-bot",        title: "Module 05: Token Vault",          module: "04" },
+  { id: "06-humans-approve-what-cant-be-undone",                      title: "Module 06: CIBA",                 module: "05" },
+  { id: "07-access-that-knows-where-it-ends",                         title: "Module 07: FGA",                  module: "06" },
+  { id: "08-putting-it-all-together",                                 title: "Module 08: End-to-End",           module: "07" },
   { id: "99-conclusion",                                               title: "Conclusion",                      module: null },
 ];
 

@@ -4,7 +4,7 @@ import { ModuleChecks } from "./ModuleChecks";
 import { useLabProgress } from "../hooks/useLabProgress";
 
 // Modules that show a Run Checks / knowledge-check / completion widget
-const CHECKABLE_MODULES = ["00", "01", "02", "03", "04", "05", "06"];
+const CHECKABLE_MODULES = ["00", "01", "02", "03", "04", "05", "06", "07"];
 
 export function LabGuide({ onClose }) {
   const [labs, setLabs] = useState([]);

@@ -32,9 +32,9 @@ import { startMCPServer, TOOLS as MCP_TOOLS } from "./mcp/server.js";
 import { getLogs } from "./mcp/toolLog.js";
 import { listTuples } from "./fga/client.js";
 import { executeTool } from "./tools/registry.js";
-import { getClientMetadata } from "./mcp/cimd.js";
 import { getManagementToken } from "./platform/auth0Management.js";
-import { runProvision, runDeprovision, deploymentDataToEnvVars, AGENT_NAME, BACKEND_API_IDENTIFIER } from "./platform/provision.js";
+import { runProvision, runDeprovision, deploymentDataToEnvVars, AGENT_NAME, THIRD_PARTY_AGENT_NAME, BACKEND_API_IDENTIFIER } from "./platform/provision.js";
+import { startAcmeServer } from "./acme/app.js";
 import { fgaSettingsFromEnvOrRecord } from "./platform/fgaProvision.js";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -46,16 +46,19 @@ import { wrongPortFallback } from "./utils/wrongPortPage.js";
 const PROVISIONED_ENV_KEYS = [
   "VITE_AUTH0_CLIENT_ID", "AUTH0_AUDIENCE", "AUTH0_TOOL_AUDIENCE",
   "AUTH0_OBO_CLIENT_ID", "AUTH0_OBO_CLIENT_SECRET",
+  "AUTH0_ACME_CLIENT_ID",
   "AUTH0_CIBA_CLIENT_ID", "AUTH0_CIBA_CLIENT_SECRET",
   "AUTH0_MFA_ACTION_ID",
-  "VAULT_CONN_CRM", "FGA_STORE_ID", "FGA_MODEL_ID",
+  "VAULT_CONN_CRM", "VAULT_CONN_GITHUB", "FGA_STORE_ID", "FGA_MODEL_ID",
   "DEMO_USER_ALICE_ID", "DEMO_USER_BOB_ID",
 ];
 
 // Keys deploymentDataToEnvVars() should ALWAYS produce from a successful
 // /api/setup/provision run. Excludes AUTH0_OBO_CLIENT_ID/SECRET (created
-// manually in Module 01, not by provisioning) and FGA_STORE_ID/FGA_MODEL_ID
-// (only written when FGA credentials are configured -- see below).
+// manually in Module 01, not by provisioning), AUTH0_ACME_CLIENT_ID and
+// VAULT_CONN_GITHUB (created manually in the third-party/Token Vault
+// modules, not by provisioning), and FGA_STORE_ID/FGA_MODEL_ID (only
+// written when FGA credentials are configured -- see below).
 // runProvision() wraps every Auth0 API call in safe(), which swallows
 // errors and returns null on failure, so a single failed step silently
 // drops its key from the written .env without failing the request. This
@@ -252,12 +255,6 @@ app.post("/api/setup/restart", async (req, res) => {
   res.json({ ok: true });
 });
 
-// CIMD: client metadata document. The URL of this endpoint IS the
-// agent's client_id — self-referential per the CIMD spec.
-app.get("/.well-known/client-metadata", (req, res) => {
-  res.json(getClientMetadata(req));
-});
-
 // ---- Module verification endpoints ----------------------------------
 // Each endpoint runs the setup checks for a module and returns
 // { checks: [{ id, name, pass, message }] }. Used by the in-app
@@ -432,13 +429,114 @@ app.get("/api/verify/module01", async (req, res) => {
 app.get("/api/verify/module02", async (req, res) => {
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;
+  const mgmtId = process.env.AUTH0_MGMT_CLIENT_ID;
+  const mgmtSecret = process.env.AUTH0_MGMT_CLIENT_SECRET;
+  const acmeClientId = process.env.AUTH0_ACME_CLIENT_ID;
+  const acmePort = process.env.ACME_SERVER_PORT || 3002;
+  const acmeBase = `http://localhost:${acmePort}`;
+
+  // 1. CIMD discoverable: shape check only -- no cryptographic ownership
+  // proof exists in CIMD, so this just confirms the document is fetchable
+  // and has the fields an admin would review before trusting it. Now
+  // served by Acme's own standalone server, not Nexus.
+  try {
+    const r = await fetch(`${acmeBase}/.well-known/client-metadata`);
+    const body = await r.json();
+    const ok = !!(body.client_id && body.token_endpoint_auth_method === "none");
+    checks.push({ id: "cimd_discoverable", name: "Third-party CIMD document discoverable", pass: ok,
+      message: ok ? `"${body.client_name || body.client_id}" published client_id and token_endpoint_auth_method=none` : "missing required CIMD fields" });
+  } catch (e) {
+    checks.push({ id: "cimd_discoverable", name: "Third-party CIMD document discoverable", pass: false, message: e.message });
+  }
+
+  // 2. The Acme client registered in Auth0 is a genuine public client --
+  // no retrievable secret, token_endpoint_auth_method = "none" -- since
+  // Acme completes its own Authorization Code + PKCE flow directly.
+  let mgmtToken = null;
+  if (domain && mgmtId && mgmtSecret) {
+    try {
+      const { getManagementToken } = await import("./platform/auth0Management.js");
+      const { token } = await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret });
+      mgmtToken = token;
+      if (!acmeClientId) {
+        checks.push({ id: "thirdparty_client_is_public", name: "Acme client is a public PKCE client", pass: false,
+          message: "AUTH0_ACME_CLIENT_ID not set — hand-create the Acme application in the Dashboard first" });
+      } else {
+        const clientR = await fetch(`https://${domain}/api/v2/clients/${acmeClientId}?fields=token_endpoint_auth_method,app_type,client_secret&include_fields=true`,
+          { headers: { Authorization: `Bearer ${token}` } });
+        const client = await clientR.json();
+        const isPublic = client?.token_endpoint_auth_method === "none" && !client?.client_secret;
+        checks.push({ id: "thirdparty_client_is_public", name: "Acme client is a public PKCE client", pass: isPublic,
+          message: isPublic
+            ? `Client ${acmeClientId} is public (token_endpoint_auth_method=none, no secret)`
+            : "client has a secret / is not configured as a public client — set Token Endpoint Authentication Method to None" });
+      }
+    } catch (e) {
+      checks.push({ id: "thirdparty_client_is_public", name: "Acme client is a public PKCE client", pass: false, message: e.message });
+    }
+  } else {
+    checks.push({ id: "thirdparty_client_is_public", name: "Acme client is a public PKCE client", pass: false,
+      message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
+  }
+
+  // 3. Agent as Principal: an agent record named THIRD_PARTY_AGENT_NAME
+  // exists and is linked (agent_id) to the Acme public client.
+  if (domain && mgmtId && mgmtSecret) {
+    try {
+      const { findAgentByName } = await import("./platform/auth0Management.js");
+      const token = mgmtToken || (await getManagementToken({ domain, clientId: mgmtId, clientSecret: mgmtSecret })).token;
+      const agent = await findAgentByName({ domain, token }, THIRD_PARTY_AGENT_NAME);
+      if (!agent) {
+        checks.push({ id: "thirdparty_agent_registered", name: "Third-party agent registered and linked to Acme client", pass: false,
+          message: `No agent named "${THIRD_PARTY_AGENT_NAME}" found — create it under Dashboard → Agents` });
+      } else if (!acmeClientId) {
+        checks.push({ id: "thirdparty_agent_registered", name: "Third-party agent registered and linked to Acme client", pass: false,
+          message: `Found agent ${agent.agent_id}, but AUTH0_ACME_CLIENT_ID is not set — create the Acme application first` });
+      } else {
+        const clientR = await fetch(`https://${domain}/api/v2/clients/${acmeClientId}?fields=agent_id&include_fields=true`,
+          { headers: { Authorization: `Bearer ${token}` } });
+        const client = await clientR.json();
+        const linked = client?.agent_id === agent.agent_id;
+        checks.push({ id: "thirdparty_agent_registered", name: "Third-party agent registered and linked to Acme client", pass: linked,
+          message: linked
+            ? `Agent ${agent.agent_id} ("${THIRD_PARTY_AGENT_NAME}") linked to the Acme client`
+            : `Agent ${agent.agent_id} exists but the Acme client is not linked to it — open the agent's Applications tab and add it` });
+      }
+    } catch (e) {
+      checks.push({ id: "thirdparty_agent_registered", name: "Third-party agent registered and linked to Acme client", pass: false, message: e.message });
+    }
+  } else {
+    checks.push({ id: "thirdparty_agent_registered", name: "Third-party agent registered and linked to Acme client", pass: false,
+      message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
+  }
+
+  // 4. Acme has completed its own Authorization Code + PKCE login and
+  // holds a token -- no OBO/token-exchange grant involved at all.
+  try {
+    const r = await fetch(`${acmeBase}/status`);
+    const body = await r.json();
+    checks.push({ id: "thirdparty_consent_granted", name: "Acme has completed its PKCE login", pass: body?.connected === true,
+      message: body?.connected === true
+        ? `Acme is connected (sub: ${body.sub || "unknown"})`
+        : `Acme hasn't completed its PKCE login yet — visit http://localhost:${acmePort}/login to connect` });
+  } catch (e) {
+    checks.push({ id: "thirdparty_consent_granted", name: "Acme has completed its PKCE login", pass: false,
+      message: `Could not reach Acme server at ${acmeBase} — is it running? (${e.message})` });
+  }
+
+  res.json({ module: "02", checks, allPassed: checks.every((c) => c.pass) });
+});
+
+app.get("/api/verify/module03", async (req, res) => {
+  const checks = [];
+  const domain = process.env.AUTH0_DOMAIN;
   const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
   const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
 
   if (!domain || !clientId || !secret) {
     checks.push({ id: "mfa_customization", name: "MFA customization via Actions enabled", pass: false,
       message: "Management credentials not set" });
-    return res.json({ module: "02", checks, allPassed: false });
+    return res.json({ module: "03", checks, allPassed: false });
   }
 
   try {
@@ -461,10 +559,10 @@ app.get("/api/verify/module02", async (req, res) => {
     checks.push({ id: "mfa_customization", name: "MFA customization via Actions enabled", pass: false, message: e.message });
   }
 
-  res.json({ module: "02", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "03", checks, allPassed: checks.every((c) => c.pass) });
 });
 
-app.get("/api/verify/module03", async (req, res) => {
+app.get("/api/verify/module04", async (req, res) => {
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;
   const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
@@ -476,7 +574,7 @@ app.get("/api/verify/module03", async (req, res) => {
   if (!domain || !clientId || !secret || !crmConn) {
     checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: false,
       message: "Management credentials or CRM connection name not set" });
-    return res.json({ module: "03", checks, allPassed: false });
+    return res.json({ module: "04", checks, allPassed: false });
   }
 
   try {
@@ -548,14 +646,43 @@ app.get("/api/verify/module03", async (req, res) => {
           : "Activate Auth0 My Account API (Auth0 Dashboard → Applications → APIs → Auth0 My Account API → Activate), then open docagent-spa-codespace → API Access tab → enable Auth0 My Account API → select create/read/delete:me:connected_accounts",
       });
     }
+    // Check 4: GitHub connection has Token Vault purpose enabled. This
+    // connection is hand-provisioned by the participant (REDESIGN_PLAN.md
+    // decision 2) -- VAULT_CONN_GITHUB is never auto-provisioned, so an
+    // unset value is reported as a normal "not set up yet" state rather
+    // than an error.
+    const githubConn = process.env.VAULT_CONN_GITHUB;
+    if (!githubConn) {
+      checks.push({
+        id: "token_vault_github_connection",
+        name: "Token Vault enabled on GitHub connection",
+        pass: false,
+        message: "VAULT_CONN_GITHUB not set — create the GitHub social connection in Auth0 Dashboard, enable Token Vault purpose, then paste its connection name into .env",
+      });
+    } else {
+      const githubConnR = await fetch(`https://${ctx.domain}/api/v2/connections?name=${encodeURIComponent(githubConn)}`, {
+        headers: { Authorization: `Bearer ${ctx.token}` },
+      });
+      const githubConnData = await githubConnR.json();
+      const githubConnObj = githubConnData?.[0] || {};
+      const githubVaultEnabled = githubConnObj?.connected_accounts?.active === true;
+      checks.push({
+        id: "token_vault_github_connection",
+        name: "Token Vault enabled on GitHub connection",
+        pass: githubVaultEnabled,
+        message: githubVaultEnabled
+          ? "GitHub connection Purpose is set to Token Vault"
+          : `Open ${githubConn} in Auth0 Dashboard → Settings → Purpose → select 'Authentication and Connected Accounts for Token Vault'`,
+      });
+    }
   } catch (e) {
     checks.push({ id: "token_vault_connection", name: "Token Vault enabled on CRM connection", pass: false, message: e.message });
   }
 
-  res.json({ module: "03", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "04", checks, allPassed: checks.every((c) => c.pass) });
 });
 
-app.get("/api/verify/module04", async (req, res) => {
+app.get("/api/verify/module05", async (req, res) => {
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;
   const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
@@ -565,7 +692,7 @@ app.get("/api/verify/module04", async (req, res) => {
   if (!domain || !clientId || !secret || !cibaClientId) {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false,
       message: !cibaClientId ? "AUTH0_CIBA_CLIENT_ID not set — re-provision resources" : "Management credentials not set" });
-    return res.json({ module: "04", checks, allPassed: false });
+    return res.json({ module: "05", checks, allPassed: false });
   }
 
   try {
@@ -636,7 +763,7 @@ app.get("/api/verify/module04", async (req, res) => {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false, message: e.message });
   }
 
-  res.json({ module: "04", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "05", checks, allPassed: checks.every((c) => c.pass) });
 });
 
 // Resolve the tenant for every /api request from the request
@@ -652,9 +779,15 @@ app.get("/api/config", (req, res) => {
     domain: tenant?.domain || process.env.AUTH0_DOMAIN || "",
     clientId: tenant?.clientId || process.env.VITE_AUTH0_CLIENT_ID || "",
     audience: tenant?.backendAudience || process.env.AUTH0_AUDIENCE || "",
-    // Connection name for the SDK's connectAccountWithRedirect() call
-    // (VaultStatus.jsx) -- tenant-specific, derived at provisioning time.
-    crmConnection: tenant?.deploymentData?.vault_connections?.crm || "",
+    // Connection names for the SDK's connectAccountWithRedirect() call
+    // (VaultStatus.jsx) -- crmConnection is derived at provisioning time;
+    // githubConnection is pasted in by hand (VAULT_CONN_GITHUB) since the
+    // GitHub social connection is created manually in the Dashboard.
+    crmConnection: tenant?.deploymentData?.vault_connections?.crm || process.env.VAULT_CONN_CRM || "",
+    githubConnection: tenant?.deploymentData?.vault_connections?.github || process.env.VAULT_CONN_GITHUB || "",
+    // Acme runs as its own process on a dynamically-allocated port (see
+    // find-port.js) -- the SPA can't guess it, so the backend reports it.
+    acmePort: process.env.ACME_SERVER_PORT || 3002,
   });
 });
 
@@ -739,7 +872,8 @@ function connectedAccountsToken(req) {
 
 app.post("/api/vault/disconnect", validateAccessToken, async (req, res) => {
   const tenant = req.tenant;
-  const connection = tenant?.deploymentData?.vault_connections?.crm;
+  const provider = req.body?.provider || "crm";
+  const connection = tenant?.deploymentData?.vault_connections?.[provider];
   const token = connectedAccountsToken(req);
   if (!token) {
     return res.status(400).json({ error: "Missing X-Connected-Accounts-Token header." });
@@ -757,7 +891,7 @@ app.post("/api/vault/disconnect", validateAccessToken, async (req, res) => {
     (a) => a.connection === connection
   );
   if (!entry) {
-    return res.json({ unlinked: false, provider: "crm" });
+    return res.json({ unlinked: false, provider });
   }
 
   const deleteRes = await fetch(`https://${tenant.domain}/me/v1/connected-accounts/${entry.id}`, {
@@ -768,18 +902,22 @@ app.post("/api/vault/disconnect", validateAccessToken, async (req, res) => {
     const data = await deleteRes.json().catch(() => ({}));
     return res.status(deleteRes.status).json(data);
   }
-  res.json({ unlinked: true, provider: "crm" });
+  res.json({ unlinked: true, provider });
 });
 
 app.get("/api/vault/providers", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
-  let linked = null;
-  try {
-    linked = await getToken(user.sub, "crm", req.tenant, user.accessToken);
-  } catch {
-    // Connection exists but doesn't allow API access (e.g. authentication-only) -- treat as not linked for display purposes.
+  const providers = [];
+  for (const provider of ["crm", "github"]) {
+    try {
+      const linked = await getToken(user.sub, provider, req.tenant, user.accessToken);
+      if (linked) providers.push({ provider });
+    } catch {
+      // Connection exists but doesn't allow API access (e.g. authentication-only),
+      // or isn't configured for this provider -- treat as not linked for display purposes.
+    }
   }
-  res.json({ providers: linked ? [{ provider: "crm" }] : [] });
+  res.json({ providers });
 });
 
 // --- MCP Dev Endpoints ---
@@ -796,7 +934,7 @@ app.get("/api/mcp/status", (_req, res) => {
       requiredScope: t.requiredScope,
       inputSchema: t.inputSchema,
     })),
-    scopes: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"],
+    scopes: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share", "mcp:github:read"],
     timestamp: new Date().toISOString(),
   });
 });
@@ -818,12 +956,12 @@ app.get("/api/fga/tuples", (req, res) => {
 // for the OBO exchange so identity + FGA are enforced exactly as in chat.
 app.post("/api/mcp/test", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
-  const { toolName, parameters } = req.body;
+  const { toolName, parameters, agent } = req.body;
   if (!toolName) {
     return res.status(400).json({ error: "toolName is required" });
   }
   try {
-    const result = await executeTool(toolName, parameters || {}, user.accessToken);
+    const result = await executeTool(toolName, parameters || {}, user.accessToken, agent);
     res.json({ success: true, result });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -861,6 +999,7 @@ app.listen(PORT, () => {
 
 startMCPServer();
 startCRMServer();
+startAcmeServer();
 
 // Hot-reload .env when it changes so new credentials are picked up
 // on the next request without restarting the server.

@@ -1,42 +1,27 @@
 ## Objective *(~20 min)*
 
-The MCP server now has a trust boundary.
+<!-- TODO: Flow screenshot here - User Identity -->
 
-It can distinguish a first-party agent (Agent as Principal identity) from an anonymous request and a valid token from a forged one.
+So the MCP server now has a trust boundary.
 
-But OBO token exchange needs an employee identity to carry through to tool execution, and right now it has nothing to carry.
+But OBO token exchange needs a user identity to carry through to tool execution and right now it has no user to carry.
 
-This module wires Auth0 Universal Login so every session has a verifiable employee **sub** that carries downstream.
+This module wires Auth0 Universal Login so every session has a verifiable user **sub** that carries downstream.
 
-This module is a **read-through**. The authentication wiring is pre-built in the starter.
+This module is **read-through only**. The authentication wiring is pre-built in the starter.
 
 By the end, you'll understand:
 
 - How the chat UI is gated behind Auth0 Universal Login.
 - How the user's access token reaches every **/api/\*** call.
-- How JWTs are validated on the Express backend with **express-oauth2-jwt-bearer**.
-- How **sub**, **email**, and **scope** are extracted so downstream modules have a real user context.
-
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    Why we're building this
-  </summary>
-
-AI agents that call tools without verified user identity can't produce compliance-grade audit trails. Every downstream access decision depends on knowing which employee initiated the request. That identity determines which documents users can read. It also determines which credentials Token Vault returns and which shares CIBA approves.
-
-The commercial consequence is direct. Enterprise customers in regulated industries most often delay AI agent deployments because they lack user-level audit trails. Universal Login plugs your existing IdP into the agent's authorization chain. User Authentication requires zero migration: no new identity system, no re-enrollment, no parallel directory.
-
-Every downstream control keys off that verified identity. Without it, Token Vault and CIBA work from a guess instead of a fact. A clean, attributable trail on document access compresses security review cycles from months to weeks. This acceleration shortens the path to contract signature.
-</details>
+- How JWTs are validated on the backend.
+- How **sub**, **email**, and **scope** are used so downstream modules have a real user context.
 
 ## What's provisioned for you
 
 When you clicked **Provision Resources**, the app created everything Nexus needs in your tenant:
 
-- **The Nexus API** (resource server `https://devcamp-docagent-api`, RS256) with the `chat:send` scope the SPA uses.
+- **The Nexus API** (resource server `devcamp-docagent-api`) with the `chat:send` scope the SPA uses.
 - **The Nexus SPA application**, with callbacks, logout URLs, and web origins set to your Codespace URL.
 - **Two demo users** seeded with different access for the FGA module:
   - `alice@docagent.demo`: engineering team member, can read and share engineering documents
@@ -46,7 +31,7 @@ When you clicked **Provision Resources**, the app created everything Nexus needs
 
 ## Code steps
 
-Feel free to open each file in your editor as you go. You'll trace the employee's identity from the browser login all the way to the backend handler.
+Open each file in your editor as you go. You'll trace the employee's identity from the browser login all the way to the backend handler.
 
 ### Step 1: the React tree is wrapped in **Auth0Provider**
 
@@ -128,6 +113,9 @@ const { loginWithRedirect, isLoading } = useAuth0();
 >
 > Guardian push MFA is enforced tenant-wide, so login also triggers an MFA enrollment in the Auth0 Guardian app.
 
+<!-- TODO: screenshot - Guardian MFA enrollment QR/prompt screen on first login -->
+<!-- TODO: screenshot - Nexus chat interface header showing logged-in user's name and Log Out button -->
+
 ### Step 4: the access token is attached to **/api/chat**
 
 **src/hooks/useChat.js** requests a token for the Nexus API audience and sends it on every chat call:
@@ -197,23 +185,7 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
 });
 ```
 
-## Checkpoint
-
-Click **Run Checks**. The verifier confirms:
-
-- You're logged in as `alice@docagent.demo`.
-- The access token includes the Nexus API audience (`https://devcamp-docagent-api`).
-- The token carries the `chat:send` scope.
-- Guardian push MFA was completed at login.
-
-> [!TIP]
-> You can also decode the raw JWT at [jwt.io](https://jwt.io) to inspect the **aud**, **sub**, and **scope** claims directly.
->
-> To get the raw token without needing chat unlocked, open your browser's DevTools console and run:
-> ```js
-> await window.__nexusAuth.getAccessTokenSilently({ authorizationParams: { audience: window.__nexusAuth.audience, scope: "chat:send" } })
-> ```
-> Paste the result into jwt.io. The backend terminal also shows **Authenticated request from user: auth0|...** on every chat call once chat unlocks later, and the **sub** there matches the **sub** in this token.
+--- 
 
 <details>
   <summary style='font-size: 1.5rem;
@@ -225,14 +197,13 @@ Click **Run Checks**. The verifier confirms:
 
 Every Nexus call now carries a verifiable user identity. This becomes the foundational anchor for everything downstream.
 
-Token Vault (from *The agent acts as the employee, not a shared bot*) mints CRM credentials scoped to this user. CIBA (from *Humans approve what can't be undone*) binds device approval to the same identity. FGA (from *Access that knows where it ends*) evaluates document access keyed on this **sub**. The MCP server receives this identity on every tool call.
+Token Vault (from the next module) mints CRM credentials scoped to this user. CIBA (from module 5) binds device approval to the same identity. FGA (from module 6) evaluates document access keyed on this **sub**. The MCP server receives this identity on every tool call.
 
 A verifiable identity at every layer makes audit trails possible. Audit trails make compliance sign-off possible.
 
-> [!NOTE]
-> Business win: a clean user-level audit trail on document access is the difference between a six-month security review and a two-week one.
-
 </details>
+
+--- 
 
 ## Checkpoint
 
@@ -240,19 +211,19 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      Gated the Nexus chat UI behind Auth0 Universal Login;
+      You're logged in as `alice@docagent.demo`.
   </li>
   <li style="list-style-type:'✅ '">
-      Attached the user's access token to every <code>/api/chat</code> call;
+      The access token includes the Nexus API audience (`devcamp-docagent-api`).
   </li>
   <li style="list-style-type:'✅ '">
-      Validated the JWT on the Express backend;
+      The token carries the `chat:send` scope.
   </li>
   <li style="list-style-type:'✅ '">
-      Extracted the user's <code>sub</code>, <code>email</code>, and <code>scope</code> for downstream modules.
+      Guardian push MFA was completed at login.
   </li>
 </ul>
 
-Every request now carries a verified employee identity. *The agent acts as the employee, not a shared bot* uses that identity to retrieve per-user credentials from Token Vault, so the agent never touches a shared service account.
+Every request now carries a verified human identity. The next module uses that identity to retrieve per-user credentials from Token Vault, so the agent never touches a shared service account.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

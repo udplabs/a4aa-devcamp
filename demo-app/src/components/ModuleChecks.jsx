@@ -23,12 +23,17 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
     }
 
     case "02": {
+      const r = await fetch("/api/verify/module02");
+      return await r.json();
+    }
+
+    case "03": {
       const checks = [];
 
       // Backend check: tenant-level MFA customization flag
-      const r02 = await fetch("/api/verify/module02");
-      const d02 = await r02.json();
-      checks.push(...d02.checks);
+      const r03 = await fetch("/api/verify/module03");
+      const d03 = await r03.json();
+      checks.push(...d03.checks);
 
       checks.push({
         id: "authenticated", name: "User is authenticated",
@@ -44,7 +49,7 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
           const payload = JSON.parse(atob(padded));
           // The SPA requested this token for the Nexus backend audience
           // above (`audience`), not the MCP server audience -- that one is
-          // only ever seen server-side, after the OBO exchange in Module 04.
+          // only ever seen server-side, after the OBO exchange in Module 05.
           const hasAud = Array.isArray(payload.aud)
             ? payload.aud.includes(audience)
             : payload.aud === audience;
@@ -72,21 +77,21 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
       return { checks };
     }
 
-    case "03": {
-      const r = await fetch("/api/verify/module03");
-      return await r.json();
-    }
-
     case "04": {
       const r = await fetch("/api/verify/module04");
       return await r.json();
     }
 
-    case "05":
+    case "05": {
+      const r = await fetch("/api/verify/module05");
+      return await r.json();
+    }
+
+    case "06":
       // Quiz handled inline — runChecks is not called for this module.
       return { checks: [] };
 
-    case "06": {
+    case "07": {
       return {
         checks: [
           { id: "completed", name: "End-to-end flow completed", pass: true,
@@ -193,8 +198,8 @@ export function ModuleChecks({ moduleId, onComplete }) {
   const { isAuthenticated, getAccessTokenSilently, getIdTokenClaims } = useAuth0Safe();
   const { audience } = useRuntimeConfigSafe();
 
-  if (moduleId === "05") {
-    return <FGAQuiz onPass={() => { if (onComplete) onComplete("05"); }} />;
+  if (moduleId === "06") {
+    return <FGAQuiz onPass={() => { if (onComplete) onComplete("06"); }} />;
   }
 
   async function handleRun() {

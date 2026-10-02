@@ -1,8 +1,8 @@
 # Securing MCP Servers and AI Agents with Auth0: DevCamp (A4AA)
 
-A hands-on workshop that takes a working enterprise document assistant (**Nexus**) and secures both its MCP server and the agents calling it. You'll wire up user authentication, Token Vault for CRM credentials, and the full **Auth for MCP** stack across five modules, delivered end-to-end with **Auth0 for AI Agents (A4AA)**. Fine-grained authorization (FGA) runs as a live demo against real Okta FGA.
+A hands-on workshop that takes a working enterprise document assistant (**Nexus**) and secures both its MCP server and the agents calling it, first-party and third-party alike. You'll wire up user authentication, Token Vault for CRM and GitHub credentials, and the full **Auth for MCP** stack across six modules, delivered end-to-end with **Auth0 for AI Agents (A4AA)**. Fine-grained authorization (FGA) runs as a live demo against real Okta FGA.
 
-The chat UI ships pre-built. Every line of code you write is on the identity and authorization layer. Your Auth0 tenant is provisioned for you when you launch, so there is no dashboard setup to do by hand beyond the specific toggles each module calls out.
+The chat UI ships pre-built. Every line of code you write is on the identity and authorization layer. Your Auth0 tenant is provisioned for you when you launch, so you won't need any dashboard setup by hand beyond the specific toggles each module calls out.
 
 ## Why this lab exists
 
@@ -13,14 +13,17 @@ Nexus exposes four tools through an MCP server: document search, document retrie
 | Module | Title | Primitive | Outcome |
 |---|--------|-----------|---------|
 | 02 | Auth for MCP | RFC 9728 + RFC 8414 + RFC 8693 + RFC 8707 + Agent as Principal | MCP server becomes the trust boundary; every tool call is bearer-authenticated and OBO-scoped to the employee |
-| 03 | User Authentication | Auth0 Universal Login, `express-oauth2-jwt-bearer` | Employee logs in, JWT `sub` flows to every downstream tool call |
-| 04 | Token Vault | Per-user federated CRM credentials | Agent calls the CRM with the employee's identity, refreshed automatically, never held in agent memory |
-| 05 | Async Authorization (CIBA) | Client-Initiated Backchannel Authentication + Auth0 Guardian push | External document shares require out-of-band employee approval with a binding message |
-| 06 | Fine-Grained Authorization (live demo) | Real Okta FGA, relationship-based access model | Employees read and share only the documents they are authorized to access, enforced live at the data boundary |
+| 03 | A second agent knocks (third-party onboarding) | CIMD self-registration + manual admin trust decision + a second Agent as Principal identity | A partner's agent gets equivalent, independently auditable access without a shared credential |
+| 04 | User Authentication | Auth0 Universal Login, `express-oauth2-jwt-bearer` | Employee logs in, JWT `sub` flows to every downstream tool call |
+| 05 | Token Vault | Per-user federated CRM and GitHub credentials | Agent calls the CRM and GitHub with the employee's identity, refreshed automatically, never held in agent memory |
+| 06 | Async Authorization (CIBA) | Client-Initiated Backchannel Authentication + Auth0 Guardian push | External document shares require out-of-band employee approval with a binding message |
+| 07 | Fine-Grained Authorization (live demo) | Real Okta FGA, relationship-based access model | Employees read and share only the documents they are authorized to access, enforced live at the data boundary |
 
-Module 00 introduces the workshop and Module 01 covers environment setup and tenant provisioning. Module 06 is the one piece you watch rather than write — FGA is provisioned and enforced live against a real Okta FGA store, so you see allow and deny decisions land without touching the authorization code. A closing end-to-end run (Module 07) takes one document request through every control at once.
+Module 01 covers environment setup and tenant provisioning. Module 07 is FGA. It's already provisioned and enforced live against a real Okta FGA store, so you can see allow and deny decisions land without touching the authorization code. A closing end-to-end run (Module 08) takes one document request through every control, with both agents and both Token Vault providers, at once.
 
 See [`lab-guide/`](./lab-guide/) for the step-by-step participant instructions.
+
+![end to end flow](end-to-end.png)
 
 ## Repository layout
 
@@ -34,15 +37,16 @@ devcamp-a4aa/
 │   ├── 00-introduction.md        ← mission briefing (read during kickoff)
 │   ├── 01-prerequisites.md       ← Module 01 (environment setup + tenant provisioning)
 │   ├── 02-one-trust-boundary-for-every-agent.md         ← Module 02, Auth for MCP (keystone)
-│   ├── 03-every-agent-action-has-an-owner.md            ← Module 03, User Authentication
-│   ├── 04-the-agent-acts-as-the-employee,-not-a-shared-bot.md ← Module 04, Token Vault
-│   ├── 05-humans-approve-what-can't-be-undone.md        ← Module 05, CIBA
-│   ├── 06-access-that-knows-where-it-ends.md            ← Module 06, FGA live demo (witnessed)
-│   ├── 07-putting-it-all-together.md                    ← closing end-to-end run
+│   ├── 03-a-second-agent-knocks.md                      ← Module 03, third-party agent onboarding (CIMD)
+│   ├── 04-every-agent-action-has-an-owner.md            ← Module 04, User Authentication
+│   ├── 05-the-agent-acts-as-the-employee,-not-a-shared-bot.md ← Module 05, Token Vault (CRM + GitHub)
+│   ├── 06-humans-approve-what-cant-be-undone.md         ← Module 06, CIBA
+│   ├── 07-access-that-knows-where-it-ends.md            ← Module 07, FGA live demo (witnessed)
+│   ├── 08-putting-it-all-together.md                    ← closing end-to-end run
 │   └── 99-conclusion.md          ← wrap-up (what you shipped, next steps)
 │
 ├── demo-app/                     ← the application, run via GitHub Codespaces
-└── mock-crm-service/             ← standalone CRM OAuth2 mock, deployable to Vercel (Module 04 upstream)
+└── mock-crm-service/             ← standalone CRM OAuth2 mock, deployable to Vercel (Module 05 upstream)
 ```
 
 There is a single living application tree: **`demo-app/`**. Each participant runs their own copy in GitHub Codespaces against their own provisioned Auth0 tenant. Participants work directly against `demo-app/`, guided by `lab-guide/`.
@@ -97,7 +101,7 @@ Typical loop:
 
 ## Demo users
 
-Two employees are seeded with intentionally different document access so the FGA live demo (Module 06) has something to bite on:
+Two employees are seeded with intentionally different document access so the FGA live demo (Module 07) has something to bite on:
 
 | User | Access | What they can do |
 |---|---|---|
@@ -115,7 +119,7 @@ Your Auth0 tenant's footprint is provisioned with one click from inside the app 
 | Auth0 login, JWT validation, OAuth flows | **Real** |
 | MCP protocol, OBO token exchange, audience enforcement | **Real** |
 | Tenant provisioning (SPA, APIs, M2M, CRM connection) | **Real**, one click from inside the app |
-| FGA | **Live** against a real Okta FGA store provisioned per tenant. Witnessed as a live demo (Module 06); in-memory tuples as fallback |
+| FGA | **Live** against a real Okta FGA store provisioned per tenant. Witnessed as a live demo (Module 07); in-memory tuples as fallback |
 | CIBA | **Real** via Auth0 Guardian push; in-memory approve/deny as fallback for anyone who skips device enrollment |
 | Token Vault | **Live** when a CRM federated connection is provisioned for the tenant; in-memory mint and refresh as fallback |
 | CRM API | Mocked on `:3002` (or via `mock-crm-service/` when deployed separately) |
@@ -127,3 +131,12 @@ Your Auth0 tenant's footprint is provisioned with one click from inside the app 
 - [Auth0 for AI Agents overview](https://auth0.com/ai)
 - [MCP authorization spec (2025-11-25)](https://modelcontextprotocol.io/specification)
 - RFC 9728 (Protected Resource Metadata), RFC 8414 (AS Metadata), RFC 8693 (Token Exchange), RFC 8707 (Resource Indicators)
+
+## TODO: 
+
+- If something errors on provisioning. It should be immediately visible to the user and clear that something was not properly provisioned so they can resolve it
+- FGA - FGA should use the always-on tenant by default. How we do that isn't super clear, but I want it to actually use FGA, not fake it unless it HAS to
+- Crop out all of the super confusing text. Simple, clear terms.
+- All of the one-off 'might happen' use cases should be in their own 'troubleshooting' section per module
+- The introduction should have a flow to study and understand. perhaps the same flow from the slide deck. Every module after should highlight which section you're setting up.
+- More screenshots and settings? Would that make it longer?

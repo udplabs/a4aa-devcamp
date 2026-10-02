@@ -62,8 +62,7 @@ function vaultKey(userId, provider) {
 function connectionFor(tenant, provider) {
   const conns = tenant?.deploymentData.vault_connections;
   if (!conns) return null;
-  if (provider === "crm") return conns.crm || null;
-  return null;
+  return conns[provider] || null;
 }
 
 // Exchange the rep's access token for a federated-connection token
@@ -191,17 +190,27 @@ export function listLinkedProviders(userId) {
 // on demand via Token Vault, so seeding is a no-op. Otherwise we
 // seed the in-memory simulation so the lab runs offline.
 export async function seedVaultForUser(userId, tenant, userAccessToken) {
-  const hasLive = !!connectionFor(tenant, "crm");
-  if (hasLive && userAccessToken) {
-    return;
+  const hasLiveCrm = !!connectionFor(tenant, "crm");
+  if (!(hasLiveCrm && userAccessToken)) {
+    storeToken(
+      userId,
+      "crm",
+      `crm_access_${userId}_${Date.now()}`,
+      `crm_refresh_${userId}`,
+      3600,
+      ["crm:activities:write"]
+    );
   }
 
-  storeToken(
-    userId,
-    "crm",
-    `crm_access_${userId}_${Date.now()}`,
-    `crm_refresh_${userId}`,
-    3600,
-    ["crm:activities:write"]
-  );
+  const hasLiveGithub = !!connectionFor(tenant, "github");
+  if (!(hasLiveGithub && userAccessToken)) {
+    storeToken(
+      userId,
+      "github",
+      `github_access_${userId}_${Date.now()}`,
+      `github_refresh_${userId}`,
+      3600,
+      ["read:user"]
+    );
+  }
 }

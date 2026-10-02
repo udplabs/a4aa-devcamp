@@ -1352,6 +1352,12 @@ body {
   color: #6E5A8A;
 }
 
+.tester-connect-link {
+  color: #BC6DFF;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .tester-tool-desc {
   font-size: 13px;
   color: #BFA9D6;

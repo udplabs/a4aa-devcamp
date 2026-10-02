@@ -1,16 +1,17 @@
-You came in with a working MCP server and no way to control who could use it or on whose behalf. You're leaving with a production-ready one: agents connect with durable Agent as Principal identities, OBO token exchange carries the employee's identity through every agent boundary, and Token Vault, CIBA, and FGA enforce policy against that identity at every layer.
+You came in with a working MCP server and no way to control who could use it or on whose behalf. You're leaving with a production-ready one: first-party and third-party agents alike connect with durable Agent as Principal identities, OBO token exchange carries the employee's identity through every agent boundary, and Token Vault, CIBA, and FGA enforce policy against that identity at every layer.
 
-Five gaps stood between Nexus and production, and you closed each one with a layer of the Auth0 for AI Agents stack:
+Six gaps stood between Nexus and production, and you closed each one with a layer of the Auth0 for AI Agents stack:
 
 - **Auth for MCP** made the MCP server the trust boundary, with on-behalf-of token exchange so every tool call knows which employee triggered it and is scoped to a single resource.
+- **Third-party agent onboarding** gave a partner's agent its own durable, independently auditable identity after a manual admin trust decision, instead of a shared or ad hoc credential.
 - **User Authentication** gave the server a verified employee identity on every request, so anonymous calls are gone and every log line names a real employee.
-- **Token Vault** replaced a shared CRM bot token with per-user, short-lived federated credentials, refreshed automatically and never held in agent memory.
+- **Token Vault** replaced shared bot tokens (CRM and GitHub) with per-user, short-lived federated credentials, refreshed automatically and never held in agent memory.
 - **Async Authorization (CIBA)** put a human in the loop so a document share with an external recipient can't execute until the employee approves a binding message from their own device.
 - **Fine-Grained Authorization (FGA)**, witnessed live against a real store, scoped each employee to the documents they are authorized to read or share; confidential HR and executive documents never surfaced for anyone outside those departments.
 
 ### Business value delivered
 
-The five controls you implemented map directly to the three outcomes that differentiate a production-ready AI agent platform from a prototype:
+The six controls you implemented map directly to the three outcomes that differentiate a production-ready AI agent platform from a prototype:
 
 - **Drove revenue through world-class experiences**: PRM discovery and Agent-as-Principal identity mean any compliant agent or partner connects without custom onboarding work, unlocking integrations a closed platform couldn't support. CIBA kept that experience frictionless throughout, since every routine tool call ran silently and only the one irreversible action, external sharing, ever interrupted a human.
 - **Stayed ahead of the curve**: The same authorization engine now covers every agent runtime you support, so a new model or framework arrives without a security re-architecture. Universal Login plugged straight into the IdP you already run. Token Vault took the burden of managing and auditing agent credentials off your developers. FGA's relationship-based access model earns enterprise and buyer trust.
@@ -21,15 +22,18 @@ What you built transcends Nexus. Every AI agent that calls APIs, touches user da
 ### What you accomplished
 
 - ✅ Made the MCP server the trust boundary with on-behalf-of token exchange preserving the user's `sub` end-to-end
+- ✅ Onboarded a third-party agent through CIMD discovery and a manual admin trust decision, giving it a separate, equally-scoped Agent as Principal identity
 - ✅ Gave Nexus a verified employee identity on every request with Auth0 user authentication
-- ✅ Issued short-lived, per-user federated CRM credentials through Token Vault instead of a shared bot token
+- ✅ Issued short-lived, per-user federated credentials for both CRM and GitHub through Token Vault instead of shared bot tokens
 - ✅ Gated irreversible external document shares behind out-of-band human approval with CIBA
 - ✅ Witnessed Auth0 FGA enforce relationship-based access live, keeping confidential documents out of unauthorized search results
 - ✅ Took a working but unshippable MCP server all the way to production-ready
 
 ### Cleaning up
 
-To remove the Auth0 resources created during provisioning, click the floating **Reset icon** in the bottom-right corner of the app. You'll be asked to confirm. This calls the deprovision endpoint and removes the backend API, MCP resource server, M2M client, SPA client, CIBA client, and CRM connection from your tenant. Your Auth0 tenant itself and its users remain intact.
+To remove the Auth0 resources created during provisioning, click the floating **Reset icon** in the bottom-right corner of the app. You'll be asked to confirm. This calls the deprovision endpoint and removes the backend API, MCP resource server, both first- and third-party M2M clients and agent records, SPA client, CIBA client, and CRM connection from your tenant. Your Auth0 tenant itself and its users remain intact.
+
+The GitHub social connection is not removed automatically — you created it by hand, outside the provisioning flow, so it's yours to delete (or keep) in the Auth0 Dashboard and in your GitHub OAuth App settings.
 
 ### What's next
 

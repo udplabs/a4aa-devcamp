@@ -38,10 +38,11 @@ export function protectedResourceMetadata(_req, res) {
       `https://${authDomain}`,
     ],
     scopes_supported: [
-      "mcp:docs:search", // search_documents (FGA-filtered)
-      "mcp:docs:read",   // get_document (per-doc FGA check)
-      "mcp:crm:log",     // log_crm_activity (Token Vault — CRM)
-      "mcp:docs:share",  // share_document (CIBA-gated)
+      "mcp:docs:search",  // search_documents (FGA-filtered)
+      "mcp:docs:read",    // get_document (per-doc FGA check)
+      "mcp:crm:log",      // log_crm_activity (Token Vault — CRM)
+      "mcp:docs:share",   // share_document (CIBA-gated)
+      "mcp:github:read",  // check_github_identity (Token Vault — GitHub)
     ],
     bearer_methods_supported: ["header"],
     // CIMD: clients pre-register instead of using Dynamic Client Registration.

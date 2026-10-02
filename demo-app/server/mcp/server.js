@@ -34,7 +34,6 @@
 
 import express from "express";
 import { protectedResourceMetadata } from "./metadata.js";
-import { getClientMetadata } from "./cimd.js";
 import { findAvailablePort } from "../utils/port.js";
 import { getJwtValidator, decodeUnverified, bearerFromHeader } from "../platform/jwt.js";
 import { tenantResolver } from "../platform/tenantResolver.js";
@@ -92,14 +91,6 @@ const validateMCPToken = (req, res, next) => {
 // RFC 9728: Protected Resource Metadata
 app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata);
 
-// CIMD: the URL of this endpoint IS the client's client_id, for any
-// third-party CIMD-compliant MCP client that wants to self-register.
-// Nexus itself no longer registers its own identity this way -- see
-// Agent as Principal in provision.js / auth0Management.js instead.
-app.get("/.well-known/client-metadata", (req, res) => {
-  res.json(getClientMetadata(req));
-});
-
 // OAuth 2.0 Authorization Server Metadata
 app.get("/.well-known/oauth-authorization-server", (_req, res) => {
   res.json({
@@ -115,6 +106,7 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
       "mcp:docs:read",
       "mcp:crm:log",
       "mcp:docs:share",
+      "mcp:github:read",
     ],
     grant_types_supported: [
       "urn:ietf:params:oauth:grant-type:token-exchange",
@@ -183,6 +175,16 @@ export const TOOLS = [
     },
     requiredScope: "mcp:docs:share",
   },
+  {
+    name: "check_github_identity",
+    description:
+      "Verify the connected GitHub account by calling the GitHub API as the user. Uses Token Vault to mint a short-lived GitHub credential scoped to this user — proves the per-user federated token works, same pattern as log_crm_activity but against a built-in social connection instead of a custom OAuth2 one.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+    requiredScope: "mcp:github:read",
+  },
 ];
 
 // List available tools (MCP tools/list)
@@ -209,6 +211,9 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
     `[MCP Server] Tool call: ${name}, sub=${userSub}, scopes=${tokenScopes.join(",")}`
   );
   console.log(`[MCP Server] Full token payload:`, JSON.stringify(payload));
+  if (payload.act?.sub) {
+    console.log(`[MCP Server] Acting agent (act.sub): ${payload.act.sub}`);
+  }
 
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) {
@@ -329,6 +334,41 @@ async function executeToolLogic(name, args, userSub, tenant, userAccessToken) {
       }
       const data = await response.json();
       return { success: true, ...data };
+    }
+
+    case "check_github_identity": {
+      // Lab 04/05 (Token Vault) -- same getToken(userSub, provider, ...)
+      // call as log_crm_activity, just against the built-in GitHub social
+      // connection instead of the custom CRM OAuth2 one.
+      let tokenResult;
+      try {
+        tokenResult = await getToken(userSub, "github", tenant, userAccessToken);
+      } catch (err) {
+        if (err instanceof TokenVaultAccessDeniedError) {
+          return {
+            success: false,
+            error: "GitHub connection does not allow API access (it's set to authentication-only). Ask the user to enable Token Vault for this connection, or reconnect via Connected Accounts.",
+          };
+        }
+        throw err;
+      }
+      if (!tokenResult) {
+        return {
+          success: false,
+          error: "No GitHub account linked. Ask the user to connect their GitHub account.",
+        };
+      }
+      const response = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${tokenResult.token}`,
+          "User-Agent": "nexus-devcamp",
+        },
+      });
+      if (!response.ok) {
+        return { success: false, error: `GitHub API error: ${response.statusText}` };
+      }
+      const data = await response.json();
+      return { success: true, login: data.login, id: data.id };
     }
 
     case "share_document": {

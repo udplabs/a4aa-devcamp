@@ -1,6 +1,6 @@
 ## Objectives *(~20 min)*
 
-- Drive Nexus through a happy-path document workflow as Alice.
+- Drive Nexus through document workflows as Alice and Bob.
 - Drive a second sequence that trips CIBA (external document share).
 - Run each negative test to confirm the guardrails hold.
 - Read the logs and map each line to the layer that produced it.
@@ -8,9 +8,12 @@
 ## Prerequisites
 
 - All steps from all previous modules are completed.
-- Codespace port 3002 (CRM mock) is set to **Public** visibility, required for the CRM's OAuth redirect to complete.
-- You've already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** fails with "No CRM account linked" instead of returning a live federated token in step 7 below.
+- You've already clicked **Connect** next to "CRM" and "GitHub" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** and **check_github_identity** fail with "No account linked" instead of returning a live federated token below.
+- `AUTH0_ACME_CLIENT_ID` is set in `.env` (from *A second agent knocks*), and Acme has completed its PKCE login at `/login`, so the Tool Tester's **Acme Partner Agent** selector works.
+- `VAULT_CONN_GITHUB` is set in `.env` (from *The agent acts as the employee, not a shared bot*).
 - Demo users: **`alice@docagent.demo`** (engineering team, editor on q3-roadmap), **`bob@docagent.demo`** (all-company docs only).
+
+--- 
 
 <details>
   <summary style='font-size: 1.5rem;
@@ -40,6 +43,8 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 - For every prompt below, open the **Tool Logs** panel on the right side of the Nexus UI first. It shows the exact tool call the agent made, which is the fastest way to confirm you got the expected result instead of parsing the chat reply text alone.
 </details>
 
+--- 
+
 ## Happy path: engineering document workflow
 
 1. Log in as Alice (**`alice@docagent.demo`** / **`DevCamp1!`**).
@@ -47,6 +52,8 @@ The same user **sub** flows through every hop, giving you one audit key for ever
   - Expected:
     - Tool call **search_documents** returns **q3-roadmap** (title "Q3 Product Roadmap", department engineering).
     - Badges on the tool card: **OBO**, **FGA**.
+
+<!-- TODO: screenshot - tool card with OBO and FGA badges after search_documents -->
 3. Prompt: `Read the Q3 roadmap.`
   - Expected:
     - Tool call **get_document** with **documentId: q3-roadmap** returns full content.
@@ -56,6 +63,18 @@ The same user **sub** flows through every hop, giving you one audit key for ever
     - Tool call **log_crm_activity** triggers Token Vault to mint a CRM credential for Alice, logging the activity with her **sub**.
     - Badges: **OBO**, **Token Vault**.
     - Server log: **[Token Vault] (live) federated token for auth0|<alice-sub> @ crm**
+5. Open the **Tool Tester** tab and call **check_github_identity**.
+  - Expected:
+    - Tool call triggers Token Vault to mint a GitHub credential for Alice and returns **{ success: true, login: "<alice-github-username>", id: <id> }**.
+    - Server log: **[Token Vault] (live) federated token for auth0|<alice-sub> @ github**
+
+## Proof point: two agents, two identities
+
+1. Open the **Tool Tester** tab.
+2. Set **Call as** to **Nexus Agent (first-party)** and call **search_documents** with any query.
+3. Open **Tool Logs** and note the `act.sub` value — the first-party agent's `agt_...` ID.
+4. Set **Call as** to **Acme Partner Agent (third-party)** and call the same tool with the same query.
+5. Check **Tool Logs** again — `act.sub` now shows Acme's `agt_...` ID instead, for the same scoped call.
 
 ## CIBA path: external document share
 
@@ -64,6 +83,8 @@ The same user **sub** flows through every hop, giving you one audit key for ever
     - Push notification card appears in the chat reading "Push notification sent Approve on your device" and showing the binding message **Approve: share Q3 Product Roadmap to external at partner.com**.
 2. Approve the push on your enrolled Guardian device.
 3. The UI flips; the share executes with a **sharedAt** timestamp.
+
+<!-- TODO: screenshot - chat after approval showing the share result with sharedAt timestamp -->
 
 ## Negative tests
 
@@ -77,7 +98,7 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 > [!NOTE]
 > Depending on the exact wording, this can route to either **get_document** or **search_documents**, and they handle denial differently by design. When you call **get_document** (triggered by "show", "open", "read", etc. plus a specific document name), it returns an explicit **{ success: false, error: "Access denied..." }** and logs the **DENIED** line. When you call **search_documents** (triggered by "find", "search", or the **Find the Q3 roadmap** chip), it never returns an explicit error. Instead, it silently filters denied documents out of the results, so you see **{ success: true, results: [], total: 0 }** with no "Access denied" message.
 >
-> This difference is intentional. A search that explicitly denies a match would leak information to Bob by confirming that a document exists matching his query—he'd only know it's one he can't access. By filtering silently, "nothing found" becomes indistinguishable from "nothing exists," which protects information without surfacing an error. **get_document**, by contrast, is asking for one specific, named resource. A clear, explicit denial on a known, named document doesn't disclose anything Bob didn't already know to ask for.
+> This difference is intentional. A search that explicitly denies a match would leak information to Bob by confirming that a document exists matching his query. He'd only know it's one he can't access. By filtering silently, "nothing found" becomes indistinguishable from "nothing exists," which protects information without surfacing an error. **get_document**, by contrast, is asking for one specific, named resource. A clear, explicit denial on a known, named document doesn't disclose anything Bob didn't already know to ask for.
 
 ### FGA deny: confidential document
 
@@ -117,8 +138,13 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 - Prompt: `Share the Q3 roadmap with external@partner.com`
 - A push notification card appears. Approve it on your enrolled Guardian device.
 - Expected after approval: **403 { "error": "Insufficient scope", "required": "mcp:docs:share" }**.
+
+<!-- TODO: screenshot - chat/tool card showing the insufficient-scope 403 error -->
 - If the share still succeeds, the OBO-scoped token from an earlier call may still be cached (it's cached for up to 5 minutes). Wait a few minutes and retry, or restart the dev server to force a fresh token exchange.
 - Re-enable the scope when done.
+
+> [!TIP]
+> Optionally, repeat this test against the **Acme Partner Agent** application (remove **mcp:docs:share** from its grant on the Nexus Backend API, then call **share_document** via the Tool Tester with **Call as: Acme Partner Agent**). The same **403 insufficient_scope** applies — scope enforcement is agent-agnostic, so it's not a special case for the first-party client. Re-enable the scope when done.
 
 ### Token Vault disabled: fails closed
 
@@ -130,6 +156,8 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 - This is a real deny, not a fallback: once a real federated connection exists for a user, Auth0 rejecting the exchange is treated as a hard denial and surfaces as this specific error. It never silently succeeds via the in-memory mock credential, which only exists for the fully-offline case where no live connection is provisioned at all. A missing or disabled credential should never be papered over with a fake one.
 - Toggle the Token Vault purpose back on and re-confirm the Connected Accounts link (*The agent acts as the employee, not a shared bot*) when done.
 
+--- 
+
 <details>
   <summary style='font-size: 1.5rem;
   font-weight: bold;
@@ -138,11 +166,12 @@ The same user **sub** flows through every hop, giving you one audit key for ever
     What you learned
   </summary>
 
-Five controls are stacked behind one MCP server: MCP with Agent as Principal, OBO, and PRM; Authentication; Token Vault; CIBA; and FGA. Each one mitigates a specific risk:
+Six controls are stacked behind one MCP server: MCP with Agent as Principal, OBO, and PRM; third-party agent onboarding; Authentication; Token Vault; CIBA; and FGA. Each one mitigates a specific risk:
 
 - MCP, from *One trust boundary for every agent*, prevents anonymous callers and agent-framework lock-in on your authorization code.
+- Third-party onboarding, from *A second agent knocks*, prevents ad hoc vendor access without a documented trust decision.
 - JWT validation, from *Every agent action has an owner*, prevents unauthenticated use and anchors every downstream decision to a person.
-- Token Vault, from *The agent acts as the employee, not a shared bot*, prevents shared-credential sprawl.
+- Token Vault, from *The agent acts as the employee, not a shared bot*, prevents shared-credential sprawl, for every provider you connect.
 - CIBA, from *Humans approve what can't be undone*, prevents unilateral irreversible actions.
 - FGA, from *Access that knows where it ends*, prevents cross-user document access.
 
@@ -150,6 +179,8 @@ The commercial payoff is substantial. A document agent that finds and shares inf
 
 That's the full Nexus workshop. The implementation you just walked through is the reference pattern for production-ready AI agent identity.
 </details>
+
+--- 
 
 ## <span style="font-variant: small-caps">Congrats!</span>
 

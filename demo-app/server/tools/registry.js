@@ -79,10 +79,36 @@ export function getToolsForDisplay() {
 
 const mcpClient = createMCPClient();
 
-export async function executeTool(toolName, parameters, userAccessToken) {
-  console.log(`[Tools] Executing via MCP: ${toolName}`, parameters);
+export async function executeTool(toolName, parameters, userAccessToken, agent = "nexus") {
+  console.log(`[Tools] Executing via MCP: ${toolName}`, parameters, `(agent=${agent})`);
 
   try {
+    if (agent === "acme") {
+      const res = await fetch(
+        `http://localhost:${process.env.ACME_SERVER_PORT || 3002}/api/call-tool`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: toolName, arguments: parameters }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (body.error) {
+          throw new Error(body.error);
+        }
+        if (body.required) {
+          throw new Error(`MCP authorization failed: insufficient scope. Required: ${body.required}`);
+        }
+        throw new Error(`Acme tool call failed: ${res.statusText}`);
+      }
+
+      const body = await res.json();
+      console.log(`[Tools] Acme result:`, body.result);
+      return body.result;
+    }
+
     const result = await mcpClient.callTool(toolName, parameters, userAccessToken || "");
     console.log(`[Tools] MCP result:`, result);
     return result;

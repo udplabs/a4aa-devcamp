@@ -61,6 +61,7 @@ export const BACKEND_SCOPES = [
   "mcp:docs:read",
   "mcp:crm:log",
   "mcp:docs:share",
+  "mcp:github:read",
 ];
 const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
 // Agent as Principal (Early Access): display name participants use when
@@ -68,6 +69,11 @@ const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
 // docagent-mcp-obo. Kept as a constant so provisioning, verification,
 // and the frontend copy-paste helper all agree on the exact string.
 export const AGENT_NAME = "Nexus Agent (DevCamp)";
+// Agent as Principal identity for the third-party agent, hand-provisioned
+// by an admin after reviewing its CIMD document (Module 02: A second
+// agent knocks). Kept distinct from AGENT_NAME to avoid the display-name
+// collision the two agent records would otherwise share.
+export const THIRD_PARTY_AGENT_NAME = "Acme Partner Agent (DevCamp)";
 
 export async function safe(label, fn) {
   try {
@@ -113,6 +119,22 @@ export async function runProvision(
   // as act.sub in every OBO-issued token, giving the agent a durable,
   // auditable identity independent of the client's own credentials.
   const m2m = null;
+
+  // 2b. Third-party public PKCE client (Acme) — also NOT auto-
+  // provisioned, and deliberately so: the whole teaching point of
+  // Module 02 (A second agent knocks) is that there's no automated path
+  // from a self-published CIMD document to a trusted Agent-as-Principal
+  // identity. An admin reviews Acme's self-published CIMD document
+  // (served by Acme's own standalone server, not Nexus), then hand-
+  // creates a PUBLIC, native-type Auth0 application for it -- no client
+  // secret, "first party" toggle OFF so a real consent screen appears --
+  // and links it to a separate Agent-as-Principal record
+  // (THIRD_PARTY_AGENT_NAME). The admin stores the new client's id as
+  // AUTH0_ACME_CLIENT_ID in .env; there's no secret to store, since a
+  // public client has none. There is no M2M/OBO client for Acme at all --
+  // unlike the first-party flow above, Acme completes its own
+  // Authorization Code + PKCE flow directly, so it never needs a
+  // token-exchange grant.
 
   // 4. SPA client — reconfigure if the platform created one, otherwise create new.
   const appOrigin = (appUrl || "").replace(/\/$/, "");
@@ -182,6 +204,13 @@ export async function runProvision(
     })
   );
   if (crmName) vault_connections.crm = crmName;
+  // GitHub's connection is set up entirely by hand in the Dashboard
+  // (Module 04/05: The agent acts as the employee) -- no shared Nexus-
+  // owned GitHub OAuth App is provisioned here. The placeholder is
+  // filled in later from the participant's manual VAULT_CONN_GITHUB
+  // .env paste, picked up by tenantResolver the same way AUTH0_OBO_CLIENT_ID
+  // flows in today.
+  vault_connections.github = null;
 
   // 6. Demo users — alice (engineering access) and bob (all-company only).
   // Password is shown in the lab guide; email_verified is set so they can
@@ -309,6 +338,7 @@ export async function runProvision(
 export async function runDeprovision(ctx) {
   const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
   const m2mClientId = process.env.AUTH0_OBO_CLIENT_ID;
+  const acmeClientId = process.env.AUTH0_ACME_CLIENT_ID;
   const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
   const mfaActionId = process.env.AUTH0_MFA_ACTION_ID;
   const crmConnName = process.env.VAULT_CONN_CRM;
@@ -318,10 +348,15 @@ export async function runDeprovision(ctx) {
   await safe("del nexus user role", () => deleteRoleByName(ctx, "Nexus User"));
   if (spaClientId) await safe("del spa client", () => deleteClient(ctx, spaClientId));
   if (m2mClientId) await safe("del obo m2m client", () => deleteClient(ctx, m2mClientId));
+  if (acmeClientId)
+    await safe("del acme client", () => deleteClient(ctx, acmeClientId));
   if (cibaClientId) await safe("del ciba client", () => deleteClient(ctx, cibaClientId));
   await safe("del legacy cimd app", () => deleteLegacyCimdApp(ctx));
   await safe("del agent", () => deleteAgentByName(ctx, AGENT_NAME));
+  await safe("del thirdparty agent", () => deleteAgentByName(ctx, THIRD_PARTY_AGENT_NAME));
   if (crmConnName) await safe("del crm connection", () => deleteConnectionByName(ctx, crmConnName));
+  // GitHub's connection is manual/out-of-band (participant-created), so
+  // it isn't auto-deleted here -- noted explicitly in the deprovision lab step.
   await safe("del backend api", () => deleteResourceServerByIdentifier(ctx, BACKEND_API_IDENTIFIER));
   await safe("del mcp api", () => deleteResourceServerByIdentifier(ctx, MCP_API_IDENTIFIER));
   await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
@@ -349,6 +384,7 @@ export function deploymentDataToEnvVars(dd) {
   if (dd.ciba_client_id) vars.AUTH0_CIBA_CLIENT_ID = dd.ciba_client_id;
   if (dd.ciba_client_secret) vars.AUTH0_CIBA_CLIENT_SECRET = dd.ciba_client_secret;
   if (dd.vault_connections?.crm) vars.VAULT_CONN_CRM = dd.vault_connections.crm;
+  if (dd.vault_connections?.github) vars.VAULT_CONN_GITHUB = dd.vault_connections.github;
   if (dd.mfa_action_id) vars.AUTH0_MFA_ACTION_ID = dd.mfa_action_id;
   if (dd.fga_store_id) vars.FGA_STORE_ID = dd.fga_store_id;
   if (dd.fga_model_id) vars.FGA_MODEL_ID = dd.fga_model_id;

@@ -1,43 +1,19 @@
 ## Objective *(~20 min)*
 
-This module wires CIBA (Client-Initiated Backchannel Authentication), so one specific action—sharing a document with an external recipient—requires explicit employee approval before it executes.
+<!-- TODO: Flow screenshot here - auth0 to user phone CIBA flow -->
 
-In this module, you'll:
+This module wires in CIBA (Client-Initiated Backchannel Authentication), so one specific action—sharing a document with an external recipient—requires explicit employee approval before it executes.
+
+### In this module, you'll:
 
 - Understand how **share_document** triggers CIBA before calling the MCP server.
 - See how the binding message ties the push notification to the exact action being approved.
 - Trigger a real Guardian push notification and watch the approval resolve the pending tool call.
 
-<details>
-  <summary> 
-    Why we're building this
-  </summary>
-
-Fully automated irreversible actions represent one of the highest-risk categories of AI agent behavior.
-
-The commercial consequence: CIBA lets the agent run everything else silently. No approval prompts for document searches, no interruptions for CRM lookups.
-
-It surfaces a mobile approval only for the action that's genuinely irreversible: sharing outside the organization.
-
-That eliminates execution friction everywhere except where it should exist. It also stops rogue agent actions, because no external share executes without a device-bound human approval—with no exceptions, whether the agent is behaving correctly or has been compromised.
-
-Compliance teams at enterprise customers block deployments that skip this control. CIBA turns a blocked feature into an approved one, with a timestamped approval record on every share.
-
-</details>
-
 ## Prerequisites
 
 - You completed all previous modules.
 - The Auth0 Guardian app is installed, and your user is enrolled. This module runs the live CIBA flow end-to-end, so enrollment is required to receive the approval push.
-
-## Premise
-
-A user wants to share a sensitive document with an external email address. External sharing is irreversible and subject to data policy, so Nexus requires active confirmation from the user on their own device.
-
-The flow looks like this:
-1. The agent backend initiates an authorization request with a specific custom message
-2. The user's device surfaces a push notification
-3. Only after approval does the share execute.
 
 ## What's provisioned for you
 
@@ -47,32 +23,11 @@ The flow looks like this:
     - Authorization against the MCP API (**chat:send**)
     - Authorization against the Nexus Backend API (**mcp:docs:share**)
 
-> [!NOTE]
-> This module has no required Dashboard steps.
-
-### Enroll Alice in Guardian push MFA
-
-For CIBA push notifications to fire on a real device, the logged-in user must be enrolled in Guardian.
-
-Guardian push MFA is enforced tenant-wide (see *Every agent action has an owner*), so you most likely already enrolled a device the first time you logged in as Alice. If not:
-
-1. In the Auth0 Dashboard, go to **Security → Multi-factor Auth** and confirm Guardian is enabled.
-2. Log out of Nexus and log back in as **`alice@docagent.demo`**.
-3. Auth0 prompts you to enroll a second factor. Open the **Auth0 Guardian** app and scan the QR code shown.
-4. Once enrolled, triggering a document share sends a real Guardian push notification to your device.
-
-The checkpoint verifier checks that **`alice@docagent.demo`** has a confirmed Guardian enrollment.
-
-> [!NOTE]
-> Self-hosting?
->
-> Create a confidential Regular Web Application, add the **urn:openid:params:grant-type:ciba** grant in **Advanced Settings → Grant Types**, authorize it against your backend and MCP APIs, and enroll your user in Guardian push MFA.
-
 ## Dashboard steps
 
 ### Validate Guardian push notifications on the CIBA client
 
-Enable Guardian push so the in-app approval request can trigger a real device notification.
+Validate Guardian push is enabled so the in-app approval request can trigger a real device notification.
 
 1. Auth0 Dashboard → **Applications → Applications → docagent-ciba-codespace**
 2. In the left-side section list, look for **Client-Initiated Backchannel Authentication (CIBA)**.
@@ -81,9 +36,6 @@ Enable Guardian push so the in-app approval request can trigger a real device no
 ![docagent-ciba-codespace Notification Channels with Guardian Push enabled](images/04-guardian-push-enabled.png)
 
 ## Code steps
-
-> [!NOTE]
-> This code is already implemented in the demo-app. **You aren't writing new code in this module.**
 
 Once the tenant has a provisioned CIBA client:
 - **initiateCIBA** calls Auth0's **/bc-authorize** directly
@@ -254,6 +206,9 @@ app.get("/api/ciba/pending", (_req, res) => {
 
 In **src/hooks/useChat.js**, **startPolling** checks **/api/ciba/status/:authReqId** when **data.pendingCIBA** comes back. The binding message surfaces in the pending card (wired in **Chat.jsx**).
 
+<!-- TODO: screenshot - pending CIBA card in chat showing binding message and "check your device" text -->
+<!-- TODO: screenshot - Guardian push approval prompt on mobile device -->
+
 ## Checkpoint
 
 Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms the CIBA grant is active on your provisioned CIBA client.
@@ -264,6 +219,8 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
 ## What you learned
 
 Tool-level approvals tied to the user's device turn "agent shared a document nobody signed off on" into "user explicitly approved this share action, timestamped, with the exact document and recipient in the approval record." That audit artifact is what makes irreversible external sharing safe to automate at all. Manual review cycles would defeat the point of having an agent do this work, but CIBA lets you keep both the safety and the automation.
+
+--- 
 
 #### <span style="font-variant: small-caps">Congrats!</span>
 

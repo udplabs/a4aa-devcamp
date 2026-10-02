@@ -18,7 +18,7 @@ const TABS = [
   { id: "fga",    label: "FGA Tuples" },
 ];
 
-const LAB_MODULES = ["01", "02", "03", "04", "05"];
+const LAB_MODULES = ["01", "02", "03", "04", "05", "06"];
 
 // Lab 01 -- useAuth0 gives us isAuthenticated, user, and logout.
 // Auth0Provider (see src/auth/Auth0Provider.jsx) wraps this tree;
@@ -82,7 +82,7 @@ export default function App() {
           <div className="lab-locked-card">
             <h2 className="lab-locked-title">Workshop in Progress</h2>
             <p className="lab-locked-desc">
-              Complete and verify Modules 01–05 using the <strong>Lab Progress</strong> panel to unlock the Nexus demo.
+              Complete and verify Modules 01–06 using the <strong>Lab Progress</strong> panel to unlock the Nexus demo.
             </p>
             <div className="lab-locked-modules">
               {LAB_MODULES.map((id) => {
