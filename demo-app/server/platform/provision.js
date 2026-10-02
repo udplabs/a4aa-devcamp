@@ -248,7 +248,7 @@ export async function runProvision(
       tokenURL: `${crmBase}/crm/oauth/token`,
       clientId: "crm-demo-client",
       clientSecret: process.env.CRM_CLIENT_SECRET || "crm-demo-secret",
-      scopes: ["crm:activities:write"],
+      scopes: ["crm:activities:write", "offline_access"],
       enabledClients: [spa?.client_id, m2m?.client_id, mcpServerClient?.client_id].filter(Boolean),
     })
   );
@@ -391,7 +391,7 @@ export async function runProvision(
 // Tear down the provisioned Auth0 footprint for the current .env config.
 // Reads client/connection IDs from process.env and deletes them in order:
 // clients first (so grants are removed), then connections, then resource servers.
-export async function runDeprovision(ctx, { acmeCimdUrl } = {}) {
+export async function runDeprovision(ctx, { acmeCimdUrl, demoName } = {}) {
   const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
   const m2mClientId = process.env.AUTH0_OBO_CLIENT_ID;
   const mcpServerClientId = process.env.MCP_SERVER_CLIENT_ID;
@@ -399,7 +399,11 @@ export async function runDeprovision(ctx, { acmeCimdUrl } = {}) {
   const agentApi = process.env.AUTH0_AUDIENCE || AGENT_API_IDENTIFIER;
   const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
   const mfaActionId = process.env.AUTH0_MFA_ACTION_ID;
-  const crmConnName = process.env.VAULT_CONN_CRM;
+  // The connection name is deterministic (`crm-${demoName}`), so fall back to
+  // that even if VAULT_CONN_CRM is missing from .env/process.env -- otherwise
+  // a stale CRM connection survives Restart and gets silently reused (and not
+  // recreated) by createVaultConnection's existence check on the next provision.
+  const crmConnName = process.env.VAULT_CONN_CRM || (demoName ? `crm-${demoName}` : undefined);
   const fgaStoreId = process.env.FGA_STORE_ID;
 
   if (mfaActionId) await safe("del mfa action", () => unbindAndDeleteAction(ctx, mfaActionId));

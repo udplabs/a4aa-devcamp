@@ -239,7 +239,7 @@ app.post("/api/setup/deprovision", async (req, res) => {
   }
   try {
     const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
-    await runDeprovision(ctx, { acmeCimdUrl: acmeCimdUrl(requestOrigin(req)) });
+    await runDeprovision(ctx, { acmeCimdUrl: acmeCimdUrl(requestOrigin(req)), demoName: "codespace" });
     clearEnvKeys(PROVISIONED_ENV_KEYS);
     res.json({ ok: true });
   } catch (err) {
@@ -257,7 +257,7 @@ app.post("/api/setup/restart", async (req, res) => {
   if (domain && clientId && secret) {
     try {
       const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
-      await runDeprovision(ctx, { acmeCimdUrl: acmeCimdUrl(requestOrigin(req)) });
+      await runDeprovision(ctx, { acmeCimdUrl: acmeCimdUrl(requestOrigin(req)), demoName: "codespace" });
     } catch (err) {
       // Best effort — log but don't fail the restart
       console.error("[restart] deprovision failed (continuing):", err.message);
