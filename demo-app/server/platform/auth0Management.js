@@ -346,6 +346,13 @@ export async function createVaultConnection(ctx, opts) {
     strategy: opts.strategy,
     options,
     enabled_clients: opts.enabledClients,
+    // show_as_button only hides the button on Universal Login -- it does
+    // NOT stop /authorize?connection=... from logging a user in through
+    // this connection. These Purpose fields are what actually restrict it
+    // to Connected Accounts linking, so a stray login attempt can't create
+    // a parallel identity instead of a Token Vault connected account.
+    authentication: { active: false },
+    connected_accounts: { active: true },
   });
   return created.name;
 }

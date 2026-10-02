@@ -35,7 +35,7 @@ function onRedirectCallback(appState) {
     sessionStorage.setItem("vault_check_on_load", "1");
   }
   if (appState?.thenConnect) {
-    sessionStorage.setItem("vault_pending_connect", "1");
+    sessionStorage.setItem("vault_pending_connect", appState.thenConnect);
   }
   window.history.replaceState({}, document.title, appState?.returnTo || window.location.pathname);
 }

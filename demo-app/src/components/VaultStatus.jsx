@@ -108,7 +108,7 @@ export function VaultStatus() {
             audience: meAudience,
             scope: `openid ${CONNECTED_ACCOUNTS_SCOPE}`,
           },
-          appState: { thenConnect: true },
+          appState: { thenConnect: providerKey },
         });
         return;
       }
