@@ -347,10 +347,14 @@ export async function runProvision(
   );
   if (mfaAction?.id) {
     await safe("mfa action wait for built", () => waitForActionBuilt(ctx, mfaAction.id));
-    await safe("mfa action deploy", () => deployAction(ctx, mfaAction.id));
-    await safe("mfa action bind", () =>
-      bindActionToPostLogin(ctx, mfaAction.id, "Enforce Guardian Push MFA")
-    );
+    const deployed = await safe("mfa action deploy", () => deployAction(ctx, mfaAction.id));
+    if (deployed) {
+      await safe("mfa action bind", () =>
+        bindActionToPostLogin(ctx, mfaAction.id, "Enforce Guardian Push MFA")
+      );
+    } else {
+      console.error(`[provision] skipping "mfa action bind": action ${mfaAction.id} was not deployed`);
+    }
   }
 
   // 10. FGA store + model (optional; only if FGA credentials are provided)

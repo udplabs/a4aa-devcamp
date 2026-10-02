@@ -197,7 +197,7 @@ export async function deleteLegacyCimdApp(ctx) {
 // support filtering /api/v2/agents by name server-side, so page through
 // and filter client-side (same pattern as deleteLegacyCimdApp above).
 export async function findAgentByName(ctx, name) {
-  const result = await mgmt(ctx, "GET", "/agents?page=0&per_page=100").catch(() => null);
+  const result = await mgmt(ctx, "GET", "/agents?page=0&per_page=100");
   const agents = result?.agents || result || [];
   return (agents || []).find((a) => a.name === name) || null;
 }
@@ -300,6 +300,11 @@ export async function getConnectionByName(ctx, name) {
 // omitted, Token Vault must be enabled manually in the Dashboard
 // (the deliberate "aha" step in Lab 03). Returns the connection name.
 export async function createVaultConnection(ctx, opts) {
+  const existing = await getConnectionByName(ctx, opts.name);
+  if (existing) {
+    console.log(`[provision] connection ${opts.name} already exists, skipping`);
+    return existing.name;
+  }
   const options = {
     client_id: opts.clientId,
     client_secret: opts.clientSecret,
