@@ -26,6 +26,7 @@ import {
   deleteClient,
   deleteConnectionByName,
   deleteResourceServerByIdentifier,
+  deleteResourceServerByName,
 } from "./auth0Management.js";
 import { fgaSettingsFromEnvOrRecord, deleteFgaStore } from "./fgaProvision.js";
 import {
@@ -33,6 +34,8 @@ import {
   safe,
   AGENT_API_IDENTIFIER,
   DEFAULT_MCP_RESOURCE_IDENTIFIER,
+  MCP_SERVER_API_NAME,
+  AGENT_API_NAME,
 } from "./provision.js";
 
 const router = Router();
@@ -147,9 +150,14 @@ router.post("/hooks/destroy", (req, res) => {
       if (dd.ciba_client_id) await safe("del ciba", () => deleteClient(ctx, dd.ciba_client_id));
       if (dd.vault_connections?.crm)
         await safe("del crm conn", () => deleteConnectionByName(ctx, dd.vault_connections.crm));
-      await safe("del mcp server api", () =>
+      // Delete by name first so a resource server left behind under a stale
+      // identifier (e.g. a prior run's Codespace-forwarded origin) doesn't
+      // survive as an orphaned duplicate alongside the current one.
+      await safe("del mcp server api", () => deleteResourceServerByName(ctx, MCP_SERVER_API_NAME));
+      await safe("del agent api", () => deleteResourceServerByName(ctx, AGENT_API_NAME));
+      await safe("del mcp server api (by id)", () =>
         deleteResourceServerByIdentifier(ctx, dd.backend_audience || DEFAULT_MCP_RESOURCE_IDENTIFIER));
-      await safe("del agent api", () =>
+      await safe("del agent api (by id)", () =>
         deleteResourceServerByIdentifier(ctx, dd.mcp_audience || AGENT_API_IDENTIFIER));
 
       const fgaSettings = fgaSettingsFromEnvOrRecord(readSettings(body));

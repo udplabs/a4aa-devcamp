@@ -27,6 +27,7 @@ import {
   deleteClient,
   deleteConnectionByName,
   deleteResourceServerByIdentifier,
+  deleteResourceServerByName,
   createDemoUser,
   deleteDemoUser,
   deleteLegacyCimdApp,
@@ -423,8 +424,16 @@ export async function runDeprovision(ctx, { acmeCimdUrl, demoName } = {}) {
   await safe("del agent", () => deleteAgentByName(ctx, AGENT_NAME));
   await safe("del thirdparty agent", () => deleteAgentByName(ctx, THIRD_PARTY_AGENT_NAME));
   if (crmConnName) await safe("del crm connection", () => deleteConnectionByName(ctx, crmConnName));
-  await safe("del mcp server api", () => deleteResourceServerByIdentifier(ctx, mcpResource));
-  await safe("del agent api", () => deleteResourceServerByIdentifier(ctx, agentApi));
+  // Delete by name (not just the last-known identifier) so a resource server
+  // left behind under a stale identifier -- e.g. from a Codespace rebuild
+  // that changed the forwarded origin between provisioning runs -- doesn't
+  // survive as an orphaned duplicate.
+  await safe("del mcp server api", () => deleteResourceServerByName(ctx, MCP_SERVER_API_NAME));
+  await safe("del agent api", () => deleteResourceServerByName(ctx, AGENT_API_NAME));
+  // Belt-and-suspenders: also delete by last-known identifier in case the
+  // display name was ever customized away from the constants above.
+  await safe("del mcp server api (by id)", () => deleteResourceServerByIdentifier(ctx, mcpResource));
+  await safe("del agent api (by id)", () => deleteResourceServerByIdentifier(ctx, agentApi));
   await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
   await safe("del demo user bob",   () => deleteDemoUser(ctx, "bob@docagent.demo"));
   await safe("disable guardian push", () => disableGuardianPush(ctx));

@@ -73,7 +73,36 @@ async function mgmt(ctx, method, path, body, attempt = 0) {
 
 // ---- Resource servers (APIs) ------------------------------------
 
+export async function findResourceServersByName(ctx, name) {
+  const list = await mgmt(ctx, "GET", "/resource-servers?per_page=100");
+  const servers = Array.isArray(list) ? list : list?.resource_servers || [];
+  return servers.filter((rs) => rs.name === name);
+}
+
 export async function createResourceServer(ctx, opts) {
+  // Idempotency: a re-provision call with the same identifier should reuse
+  // the existing resource server rather than failing or duplicating it.
+  const byIdentifier = await mgmt(
+    ctx,
+    "GET",
+    `/resource-servers?identifier=${encodeURIComponent(opts.identifier)}`
+  );
+  const existing = (byIdentifier || []).find((rs) => rs.identifier === opts.identifier);
+  if (existing) {
+    console.log(`[provision] resource server ${opts.name} already exists (${existing.identifier}), reusing`);
+    return { id: existing.id, identifier: existing.identifier };
+  }
+
+  // Any OTHER resource server sharing this display name but a different
+  // identifier is stale (e.g. left over from a prior run under a different
+  // Codespace-forwarded origin) -- remove it so provisioning never produces
+  // two APIs named the same thing.
+  const stale = await findResourceServersByName(ctx, opts.name);
+  for (const rs of stale) {
+    console.log(`[provision] removing stale resource server ${opts.name} (${rs.identifier})`);
+    await mgmt(ctx, "DELETE", `/resource-servers/${rs.id}`);
+  }
+
   const body = {
     name: opts.name,
     identifier: opts.identifier,
@@ -312,7 +341,14 @@ export async function getConnectionByName(ctx, name) {
 export async function createVaultConnection(ctx, opts) {
   const existing = await getConnectionByName(ctx, opts.name);
   if (existing) {
-    console.log(`[provision] connection ${opts.name} already exists, skipping`);
+    // Re-sync enabled_clients on every provision run -- the MCP server
+    // client (and its id) is recreated each time (see createClient), so a
+    // stale list here leaves the connection authorizing a now-orphaned
+    // client instead of the one vault.js actually exchanges with.
+    console.log(`[provision] connection ${opts.name} already exists, syncing enabled_clients`);
+    await mgmt(ctx, "PATCH", `/connections/${existing.id}`, {
+      enabled_clients: opts.enabledClients,
+    });
     return existing.name;
   }
   const options = {
@@ -453,5 +489,15 @@ export async function deleteResourceServerByIdentifier(ctx, identifier) {
   // when the identifier query param doesn't produce an exact match.
   for (const rs of list || []) {
     if (rs?.id && rs.identifier === identifier) await mgmt(ctx, "DELETE", `/resource-servers/${rs.id}`);
+  }
+}
+
+// Catches resource servers left behind under a stale identifier (e.g. a
+// prior run's Codespace-forwarded origin) that deleteResourceServerByIdentifier
+// alone wouldn't find, since Auth0 only dedups by identifier, not name.
+export async function deleteResourceServerByName(ctx, name) {
+  const servers = await findResourceServersByName(ctx, name);
+  for (const rs of servers) {
+    if (rs?.id) await mgmt(ctx, "DELETE", `/resource-servers/${rs.id}`);
   }
 }
