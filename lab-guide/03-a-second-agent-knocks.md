@@ -2,7 +2,7 @@
 
 <!-- TODO: Flow screenshot here - CIMD document → admin import → reviewed grant → second Agent as Principal record → user consent. -->
 
-Nexus doesn't just talk to its own first-party agent. In the real world, a partner ships an agent of their own and asks for access to your MCP server.
+Our Nexus MCP doesn't just talk to its own first-party agent. In the real world, third party agents might need to talk to it as well.
 
 This module onboards that second agent, **Acme Partner Agent**, the way Auth0 and the MCP authorization spec define for third-party clients: the partner publishes a **Client ID Metadata Document (CIMD)**, an admin imports and reviews it, the admin grants a deliberately smaller set of scopes, and each employee consents before Acme acts for them.
 
@@ -46,6 +46,8 @@ The MCP server treats both the same way: validate `aud`, enforce per-tool scope,
 
 ## Dashboard steps
 
+<!-- TODO: maybe instead of CURL, we just copy/paste the URL -->
+
 ### Step 1: discover the resource, as Acme will
 
 Any MCP client that only knows your server's URL starts here. Call a tool endpoint with no token:
@@ -85,6 +87,8 @@ curl https://<your-codespace-name>-3003.app.github.dev/.well-known/client-metada
 
 *You should see:*
 
+<!-- TODO: compare to claudes real CIMD. -->
+
 ```json
 {
   "client_id": "https://<your-codespace-name>-3003.app.github.dev/.well-known/client-metadata",
@@ -101,11 +105,13 @@ curl https://<your-codespace-name>-3003.app.github.dev/.well-known/client-metada
 Copy the `client_id` value. You'll import it in the next step.
 
 Notice three things:
-- `client_id` equals the document's own URL. Auth0 refuses to register it otherwise. Controlling that HTTPS origin is the proof that this is Acme's document, the same proof a TLS certificate gives any website.
-- `token_endpoint_auth_method: "none"` means Acme is a public client: no secret, PKCE instead. CIMD clients can't use shared secrets at all. A confidential partner would use `private_key_jwt` with a `jwks_uri` on the same origin.
-- Acme asks for **everything**, including `mcp:docs:share` and the Token Vault tools. Asking isn't receiving.
+- `client_id` equals the document's own URL. Controlling that HTTPS origin is the proof that this is Acme's document, the same proof a TLS certificate gives any website.
+- `token_endpoint_auth_method: "none"` means Acme is a public client: We're not using a shared secret, we use PKCE instead. CIMD clients are public and thus can't use shared secrets at all. A confidential partner would use `private_key_jwt` with a `jwks_uri` on the same origin.
+- Acme asks for **everything**, including `mcp:docs:share` and the Token Vault tools. Asking her isn't the same as receiving.
 
 ### Step 3: import the CIMD
+
+<!-- TODO: screenshot here -->
 
 1. Auth0 Dashboard → **Applications → Applications** → **Create Application** → **Import from URL**
 2. Paste the CIMD URL from Step 2 → **Preview**.
@@ -125,7 +131,7 @@ Review Acme's request against least privilege:
 - `mcp:docs:share`: an irreversible external share. **Don't grant** to a third party.
 - `mcp:crm:log`: this acts in an *other* system with the employee's own federated credentials (Token Vault). **Don't grant** unless the partnership specifically requires it.
 
-Now encode that decision:
+Now to implement that decision:
 
 1. Auth0 Dashboard → **Applications → APIs → Nexus MCP Server → Application Access** tab
 2. Find **Acme Partner Agent** → **Edit**
@@ -171,6 +177,8 @@ curl https://<your-codespace-name>-3003.app.github.dev/status
 ```
 
 *You should see: `connected: true`, `client_id` = the CIMD URL, `aud` = the MCP server URL, and `act.sub` = Acme's `agt_...`.*
+
+<!-- TODO: This should be in the end to end testing -->
 
 ### Step 7: prove the two agents are distinct
 

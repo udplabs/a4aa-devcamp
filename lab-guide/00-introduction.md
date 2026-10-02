@@ -10,7 +10,7 @@ The server works, but it currently can't distinguish a first-party agent from a 
 
 ## The challenges
 
-The MCP server is not ready to ship yet. You have identitifed 5 blockers between where the server is now and a production deployment:
+You have identitifed 5 blockers between where the server is now and a production deployment:
 
 1. **No way to distinguish agents.** The MCP server cannot tell a first-party agent (your own Nexus agent) from a third-party agent from a forged request.
 
@@ -30,7 +30,7 @@ With Auth0 for AI Agents, we're going to close these gaps. Using Agent as Princi
 
 - **Auth for MCP** - makes the MCP server the trust boundary.
 - **User Authentication** - works as it always has.
-- **Token Vault** - forces a short-lived, scoped token for exactly one downstream call.
+- **Token Vault** - forces a short-lived, scoped token for exactly one downstream third party API call.
 - **Async Authorization (CIBA)** - puts a human in the loop for irreversible tool calls.
 - **Fine-Grained Authorization (FGA)** scopes each employee to the documents they are authorized to read and share.
 

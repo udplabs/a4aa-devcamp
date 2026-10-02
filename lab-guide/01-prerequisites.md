@@ -15,16 +15,12 @@ To activate your tenant, follow these instructions:
 
 > [!NOTE]
 > - Your Auth0 management credentials are available in the Launch Pad after you launch your tenant.
-> - You'll provision the Nexus resources in the next section.
-> - Each module guides you to configure items in Auth0 as you need them.
 
 ## Navigating your Lab Guide
 
-Here's some information about the **Labs.Demo.Okta** platform you're using today.
-
 ### Outline
 
-On the left of the screen, you'll find an outline of today's lab. This Dev{Camp} has **seven interactive modules**, and the final one is the closing end-to-end run. 
+On the left of the screen, you'll find an outline of today's lab. This Dev{Camp} has **seven interactive modules**, and the final one is the closing end-to-end run.
 
 Each module contains **tasks** with **steps**. You can collapse the outline at any time by clicking the arrow icon.
 
@@ -36,7 +32,7 @@ On the right of the screen, you'll find an easy way to launch your lab resources
 
 ### Dynamic Lab Guide variables
 
-Beyond letting you copy credentials from the Launch Pad, this lab guide also uses *dynamic variables*. Some (*not all*) display values *specific* to your lab environment—your tenant domain, for example: `{{idp.tenantDomain}}`.
+Beyond letting you copy credentials from the Launch Pad, this lab guide also uses *dynamic variables*. Some (*not all*) display values *specific* to your lab environment. Your tenant domain, for example: `{{idp.tenantDomain}}`.
 
 > [!NOTE]
 > If something looks like it *should* be a dynamic variable, you can tell by the curly braces: <kbd>{{...}}</kbd>.
@@ -75,6 +71,8 @@ Need guidance at any point? Click the **Request Help** button in the Launch Pad,
 
 You've already activated your Auth0 tenant above. The lab runs in **GitHub Codespaces**, with nothing to install locally.
 
+<!-- TODO: Update this screenshot -->
+
 ![Nexus system architecture: the whole app, including the API, MCP server, and CRM mock, runs inside one GitHub Codespace or locally, with only Auth0, FGA, and the LLM external](images/architecture.png)
 
 ## Prerequisites
@@ -85,10 +83,7 @@ You need:
 - **A modern web browser** (a current version of Chrome, Edge, Firefox, or Safari).
 - **A stable internet connection.** If you're typically on a corporate VPN that restricts access to GitHub or Auth0, *please disable the VPN for this lab if you can.*
 - **Access to your Auth0 tenant** (activated above).
-- **Auth0 Guardian app**, installed on your mobile device
-    | App Store                                    | Google Play                                    |
-    | -------------------------------------------- | ---------------------------------------------- |
-    | ![App Store](images/01-guardian-ios.png) | ![Google Play](images/01-guardian-android.png) |
+- **Auth0 Guardian app**, installed on your mobile device (links below)
 
 ## Launch your Codespace
 
@@ -178,7 +173,7 @@ delete:agents
   
 </details>
 
-<br>
+--- 
 
 <details>
   <summary> 
@@ -194,6 +189,8 @@ If you have an OpenAI API key you would like to use, add it to the same `.env` f
 If you don't have one, no worries, leave it blank. Nexus detects a missing key automatically and uses the simulator instead so no other change needed.
 
 </details>
+
+--- 
 
 ### Step 2: start the app
 

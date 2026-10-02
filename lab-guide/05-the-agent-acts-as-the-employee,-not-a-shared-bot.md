@@ -4,7 +4,7 @@
 
 Now that we have user and agent identities, we need Nexus to log document activity to the CRM under the user's identity.
 
-**Token Vault** solves this.
+**Token Vault** can solve this use case for third party APIs.
 
 1. Auth0 stores each user's federated credential for a connected provider.
 2. Nexus then asks the vault (politely) for a short-lived, per-user access token scoped to the job at hand.
@@ -21,10 +21,14 @@ In this module, you'll:
 
 ## What's provisioned for you
 
+<!-- TODO: The CRM being secured here actaully looks ok? but itsn't it a first party API? Or can we logically say it's a 'third party' in the same way the 'third party' agent is? -->
+
 - A CRM OAuth2 connection on your tenant pointing to the CRM mock running on port 3002 of your Codespace.
 - **nexus-mcp-server-codespace**, the MCP server's own **Custom API Client**, linked to the Nexus MCP Server API, with the **Token Vault** grant type (Advanced Settings → Grant Types).
-  - Auth0 only lets a client exchange a token at Token Vault if the client is linked to the API in that token's `aud`. Every tool call reaches the MCP server with a token for the Nexus MCP Server, from Nexus or from Acme, so the MCP server's own client is the one that can exchange it. The MCP server never borrows a caller's credentials.
-- `docagent-mcp-obo`, the Custom API Client you created in *One trust boundary for every agent*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the employee's Nexus Agent API token.
+  - Auth0 only lets a client exchange a token at Token Vault if the client is linked to the API in that token's `aud`. Every tool call reaches the MCP server with a token for the Nexus MCP Server, from the first or third party agent, so the MCP server's own client is the one that can exchange it.
+- `docagent-mcp-obo`, the Custom API Client you created in *One trust boundary for every agent*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the user's Nexus Agent API token.
+
+**Nothing is provisioned for GitHub.** Unlike the CRM connection, the GitHub social connection is entirely your responsibility to create, mirroring how a real enterprise admin onboards a new federated credential by hand.
 
 ## Codespace steps
 ### Make the CRM mock's port public
@@ -178,8 +182,7 @@ case "log_crm_activity": {
 <!-- TODO: screenshot - app header with the CRM "Connect" button before linking -->
 <!-- TODO: screenshot - app header after it's connected (Connect button replaced with connected state) -->
 
-2. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
-3. In the **Tool Tester**, call **log_crm_activity**. It should succeed, and **/api/vault/providers** reports it as linked.
+3. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
 
 --- 
 
