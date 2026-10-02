@@ -11,18 +11,16 @@ export const CONNECTED_ACCOUNTS_SCOPE =
 
 // Providers rendered as separate rows -- each is an independent Token
 // Vault connection with its own Connect/Disconnect/Check lifecycle.
-// "crm" is the custom OAuth2 connection; "github" is a built-in social
-// connection the participant creates by hand (Module 04/05).
+// "crm" is the custom OAuth2 connection.
 const PROVIDERS = [
   { key: "crm", label: "CRM" },
-  { key: "github", label: "GitHub" },
 ];
 
 export function VaultStatus() {
   const { getAccessTokenSilently, loginWithRedirect, connectAccountWithRedirect } = useAuth0();
-  const { domain, crmConnection, githubConnection } = useRuntimeConfig();
-  const connectionNames = { crm: crmConnection, github: githubConnection };
-  const [linked, setLinked] = useState({}); // { crm: bool|null, github: bool|null }
+  const { domain, crmConnection } = useRuntimeConfig();
+  const connectionNames = { crm: crmConnection };
+  const [linked, setLinked] = useState({}); // { crm: bool|null }
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState({});
 
@@ -44,10 +42,9 @@ export function VaultStatus() {
       const linkedProviders = new Set((data.providers || []).map((p) => p.provider));
       setLinked({
         crm: linkedProviders.has("crm"),
-        github: linkedProviders.has("github"),
       });
     } catch {
-      setLinked({ crm: false, github: false });
+      setLinked({ crm: false });
     } finally {
       setChecking(false);
     }

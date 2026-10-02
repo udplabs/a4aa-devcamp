@@ -94,7 +94,7 @@ curl https://<your-codespace-name>-3003.app.github.dev/.well-known/client-metada
   "response_types": ["code"],
   "redirect_uris": ["https://<your-codespace-name>-3003.app.github.dev/callback"],
   "token_endpoint_auth_method": "none",
-  "scope": "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share mcp:github:read"
+  "scope": "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share"
 }
 ```
 
@@ -123,7 +123,7 @@ Review Acme's request against least privilege:
 
 - `mcp:docs:search`, `mcp:docs:read`: a partner agent that answers questions from shared documents needs these. **Grant.**
 - `mcp:docs:share`: an irreversible external share. **Don't grant** to a third party.
-- `mcp:crm:log`, `mcp:github:read`: these act in *other* systems with the employee's own federated credentials (Token Vault). **Don't grant** unless the partnership specifically requires it.
+- `mcp:crm:log`: this acts in an *other* system with the employee's own federated credentials (Token Vault). **Don't grant** unless the partnership specifically requires it.
 
 Now encode that decision:
 

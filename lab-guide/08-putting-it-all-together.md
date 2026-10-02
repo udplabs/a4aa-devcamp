@@ -8,9 +8,8 @@
 ## Prerequisites
 
 - All steps from all previous modules are completed.
-- You've already clicked **Connect** next to "CRM" and "GitHub" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** and **check_github_identity** fail with "No account linked" instead of returning a live federated token below.
+- You've already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** fails with "No account linked" instead of returning a live federated token below.
 - Acme's CIMD is imported and granted `mcp:docs:search` and `mcp:docs:read` (from *A second agent knocks*), and Acme has completed its consent flow at its `/login` route, so the Tool Tester's **Acme Partner Agent** selector works.
-- `VAULT_CONN_GITHUB` is set in `.env` (from *The agent acts as the employee, not a shared bot*).
 - Demo users: **`alice@docagent.demo`** (engineering team, editor on q3-roadmap), **`bob@docagent.demo`** (all-company docs only).
 
 --- 
@@ -63,10 +62,6 @@ The same user **sub** flows through every hop, giving you one audit key for ever
     - Tool call **log_crm_activity** triggers Token Vault to mint a CRM credential for Alice, logging the activity with her **sub**.
     - Badges: **OBO**, **Token Vault**.
     - Server log: **[Token Vault] (live) federated token for auth0|<alice-sub> @ crm**
-5. Open the **Tool Tester** tab and call **check_github_identity**.
-  - Expected:
-    - Tool call triggers Token Vault to mint a GitHub credential for Alice and returns **{ success: true, login: "<alice-github-username>", id: <id> }**.
-    - Server log: **[Token Vault] (live) federated token for auth0|<alice-sub> @ github**
 
 ## Proof point: two agents, two identities
 

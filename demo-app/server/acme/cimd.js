@@ -36,7 +36,7 @@ import { requestOrigin, acmeCimdUrl } from "../utils/publicUrl.js";
 
 // Everything Acme would like. What it gets is the admin's call.
 export const ACME_REQUESTED_SCOPE =
-  "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share mcp:github:read";
+  "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share";
 
 // Acme's public origin: from ACME_CIMD_URL when set, otherwise the
 // origin the request reached Acme on (the Codespace forwarded URL).

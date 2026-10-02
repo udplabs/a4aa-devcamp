@@ -44,8 +44,8 @@ export class Tenant {
         mcp_server_client_secret: process.env.MCP_SERVER_CLIENT_SECRET,
         ciba_client_id: process.env.AUTH0_CIBA_CLIENT_ID,
         ciba_client_secret: process.env.AUTH0_CIBA_CLIENT_SECRET,
-        vault_connections: (process.env.VAULT_CONN_CRM || process.env.VAULT_CONN_GITHUB)
-          ? { crm: process.env.VAULT_CONN_CRM || null, github: process.env.VAULT_CONN_GITHUB || null }
+        vault_connections: process.env.VAULT_CONN_CRM
+          ? { crm: process.env.VAULT_CONN_CRM || null }
           : undefined,
         demo_users: (process.env.DEMO_USER_ALICE_ID || process.env.DEMO_USER_BOB_ID)
           ? { alice: process.env.DEMO_USER_ALICE_ID, bob: process.env.DEMO_USER_BOB_ID }

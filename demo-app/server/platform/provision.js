@@ -82,7 +82,6 @@ export const MCP_SERVER_SCOPES = [
   "mcp:docs:read",
   "mcp:crm:log",
   "mcp:docs:share",
-  "mcp:github:read",
 ];
 
 // Scopes a reviewing admin grants the third-party agent in Module 03.
@@ -254,13 +253,6 @@ export async function runProvision(
     })
   );
   if (crmName) vault_connections.crm = crmName;
-  // GitHub's connection is set up entirely by hand in the Dashboard
-  // (Module 04/05: The agent acts as the employee) -- no shared Nexus-
-  // owned GitHub OAuth App is provisioned here. The placeholder is
-  // filled in later from the participant's manual VAULT_CONN_GITHUB
-  // .env paste, picked up by tenantResolver the same way AUTH0_OBO_CLIENT_ID
-  // flows in today.
-  vault_connections.github = null;
 
   // 6. Demo users — alice (engineering access) and bob (all-company only).
   // Password is shown in the lab guide; email_verified is set so they can
@@ -427,8 +419,6 @@ export async function runDeprovision(ctx, { acmeCimdUrl } = {}) {
   await safe("del agent", () => deleteAgentByName(ctx, AGENT_NAME));
   await safe("del thirdparty agent", () => deleteAgentByName(ctx, THIRD_PARTY_AGENT_NAME));
   if (crmConnName) await safe("del crm connection", () => deleteConnectionByName(ctx, crmConnName));
-  // GitHub's connection is manual/out-of-band (participant-created), so
-  // it isn't auto-deleted here -- noted explicitly in the deprovision lab step.
   await safe("del mcp server api", () => deleteResourceServerByIdentifier(ctx, mcpResource));
   await safe("del agent api", () => deleteResourceServerByIdentifier(ctx, agentApi));
   await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
@@ -459,7 +449,6 @@ export function deploymentDataToEnvVars(dd) {
   if (dd.ciba_client_id) vars.AUTH0_CIBA_CLIENT_ID = dd.ciba_client_id;
   if (dd.ciba_client_secret) vars.AUTH0_CIBA_CLIENT_SECRET = dd.ciba_client_secret;
   if (dd.vault_connections?.crm) vars.VAULT_CONN_CRM = dd.vault_connections.crm;
-  if (dd.vault_connections?.github) vars.VAULT_CONN_GITHUB = dd.vault_connections.github;
   if (dd.mfa_action_id) vars.AUTH0_MFA_ACTION_ID = dd.mfa_action_id;
   if (dd.fga_store_id) vars.FGA_STORE_ID = dd.fga_store_id;
   if (dd.fga_model_id) vars.FGA_MODEL_ID = dd.fga_model_id;

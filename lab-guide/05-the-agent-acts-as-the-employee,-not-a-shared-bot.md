@@ -11,15 +11,13 @@ Now that we have user and agent identities, we need Nexus to log document activi
 3. Nexus calls the provider's API with that token, then discards it.
 4. The vault handles refresh, and the user's actual refresh token never leaves Auth0.
 
-This module wires up two providers side by side: the CRM, a custom OAuth2 connection, and GitHub, a built-in Auth0 social connection. Both go through the identical Token Vault mechanism — the only difference is who created the connection and how.
+This module wires up the CRM, a custom OAuth2 connection, through Token Vault.
 
 In this module, you'll:
 
-- Understand how **getToken(userSub, provider)** selects the live Token Vault path vs. the in-memory fallback, for either provider.
+- Understand how **getToken(userSub, provider)** selects the live Token Vault path vs. the in-memory fallback.
 - See how **log_crm_activity** calls the CRM API (port 3002) using a vaulted CRM token.
 - Enable Token Vault on the CRM connection in the Auth0 Dashboard.
-- Register your own GitHub OAuth App, wire it into Auth0 as a social connection, and enable Token Vault on it by hand.
-- See how **check_github_identity** calls the GitHub API using a vaulted GitHub token.
 
 ## What's provisioned for you
 
@@ -27,8 +25,6 @@ In this module, you'll:
 - **nexus-mcp-server-codespace**, the MCP server's own **Custom API Client**, linked to the Nexus MCP Server API, with the **Token Vault** grant type (Advanced Settings → Grant Types).
   - Auth0 only lets a client exchange a token at Token Vault if the client is linked to the API in that token's `aud`. Every tool call reaches the MCP server with a token for the Nexus MCP Server, from Nexus or from Acme, so the MCP server's own client is the one that can exchange it. The MCP server never borrows a caller's credentials.
 - `docagent-mcp-obo`, the Custom API Client you created in *One trust boundary for every agent*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the employee's Nexus Agent API token.
-
-**Nothing is provisioned for GitHub.** Unlike the CRM connection, the GitHub social connection is entirely your responsibility to create, mirroring how a real enterprise admin onboards a new federated credential by hand.
 
 ## Codespace steps
 ### Make the CRM mock's port public
@@ -91,65 +87,13 @@ Now at tool-call time, the backend asks Auth0's Token Vault for a short-lived, p
 
 The user's actual refresh token never leaves Auth0.
 
-### Add GitHub as a second Token Vault provider
-
-CRM is a **custom OAuth2 connection** — Nexus owns the OAuth app and you provisioned it automatically. GitHub is a **built-in social connection** — Auth0 ships first-class support for it, but you still have to register your own OAuth App and wire up the connection by hand. Both exchange through the identical Token Vault mechanism once configured.
-
-**Step 1: Register a GitHub OAuth App**
-
-1. On GitHub, go to **Settings → Developer settings → OAuth Apps → New OAuth App**
-2. **Application name**: anything, for example `Nexus DevCamp`
-3. **Homepage URL**: your Codespace's frontend URL (port 5173)
-4. **Authorization callback URL**: `https://<your-auth0-domain>/login/callback`
-5. Click **Register application**, then generate a **Client Secret**
-
-*You should see: a **Client ID** and a **Client Secret** for your new OAuth App.*
-
-**Step 2: Create the Auth0 `github` social connection**
-
-1. Auth0 Dashboard → **Authentication → Social → Create Connection**
-2. Select **GitHub**
-3. Paste in the **Client ID** and **Client Secret** from Step 1
-4. Under **Permissions**, select at least `read:user`
-5. Click **Create**
-
-**Step 3: Enable Token Vault on the connection**
-
-1. Open the new `github` connection
-2. Scroll to the **Purpose** section
-3. Select **Authentication and Connected Accounts for Token Vault**
-4. Click **Save Changes**
-
-This is the same toggle, in the same place, as the CRM connection above — Token Vault doesn't care whether the connection is custom or built-in.
-
-**Step 4: Paste the connection name into `.env`**
-
-Auth0 names a GitHub social connection `github` by default. Confirm the name in the Dashboard, then open `demo-app/.env` and add:
-
-```
-VAULT_CONN_GITHUB=github
-```
-
-Restart the app (`Ctrl+C`, then `npm run dev`) if it doesn't auto-refresh.
-
-**Step 5: Connect your GitHub account**
-
-1. In the Nexus app header, click **Connect** next to **GitHub**
-2. This runs the real Connected Accounts flow against GitHub and redirects you back into the app
-
-**Step 6: Call `check_github_identity`**
-
-1. Open the **Tool Tester** tab
-2. Select **check_github_identity** and call it
-3. *You should see: `{ success: true, login: "<your-github-username>", id: <your-github-id> }`*
-
 ## How Token Vault is wired
 
 ### The vault: **server/token-vault/vault.js**
 
-**getToken(userId, provider)** tries the live federated path first. If the tenant has a connection provisioned for that provider (`"crm"` or `"github"`) **and** Token Vault is enabled on it, it exchanges the user's access token with Auth0 to get a short-lived federated credential.
+**getToken(userId, provider)** tries the live federated path first. If the tenant has a connection provisioned for that provider (`"crm"`) **and** Token Vault is enabled on it, it exchanges the user's access token with Auth0 to get a short-lived federated credential.
 
-If either condition isn't met, it falls back to the in-memory mock so the lab can run offline. The fallback has a seeded fake credential for both CRM and GitHub.
+If either condition isn't met, it falls back to the in-memory mock so the lab can run offline. The fallback has a seeded fake credential for CRM.
 
 > [!NOTE]
 > The grant type here:
@@ -227,34 +171,15 @@ case "log_crm_activity": {
 > [!IMPORTANT]
 > The **userId: userSub** in the request body is the user's Auth0 subject, so the CRM record is attributed to the *human*, not the *agent*.
 
-### The GitHub tool handler: **server/mcp/server.js**
-
-```js
-case "check_github_identity": {
-  const tokenResult = await getToken(userSub, "github", tenant, vaultSubject);
-  // ... same getToken(userSub, provider, ...) call as log_crm_activity,
-  // just against the built-in GitHub social connection instead of the
-  // custom CRM OAuth2 one.
-  const response = await fetch("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${tokenResult.token}` },
-  });
-  const data = await response.json();
-  return { success: true, login: data.login, id: data.id };
-}
-```
-
-Same pattern, same `getToken` call, same per-user attribution — only the provider string and the downstream API differ.
-
 ## Checkpoint
 
 1. Click **Connect** next to "CRM" in the app header. This runs the real Connected Accounts flow against the CRM mock and redirects you back into the app.
-2. Click **Connect** next to "GitHub" in the app header. This runs the real Connected Accounts flow against GitHub and redirects you back into the app.
 
-<!-- TODO: screenshot - app header with the CRM and GitHub "Connect" buttons before linking -->
-<!-- TODO: screenshot - app header after both are connected (Connect buttons replaced with connected state) -->
+<!-- TODO: screenshot - app header with the CRM "Connect" button before linking -->
+<!-- TODO: screenshot - app header after it's connected (Connect button replaced with connected state) -->
 
-3. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
-4. In the **Tool Tester**, call **log_crm_activity** and **check_github_identity**. Both should succeed independently, and **/api/vault/providers** reports both as linked.
+2. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
+3. In the **Tool Tester**, call **log_crm_activity**. It should succeed, and **/api/vault/providers** reports it as linked.
 
 --- 
 
@@ -270,7 +195,7 @@ Token Vault eliminates the operational and compliance burden of shared bot token
 
 In the lab, the vault was auto-seeded with a simulated credential on your first tool call. In production, a real employee would go through an OAuth2 consent flow the first time they link an account. Auth0 stores the resulting refresh token, and Token Vault exchanges it for short-lived access tokens on every subsequent call. Offboarding just means revoking that connection in Auth0, with no token spreadsheet to maintain.
 
-The CRM-vs-GitHub contrast is the point worth remembering: a custom OAuth2 connection and a built-in social connection look completely different to set up, but once configured, they're indistinguishable to `getToken` and to every downstream tool. The mechanism doesn't care who issued the credential.
+The mechanism doesn't care who issued the credential — once a connection is configured, it's indistinguishable to `getToken` and to every downstream tool.
 </details>
 
 --- 
@@ -286,16 +211,13 @@ You've successfully:
       Enabled Token Vault on the CRM connection in the Auth0 Dashboard;
   </li>
   <li style="list-style-type:'✅ '">
-      Registered a GitHub OAuth App and wired it into Auth0 as a Token Vault-enabled social connection, by hand;
+      Observed how <code>getToken</code> selects the live federated exchange vs. the in-memory fallback;
   </li>
   <li style="list-style-type:'✅ '">
-      Observed how <code>getToken</code> selects the live federated exchange vs. the in-memory fallback, for either provider;
+      Logged a CRM activity attributed to the user's identity, not a shared service account;
   </li>
   <li style="list-style-type:'✅ '">
-      Logged a CRM activity and confirmed a GitHub identity, both attributed to the user's identity, not a shared service account;
-  </li>
-  <li style="list-style-type:'✅ '">
-      Confirmed both records show the user's Auth0 <code>sub</code>, not an agent client ID.
+      Confirmed the record shows the user's Auth0 <code>sub</code>, not an agent client ID.
   </li>
 </ul>
 

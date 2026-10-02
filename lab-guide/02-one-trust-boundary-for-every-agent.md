@@ -43,7 +43,6 @@ Provisioning in the previous module created:
   - `mcp:docs:read`: retrieve a specific document
   - `mcp:crm:log`: log activity to the CRM through Token Vault
   - `mcp:docs:share`: share a document externally (CIBA-gated)
-  - `mcp:github:read`: check the employee's GitHub identity through Token Vault
 
   It's also set to:
   - `agent_subject_claims: "auth0-v1"`, so tokens from agent-linked clients carry `sub_profile`, `client_profile`, and `act.sub = agt_...`
@@ -106,7 +105,6 @@ Creating it from the API screen makes it a **Custom API Client** linked to the N
     - `mcp:docs:read`
     - `mcp:crm:log`
     - `mcp:docs:share`
-    - `mcp:github:read`
 4. Select **Save**.
 
 This is the ceiling on what an employee's token can carry through this client. The employee's own role (RBAC) narrows it further.

@@ -1,6 +1,6 @@
 # Securing MCP Servers and AI Agents with Auth0: DevCamp (A4AA)
 
-A hands-on workshop that takes a working enterprise document assistant (**Nexus**) and secures both its MCP server and the agents calling it, first-party and third-party alike. You'll wire up user authentication, Token Vault for CRM and GitHub credentials, and the full **Auth for MCP** stack across six modules, delivered end-to-end with **Auth0 for AI Agents (A4AA)**. Fine-grained authorization (FGA) runs as a live demo against real Okta FGA.
+A hands-on workshop that takes a working enterprise document assistant (**Nexus**) and secures both its MCP server and the agents calling it, first-party and third-party alike. You'll wire up user authentication, Token Vault for CRM credentials, and the full **Auth for MCP** stack across six modules, delivered end-to-end with **Auth0 for AI Agents (A4AA)**. Fine-grained authorization (FGA) runs as a live demo against real Okta FGA.
 
 The chat UI ships pre-built. Every line of code you write is on the identity and authorization layer. Your Auth0 tenant is provisioned for you when you launch, so you won't need any dashboard setup by hand beyond the specific toggles each module calls out.
 
@@ -15,11 +15,11 @@ Nexus exposes four tools through an MCP server: document search, document retrie
 | 02 | Auth for MCP | RFC 9728 + RFC 8707 + RFC 8693 + Agent as Principal | MCP server becomes a spec-compliant resource server (PRM, 401/403 challenges, audience = its URL); the first-party agent calls it with an OBO token naming the employee (`sub`) and the agent (`act.sub`) |
 | 03 | A second agent knocks (third-party onboarding) | Client ID Metadata Document (CIMD) import + reviewed per-app grant + consent + a second Agent as Principal identity | A partner's agent registers by URL, gets only the scopes an admin approves, and is independently auditable, with no shared credential |
 | 04 | User Authentication | Auth0 Universal Login, `express-oauth2-jwt-bearer` | Employee logs in, JWT `sub` flows to every downstream tool call |
-| 05 | Token Vault | Per-user federated CRM and GitHub credentials | Agent calls the CRM and GitHub with the employee's identity, refreshed automatically, never held in agent memory |
+| 05 | Token Vault | Per-user federated CRM credentials | Agent calls the CRM with the employee's identity, refreshed automatically, never held in agent memory |
 | 06 | Async Authorization (CIBA) | Client-Initiated Backchannel Authentication + Auth0 Guardian push | External document shares require out-of-band employee approval with a binding message |
 | 07 | Fine-Grained Authorization (live demo) | Real Okta FGA, relationship-based access model | Employees read and share only the documents they are authorized to access, enforced live at the data boundary |
 
-Module 01 covers environment setup and tenant provisioning. Module 07 is FGA. It's already provisioned and enforced live against a real Okta FGA store, so you can see allow and deny decisions land without touching the authorization code. A closing end-to-end run (Module 08) takes one document request through every control, with both agents and both Token Vault providers, at once.
+Module 01 covers environment setup and tenant provisioning. Module 07 is FGA. It's already provisioned and enforced live against a real Okta FGA store, so you can see allow and deny decisions land without touching the authorization code. A closing end-to-end run (Module 08) takes one document request through every control, with both agents and Token Vault, at once.
 
 See [`lab-guide/`](./lab-guide/) for the step-by-step participant instructions.
 
@@ -39,7 +39,7 @@ devcamp-a4aa/
 │   ├── 02-one-trust-boundary-for-every-agent.md         ← Module 02, Auth for MCP (keystone)
 │   ├── 03-a-second-agent-knocks.md                      ← Module 03, third-party agent onboarding (CIMD)
 │   ├── 04-every-agent-action-has-an-owner.md            ← Module 04, User Authentication
-│   ├── 05-the-agent-acts-as-the-employee,-not-a-shared-bot.md ← Module 05, Token Vault (CRM + GitHub)
+│   ├── 05-the-agent-acts-as-the-employee,-not-a-shared-bot.md ← Module 05, Token Vault (CRM)
 │   ├── 06-humans-approve-what-cant-be-undone.md         ← Module 06, CIBA
 │   ├── 07-access-that-knows-where-it-ends.md            ← Module 07, FGA live demo (witnessed)
 │   ├── 08-putting-it-all-together.md                    ← closing end-to-end run

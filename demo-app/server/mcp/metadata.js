@@ -30,7 +30,6 @@ export const MCP_SCOPES_SUPPORTED = [
   "mcp:docs:read",   // get_document (per-doc FGA check)
   "mcp:crm:log",     // log_crm_activity (Token Vault — CRM)
   "mcp:docs:share",  // share_document (CIBA-gated)
-  "mcp:github:read", // check_github_identity (Token Vault — GitHub)
 ];
 
 // The MCP server's resource identifier (= Auth0 API identifier).

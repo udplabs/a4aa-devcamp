@@ -262,16 +262,4 @@ export async function seedVaultForUser(userId, tenant, subject) {
       ["crm:activities:write"]
     );
   }
-
-  const hasLiveGithub = !!connectionFor(tenant, "github");
-  if (!(hasLiveGithub && userAccessToken)) {
-    storeToken(
-      userId,
-      "github",
-      `github_access_${userId}_${Date.now()}`,
-      `github_refresh_${userId}`,
-      3600,
-      ["read:user"]
-    );
-  }
 }

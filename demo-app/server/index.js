@@ -65,15 +65,14 @@ const PROVISIONED_ENV_KEYS = [
   "MCP_SERVER_CLIENT_ID", "MCP_SERVER_CLIENT_SECRET",
   "AUTH0_CIBA_CLIENT_ID", "AUTH0_CIBA_CLIENT_SECRET",
   "AUTH0_MFA_ACTION_ID",
-  "VAULT_CONN_CRM", "VAULT_CONN_GITHUB", "FGA_STORE_ID", "FGA_MODEL_ID",
+  "VAULT_CONN_CRM", "FGA_STORE_ID", "FGA_MODEL_ID",
   "DEMO_USER_ALICE_ID", "DEMO_USER_BOB_ID",
 ];
 
 // Keys deploymentDataToEnvVars() should ALWAYS produce from a successful
 // /api/setup/provision run. Excludes AUTH0_OBO_CLIENT_ID/SECRET (created
-// manually in Module 02, not by provisioning), VAULT_CONN_GITHUB (created
-// manually in the Token Vault module), and FGA_STORE_ID/FGA_MODEL_ID (only
-// written when FGA credentials are configured -- see below).
+// manually in Module 02, not by provisioning), and FGA_STORE_ID/FGA_MODEL_ID
+// (only written when FGA credentials are configured -- see below).
 // runProvision() wraps every Auth0 API call in safe(), which swallows
 // errors and returns null on failure, so a single failed step silently
 // drops its key from the written .env without failing the request. This
@@ -757,35 +756,6 @@ app.get("/api/verify/module04", async (req, res) => {
           : "Activate Auth0 My Account API (Auth0 Dashboard → Applications → APIs → Auth0 My Account API → Activate), then open docagent-spa-codespace → API Access tab → enable Auth0 My Account API → select create/read/delete:me:connected_accounts",
       });
     }
-    // Check 4: GitHub connection has Token Vault purpose enabled. This
-    // connection is hand-provisioned by the participant (REDESIGN_PLAN.md
-    // decision 2) -- VAULT_CONN_GITHUB is never auto-provisioned, so an
-    // unset value is reported as a normal "not set up yet" state rather
-    // than an error.
-    const githubConn = process.env.VAULT_CONN_GITHUB;
-    if (!githubConn) {
-      checks.push({
-        id: "token_vault_github_connection",
-        name: "Token Vault enabled on GitHub connection",
-        pass: false,
-        message: "VAULT_CONN_GITHUB not set — create the GitHub social connection in Auth0 Dashboard, enable Token Vault purpose, then paste its connection name into .env",
-      });
-    } else {
-      const githubConnR = await fetch(`https://${ctx.domain}/api/v2/connections?name=${encodeURIComponent(githubConn)}`, {
-        headers: { Authorization: `Bearer ${ctx.token}` },
-      });
-      const githubConnData = await githubConnR.json();
-      const githubConnObj = githubConnData?.[0] || {};
-      const githubVaultEnabled = githubConnObj?.connected_accounts?.active === true;
-      checks.push({
-        id: "token_vault_github_connection",
-        name: "Token Vault enabled on GitHub connection",
-        pass: githubVaultEnabled,
-        message: githubVaultEnabled
-          ? "GitHub connection Purpose is set to Token Vault"
-          : `Open ${githubConn} in Auth0 Dashboard → Settings → Purpose → select 'Authentication and Connected Accounts for Token Vault'`,
-      });
-    }
   } catch (e) {
     checks.push({ id: "token_vault_connection", name: "Token Vault enabled on CRM connection", pass: false, message: e.message });
   }
@@ -890,12 +860,9 @@ app.get("/api/config", (req, res) => {
     domain: tenant?.domain || process.env.AUTH0_DOMAIN || "",
     clientId: tenant?.clientId || process.env.VITE_AUTH0_CLIENT_ID || "",
     audience: tenant?.agentAudience || process.env.AUTH0_AUDIENCE || "",
-    // Connection names for the SDK's connectAccountWithRedirect() call
-    // (VaultStatus.jsx) -- crmConnection is derived at provisioning time;
-    // githubConnection is pasted in by hand (VAULT_CONN_GITHUB) since the
-    // GitHub social connection is created manually in the Dashboard.
+    // Connection name for the SDK's connectAccountWithRedirect() call
+    // (VaultStatus.jsx) -- crmConnection is derived at provisioning time.
     crmConnection: tenant?.deploymentData?.vault_connections?.crm || process.env.VAULT_CONN_CRM || "",
-    githubConnection: tenant?.deploymentData?.vault_connections?.github || process.env.VAULT_CONN_GITHUB || "",
     // Acme runs as its own process on its own port (see find-port.js);
     // in Codespaces that port has its own forwarded origin, so the
     // backend reports the full URL rather than just the port.
@@ -1021,7 +988,7 @@ app.post("/api/vault/disconnect", validateAccessToken, async (req, res) => {
 app.get("/api/vault/providers", validateAccessToken, async (req, res) => {
   const user = extractUser(req);
   const providers = [];
-  for (const provider of ["crm", "github"]) {
+  for (const provider of ["crm"]) {
     try {
       const linked = await getToken(user.sub, provider, req.tenant, user.accessToken);
       if (linked) providers.push({ provider });
@@ -1047,7 +1014,7 @@ app.get("/api/mcp/status", (_req, res) => {
       requiredScope: t.requiredScope,
       inputSchema: t.inputSchema,
     })),
-    scopes: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share", "mcp:github:read"],
+    scopes: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"],
     timestamp: new Date().toISOString(),
   });
 });

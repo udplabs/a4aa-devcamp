@@ -201,16 +201,6 @@ export const TOOLS = [
     },
     requiredScope: "mcp:docs:share",
   },
-  {
-    name: "check_github_identity",
-    description:
-      "Verify the connected GitHub account by calling the GitHub API as the user. Uses Token Vault to mint a short-lived GitHub credential scoped to this user — proves the per-user federated token works, same pattern as log_crm_activity but against a built-in social connection instead of a custom OAuth2 one.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-    requiredScope: "mcp:github:read",
-  },
 ];
 
 // List available tools (MCP tools/list)
@@ -370,41 +360,6 @@ async function executeToolLogic(name, args, userSub, tenant, vaultSubject) {
       }
       const data = await response.json();
       return { success: true, ...data };
-    }
-
-    case "check_github_identity": {
-      // Lab 04/05 (Token Vault) -- same getToken(userSub, provider, ...)
-      // call as log_crm_activity, just against the built-in GitHub social
-      // connection instead of the custom CRM OAuth2 one.
-      let tokenResult;
-      try {
-        tokenResult = await getToken(userSub, "github", tenant, vaultSubject);
-      } catch (err) {
-        if (err instanceof TokenVaultAccessDeniedError) {
-          return {
-            success: false,
-            error: `Token Vault refused the GitHub exchange: ${err.message}. Check that the GitHub connection's Purpose includes Connected Accounts for Token Vault and that the user has connected their GitHub account.`,
-          };
-        }
-        throw err;
-      }
-      if (!tokenResult) {
-        return {
-          success: false,
-          error: "No GitHub account linked. Ask the user to connect their GitHub account.",
-        };
-      }
-      const response = await fetch("https://api.github.com/user", {
-        headers: {
-          Authorization: `Bearer ${tokenResult.token}`,
-          "User-Agent": "nexus-devcamp",
-        },
-      });
-      if (!response.ok) {
-        return { success: false, error: `GitHub API error: ${response.statusText}` };
-      }
-      const data = await response.json();
-      return { success: true, login: data.login, id: data.id };
     }
 
     case "share_document": {
