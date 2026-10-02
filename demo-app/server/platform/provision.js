@@ -4,8 +4,10 @@
 //   - server/index.js    (in-app button, Codespace path)
 //
 // runProvision() creates all Auth0 resources for one demo tenant:
-//   backend API + MCP API resource servers, M2M client (OBO),
-//   SPA client, CIBA client, CRM connection, optional FGA store.
+//   Nexus Agent API + Nexus MCP Server resource servers, the MCP
+//   server's own Custom API client (Token Vault exchanger), the
+//   Auth for MCP tenant settings, SPA client, CIBA client, CRM
+//   connection, demo users, optional FGA store.
 //
 // For the platform path, pass oidcClientId to reconfigure the
 // platform-created SPA. For the in-app path, leave it null and
@@ -29,6 +31,9 @@ import {
   deleteDemoUser,
   deleteLegacyCimdApp,
   deleteAgentByName,
+  findClientByExternalId,
+  enableAuthForMcpTenantSettings,
+  promoteConnectionToDomainLevel,
   enableGuardianPush,
   disableGuardianPush,
   setMfaPolicyAlways,
@@ -43,36 +48,60 @@ import {
 } from "./auth0Management.js";
 import { provisionFgaStore, deleteFgaStore, fgaSettingsFromEnvOrRecord } from "./fgaProvision.js";
 
-export const BACKEND_API_IDENTIFIER =
-  process.env.BACKEND_API_IDENTIFIER || "https://devcamp-docagent-api";
-export const MCP_API_IDENTIFIER =
-  process.env.MCP_API_IDENTIFIER || "https://devcamp-mcp-server";
-// MCP API: coarse-grained — proves the user can access the AI chat interface.
-// This is the user-facing login audience; docagent-mcp-obo has
-// resource_server_identifier = MCP_API_IDENTIFIER so the subject_token
-// (audience = MCP) matches, enabling OBO exchange to the backend API.
-export const MCP_SCOPES = ["chat:send"];
+// Two resource servers, named for what they actually protect:
+//
+//   Nexus Agent API (AGENT_API_IDENTIFIER, scope chat:send)
+//     The audience the SPA logs in for. Only the Nexus agent's own
+//     backend accepts these tokens. docagent-mcp-obo is a Custom API
+//     client linked to this API (resource_server_identifier), which is
+//     what lets it run the On-Behalf-Of exchange on tokens issued for it.
+//
+//   Nexus MCP Server (identifier = the MCP server's public URL)
+//     The MCP server's resource identifier. Its PRM document advertises
+//     this exact value as `resource` (RFC 9728), MCP clients send it as
+//     the RFC 8707 `resource` parameter, and the MCP server rejects any
+//     token whose `aud` isn't this value. Per-tool scopes live here.
+//
+// Env var / deploymentData names predate this naming and are kept for
+// compatibility with the demo platform contract:
+//   AUTH0_AUDIENCE      / deploymentData.mcp_audience     -> Nexus Agent API
+//   AUTH0_TOOL_AUDIENCE / deploymentData.backend_audience -> Nexus MCP Server
+export const AGENT_API_IDENTIFIER =
+  process.env.AGENT_API_IDENTIFIER || process.env.MCP_API_IDENTIFIER || "https://devcamp-nexus-agent-api";
+export const AGENT_API_NAME = "Nexus Agent API";
+export const AGENT_API_SCOPES = ["chat:send"];
 
-// Backend API: fine-grained per-tool scopes — enforced on each tool call
-// via OBO. The MCP server validates OBO-issued backend API tokens and
-// checks the specific scope before executing the tool.
-export const BACKEND_SCOPES = [
+// Fallback MCP server identifier for provisioning paths that don't know
+// the server's public URL (e.g. the demo-platform webhook). The in-app
+// Codespace path always passes the real URL -- see /api/setup/provision.
+export const DEFAULT_MCP_RESOURCE_IDENTIFIER =
+  process.env.MCP_RESOURCE_URI || "https://devcamp-docagent-api";
+export const MCP_SERVER_API_NAME = "Nexus MCP Server";
+export const MCP_SERVER_SCOPES = [
   "mcp:docs:search",
   "mcp:docs:read",
   "mcp:crm:log",
   "mcp:docs:share",
   "mcp:github:read",
 ];
+
+// Scopes a reviewing admin grants the third-party agent in Module 03.
+// Read-only: no external sharing, no writes to systems of record, and
+// none of the Token Vault-backed tools.
+export const THIRD_PARTY_REVIEWED_SCOPES = ["mcp:docs:search", "mcp:docs:read"];
+
+const TOKEN_VAULT_GRANT =
+  "urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token";
 const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
 // Agent as Principal (Early Access): display name participants use when
 // registering the agent record in the Dashboard and linking it to
 // docagent-mcp-obo. Kept as a constant so provisioning, verification,
 // and the frontend copy-paste helper all agree on the exact string.
 export const AGENT_NAME = "Nexus Agent (DevCamp)";
-// Agent as Principal identity for the third-party agent, hand-provisioned
-// by an admin after reviewing its CIMD document (Module 02: A second
-// agent knocks). Kept distinct from AGENT_NAME to avoid the display-name
-// collision the two agent records would otherwise share.
+// Agent as Principal identity for the third-party agent, created by an
+// admin after importing and reviewing its CIMD client (Module 03: A
+// second agent knocks). Kept distinct from AGENT_NAME so the two agents
+// are distinguishable in tokens (act.sub) and tenant logs.
 export const THIRD_PARTY_AGENT_NAME = "Acme Partner Agent (DevCamp)";
 
 export async function safe(label, fn) {
@@ -86,55 +115,76 @@ export async function safe(label, fn) {
 
 export async function runProvision(
   ctx,
-  { appUrl, crmUrl, demoName, fgaSettings, oidcClientId = null }
+  { appUrl, crmUrl, mcpResourceUri, demoName, fgaSettings, oidcClientId = null }
 ) {
+  const MCP_RESOURCE = (mcpResourceUri || DEFAULT_MCP_RESOURCE_IDENTIFIER).replace(/\/$/, "");
+
+  // 0. Tenant settings Auth for MCP relies on: RFC 8707 resource parameter,
+  // RFC 9207 iss in authorization responses, and CIMD client registration.
+  await safe("auth for mcp tenant settings", () => enableAuthForMcpTenantSettings(ctx));
+
   // 1. Resource servers (idempotent-ish: ignore "already exists")
-  await safe("backend resource server", () =>
+  await safe("mcp server resource server", () =>
     createResourceServer(ctx, {
-      identifier: BACKEND_API_IDENTIFIER,
-      name: "Nexus Backend API",
-      scopes: BACKEND_SCOPES,
+      identifier: MCP_RESOURCE,
+      name: MCP_SERVER_API_NAME,
+      scopes: MCP_SERVER_SCOPES,
       rbac: true,
-      // Opts this API into agent-aware claims (sub_profile, act.sub = agent_id)
-      // once docagent-mcp-obo is linked to an Agent record -- see Module 01.
+      // Opts this API into agent-aware claims (sub_profile, client_profile,
+      // act.sub = agent_id) for any agent-linked client -- see Modules 02/03.
       agentSubjectClaims: true,
+      // Per-app authorization: no client gets user-delegated access until an
+      // admin grants it. docagent-mcp-obo gets its grant in Module 02; the
+      // third-party CIMD client gets a reviewed subset in Module 03.
+      requireClientGrant: true,
     })
   );
-  await safe("mcp resource server", () =>
+  await safe("agent resource server", () =>
     createResourceServer(ctx, {
-      identifier: MCP_API_IDENTIFIER,
-      name: "Nexus MCP Server",
-      scopes: MCP_SCOPES,
+      identifier: AGENT_API_IDENTIFIER,
+      name: AGENT_API_NAME,
+      scopes: AGENT_API_SCOPES,
       rbac: true,
     })
   );
 
-  // 2. M2M confidential client (OBO) — NOT auto-provisioned.
-  // Participants create this manually in Module 01 from the MCP API
-  // resource server screen (APIs → devcamp-mcp-server → Applications).
-  // They also register a separate Agent record (Agent as Principal,
-  // Early Access) via Dashboard → Agents → Create New Agent, then link
-  // it to this M2M client from the agent's Applications tab. The M2M
-  // client performs OBO exchanges; the linked agent_id is what shows up
-  // as act.sub in every OBO-issued token, giving the agent a durable,
-  // auditable identity independent of the client's own credentials.
+  // 1b. The MCP server's own Custom API client. The MCP server calls Token
+  // Vault with the token it received (aud = MCP_RESOURCE), and Auth0 only
+  // allows that exchange from a client linked to the API in the subject
+  // token's aud. This client is infrastructure the MCP server owns, so it's
+  // provisioned for you; it's what makes Token Vault work no matter which
+  // agent (first- or third-party) called the tool.
+  const mcpServerClient = await safe("mcp server custom api client", () =>
+    createClient(ctx, {
+      name: `nexus-mcp-server-${demoName}`,
+      app_type: "resource_server",
+      resource_server_identifier: MCP_RESOURCE,
+    })
+  );
+  // Separate step so a rejected grant type can't cost us the client itself.
+  if (mcpServerClient?.client_id) {
+    await safe("mcp server client token vault grant", () =>
+      updateClient(ctx, mcpServerClient.client_id, { grant_types: [TOKEN_VAULT_GRANT] })
+    );
+  }
+
+  // 2. OBO Custom API client (docagent-mcp-obo) — NOT auto-provisioned.
+  // Participants create it in Module 02 from the Nexus Agent API screen
+  // (APIs → Nexus Agent API → Add Application), which makes it a Custom
+  // API client (app_type: resource_server) linked to that API -- the only
+  // client type Auth0 lets run the On-Behalf-Of exchange. They also
+  // register an Agent record (Agent as Principal, Early Access) and link
+  // it to this client, so every OBO-issued token carries act.sub = agt_...
   const m2m = null;
 
-  // 2b. Third-party public PKCE client (Acme) — also NOT auto-
-  // provisioned, and deliberately so: the whole teaching point of
-  // Module 02 (A second agent knocks) is that there's no automated path
-  // from a self-published CIMD document to a trusted Agent-as-Principal
-  // identity. An admin reviews Acme's self-published CIMD document
-  // (served by Acme's own standalone server, not Nexus), then hand-
-  // creates a PUBLIC, native-type Auth0 application for it -- no client
-  // secret, "first party" toggle OFF so a real consent screen appears --
-  // and links it to a separate Agent-as-Principal record
-  // (THIRD_PARTY_AGENT_NAME). The admin stores the new client's id as
-  // AUTH0_ACME_CLIENT_ID in .env; there's no secret to store, since a
-  // public client has none. There is no M2M/OBO client for Acme at all --
-  // unlike the first-party flow above, Acme completes its own
-  // Authorization Code + PKCE flow directly, so it never needs a
-  // token-exchange grant.
+  // 2b. Third-party CIMD client (Acme) — NOT auto-provisioned, by design.
+  // Acme self-publishes a Client ID Metadata Document on its own server.
+  // In Module 03 an admin imports it (Applications → Create Application →
+  // Import from URL), which registers a strict third-party client whose
+  // client_id IS the CIMD URL, then grants it a reviewed scope subset on
+  // the MCP server API and links it to its own Agent record. Provisioning
+  // only lays the groundwork every third-party client needs: the CIMD
+  // tenant toggle (step 0) and a domain-level login connection (step 6b).
 
   // 4. SPA client — reconfigure if the platform created one, otherwise create new.
   const appOrigin = (appUrl || "").replace(/\/$/, "");
@@ -164,7 +214,7 @@ export async function runProvision(
     );
     if (spa) {
       await safe("grant spa -> mcp api", () =>
-        grantClientToApi(ctx, spa.client_id, MCP_API_IDENTIFIER, MCP_SCOPES)
+        grantClientToApi(ctx, spa.client_id, AGENT_API_IDENTIFIER, AGENT_API_SCOPES)
       );
     }
   }
@@ -180,10 +230,10 @@ export async function runProvision(
   );
   if (ciba) {
     await safe("grant ciba -> mcp api", () =>
-      grantClientToApi(ctx, ciba.client_id, MCP_API_IDENTIFIER, MCP_SCOPES)
+      grantClientToApi(ctx, ciba.client_id, AGENT_API_IDENTIFIER, AGENT_API_SCOPES)
     );
     await safe("grant ciba -> backend api (share scope)", () =>
-      grantClientToApi(ctx, ciba.client_id, BACKEND_API_IDENTIFIER, ["mcp:docs:share"])
+      grantClientToApi(ctx, ciba.client_id, MCP_RESOURCE, ["mcp:docs:share"])
     );
   }
 
@@ -200,7 +250,7 @@ export async function runProvision(
       clientId: "crm-demo-client",
       clientSecret: process.env.CRM_CLIENT_SECRET || "crm-demo-secret",
       scopes: ["crm:activities:write"],
-      enabledClients: [spa?.client_id, m2m?.client_id].filter(Boolean),
+      enabledClients: [spa?.client_id, m2m?.client_id, mcpServerClient?.client_id].filter(Boolean),
     })
   );
   if (crmName) vault_connections.crm = crmName;
@@ -231,6 +281,13 @@ export async function runProvision(
     })
   );
 
+  // 6b. Third-party applications (every CIMD client) can only use
+  // domain-level connections, so promote the database connection the
+  // demo users live in. First-party apps are unaffected.
+  await safe("promote db connection to domain level", () =>
+    promoteConnectionToDomainLevel(ctx, "Username-Password-Authentication")
+  );
+
   // 7. Role: "Nexus User" — grants chat:send on the backend API.
   // Required because the backend API has RBAC enforced; without this role
   // the scope is withheld from the token even when the SPA requests it.
@@ -240,12 +297,12 @@ export async function runProvision(
   if (nexusRole) {
     await safe("role mcp permissions", () =>
       addPermissionsToRole(ctx, nexusRole.id,
-        MCP_SCOPES.map((s) => ({ resource_server_identifier: MCP_API_IDENTIFIER, permission_name: s }))
+        AGENT_API_SCOPES.map((s) => ({ resource_server_identifier: AGENT_API_IDENTIFIER, permission_name: s }))
       )
     );
     await safe("role backend permissions", () =>
       addPermissionsToRole(ctx, nexusRole.id,
-        BACKEND_SCOPES.map((s) => ({ resource_server_identifier: BACKEND_API_IDENTIFIER, permission_name: s }))
+        MCP_SERVER_SCOPES.map((s) => ({ resource_server_identifier: MCP_RESOURCE, permission_name: s }))
       )
     );
     for (const demoUser of [alice, bob]) {
@@ -305,9 +362,12 @@ export async function runProvision(
   const deploymentData = {
     demo_name: demoName,
     created_at: new Date().toISOString(),
-    backend_audience: BACKEND_API_IDENTIFIER,
-    mcp_audience: MCP_API_IDENTIFIER,
-    mcp_scopes: MCP_SCOPES,
+    // See the naming note at the top of this file.
+    backend_audience: MCP_RESOURCE,
+    mcp_audience: AGENT_API_IDENTIFIER,
+    mcp_scopes: AGENT_API_SCOPES,
+    mcp_server_client_id: mcpServerClient?.client_id,
+    mcp_server_client_secret: mcpServerClient?.client_secret,
     spa_client_id: spa?.client_id,
     m2m_client_id: m2m?.client_id,
     m2m_client_secret: m2m?.client_secret,
@@ -335,10 +395,12 @@ export async function runProvision(
 // Tear down the provisioned Auth0 footprint for the current .env config.
 // Reads client/connection IDs from process.env and deletes them in order:
 // clients first (so grants are removed), then connections, then resource servers.
-export async function runDeprovision(ctx) {
+export async function runDeprovision(ctx, { acmeCimdUrl } = {}) {
   const spaClientId = process.env.VITE_AUTH0_CLIENT_ID;
   const m2mClientId = process.env.AUTH0_OBO_CLIENT_ID;
-  const acmeClientId = process.env.AUTH0_ACME_CLIENT_ID;
+  const mcpServerClientId = process.env.MCP_SERVER_CLIENT_ID;
+  const mcpResource = process.env.AUTH0_TOOL_AUDIENCE || DEFAULT_MCP_RESOURCE_IDENTIFIER;
+  const agentApi = process.env.AUTH0_AUDIENCE || AGENT_API_IDENTIFIER;
   const cibaClientId = process.env.AUTH0_CIBA_CLIENT_ID;
   const mfaActionId = process.env.AUTH0_MFA_ACTION_ID;
   const crmConnName = process.env.VAULT_CONN_CRM;
@@ -348,8 +410,14 @@ export async function runDeprovision(ctx) {
   await safe("del nexus user role", () => deleteRoleByName(ctx, "Nexus User"));
   if (spaClientId) await safe("del spa client", () => deleteClient(ctx, spaClientId));
   if (m2mClientId) await safe("del obo m2m client", () => deleteClient(ctx, m2mClientId));
-  if (acmeClientId)
-    await safe("del acme client", () => deleteClient(ctx, acmeClientId));
+  if (mcpServerClientId) await safe("del mcp server client", () => deleteClient(ctx, mcpServerClientId));
+  // The Acme CIMD client is addressed by its CIMD URL (external_client_id).
+  if (acmeCimdUrl) {
+    await safe("del acme cimd client", async () => {
+      const acme = await findClientByExternalId(ctx, acmeCimdUrl);
+      if (acme?.client_id) await deleteClient(ctx, acme.client_id);
+    });
+  }
   if (cibaClientId) await safe("del ciba client", () => deleteClient(ctx, cibaClientId));
   await safe("del legacy cimd app", () => deleteLegacyCimdApp(ctx));
   await safe("del agent", () => deleteAgentByName(ctx, AGENT_NAME));
@@ -357,8 +425,8 @@ export async function runDeprovision(ctx) {
   if (crmConnName) await safe("del crm connection", () => deleteConnectionByName(ctx, crmConnName));
   // GitHub's connection is manual/out-of-band (participant-created), so
   // it isn't auto-deleted here -- noted explicitly in the deprovision lab step.
-  await safe("del backend api", () => deleteResourceServerByIdentifier(ctx, BACKEND_API_IDENTIFIER));
-  await safe("del mcp api", () => deleteResourceServerByIdentifier(ctx, MCP_API_IDENTIFIER));
+  await safe("del mcp server api", () => deleteResourceServerByIdentifier(ctx, mcpResource));
+  await safe("del agent api", () => deleteResourceServerByIdentifier(ctx, agentApi));
   await safe("del demo user alice", () => deleteDemoUser(ctx, "alice@docagent.demo"));
   await safe("del demo user bob",   () => deleteDemoUser(ctx, "bob@docagent.demo"));
   await safe("disable guardian push", () => disableGuardianPush(ctx));
@@ -375,10 +443,13 @@ export async function runDeprovision(ctx) {
 export function deploymentDataToEnvVars(dd) {
   const vars = {};
   if (dd.spa_client_id) vars.VITE_AUTH0_CLIENT_ID = dd.spa_client_id;
-  // AUTH0_AUDIENCE is the user-facing login audience (MCP server).
-  // AUTH0_TOOL_AUDIENCE is the OBO target (backend API, per-tool scopes).
+  // AUTH0_AUDIENCE is the user-facing login audience (Nexus Agent API).
+  // AUTH0_TOOL_AUDIENCE is the MCP server's resource identifier (the OBO
+  // target and the `resource` its PRM advertises).
   if (dd.mcp_audience) vars.AUTH0_AUDIENCE = dd.mcp_audience;
   if (dd.backend_audience) vars.AUTH0_TOOL_AUDIENCE = dd.backend_audience;
+  if (dd.mcp_server_client_id) vars.MCP_SERVER_CLIENT_ID = dd.mcp_server_client_id;
+  if (dd.mcp_server_client_secret) vars.MCP_SERVER_CLIENT_SECRET = dd.mcp_server_client_secret;
   if (dd.m2m_client_id) vars.AUTH0_OBO_CLIENT_ID = dd.m2m_client_id;
   if (dd.m2m_client_secret) vars.AUTH0_OBO_CLIENT_SECRET = dd.m2m_client_secret;
   if (dd.ciba_client_id) vars.AUTH0_CIBA_CLIENT_ID = dd.ciba_client_id;

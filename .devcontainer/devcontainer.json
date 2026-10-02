@@ -1,11 +1,13 @@
 {
   "name": "devcamp-a4aa",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
-  "forwardPorts": [5173, 3000, 3001, 3002],
+  "forwardPorts": [5173, 3000, 3001, 3002, 3003],
   "portsAttributes": {
     "5173": { "label": "Nexus App (open this one)", "onAutoForward": "openBrowser" },
     "3000": { "label": "Nexus API (internal)", "onAutoForward": "silent" },
-    "3001": { "label": "MCP Server (internal)", "onAutoForward": "silent" },
-    "3002": { "label": "CRM Mock (internal)", "onAutoForward": "silent" }
-  }
+    "3001": { "label": "MCP Server (public: its URL is the resource identifier)", "onAutoForward": "silent" },
+    "3002": { "label": "CRM Mock (public: Auth0 calls its OAuth endpoints)", "onAutoForward": "silent" },
+    "3003": { "label": "Acme Partner Agent (public: Auth0 fetches its CIMD)", "onAutoForward": "silent" }
+  },
+  "postAttachCommand": "gh codespace ports visibility 3001:public 3002:public 3003:public -c \"$CODESPACE_NAME\" >/dev/null 2>&1 || echo 'Set ports 3001, 3002 and 3003 to Public in the Ports tab (right-click → Port Visibility → Public).'"
 }

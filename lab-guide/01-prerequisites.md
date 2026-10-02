@@ -154,6 +154,7 @@ read:client_grants
 create:client_grants
 read:connections
 create:connections
+update:connections
 delete:connections
 read:users
 create:users
@@ -220,11 +221,11 @@ The app shows the **Provision Resources** screen. Click the **Provision Resource
 <!-- TODO: screenshot here -->
 
 This button calls the Auth0 Management API and create the other resources and `.env` variables your app uses throughout the lab:
-- the backend API
-- MCP resource server
-- agent client
-- CRM connection
-- etc.
+- the **Nexus Agent API** (the audience employees log in for)
+- the **Nexus MCP Server** API, whose identifier is your MCP server's public URL
+- the MCP server's own Custom API client (used for Token Vault)
+- the tenant settings Auth for MCP needs (resource parameter, `iss` in responses, CIMD registration) and a domain-level login connection
+- the SPA, CIBA client, CRM connection, demo users, and more
 
 When provisioning completes, the server should restart.
 

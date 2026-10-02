@@ -21,7 +21,7 @@ By the end, you'll understand:
 
 When you clicked **Provision Resources**, the app created everything Nexus needs in your tenant:
 
-- **The Nexus API** (resource server `devcamp-docagent-api`) with the `chat:send` scope the SPA uses.
+- **The Nexus Agent API** (resource server `https://devcamp-nexus-agent-api`) with the `chat:send` scope the SPA uses. Only the Nexus agent's backend accepts these tokens. It exchanges them (OBO) for MCP server tokens before calling tools.
 - **The Nexus SPA application**, with callbacks, logout URLs, and web origins set to your Codespace URL.
 - **Two demo users** seeded with different access for the FGA module:
   - `alice@docagent.demo`: engineering team member, can read and share engineering documents
@@ -118,7 +118,7 @@ const { loginWithRedirect, isLoading } = useAuth0();
 
 ### Step 4: the access token is attached to **/api/chat**
 
-**src/hooks/useChat.js** requests a token for the Nexus API audience and sends it on every chat call:
+**src/hooks/useChat.js** requests a token for the Nexus Agent API audience and sends it on every chat call:
 
 ```js
 const { getAccessTokenSilently } = useAuth0();
@@ -126,7 +126,7 @@ const { audience } = useRuntimeConfig();
 
 const token = await getAccessTokenSilently({
   authorizationParams: {
-    audience,   // https://devcamp-docagent-api
+    audience,   // https://devcamp-nexus-agent-api (the Nexus Agent API)
     scope: "chat:send",
   },
 });
@@ -214,7 +214,7 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
       You're logged in as `alice@docagent.demo`.
   </li>
   <li style="list-style-type:'✅ '">
-      The access token includes the Nexus API audience (`devcamp-docagent-api`).
+      The access token includes the Nexus Agent API audience (`https://devcamp-nexus-agent-api`).
   </li>
   <li style="list-style-type:'✅ '">
       The token carries the `chat:send` scope.

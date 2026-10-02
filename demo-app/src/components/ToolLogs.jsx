@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 
-const STATUS_COLOR = { success: "#34D399", error: "#F87171" };
-const STATUS_ICON  = { success: "✓", error: "✗" };
+const STATUS_COLOR = { success: "#34D399", error: "#F87171", denied: "#FBBF24" };
+const STATUS_ICON  = { success: "✓", error: "✗", denied: "⊘" };
+
+// Short label for who made the call: the agent (act.sub) when the client
+// is linked to an Agent record, otherwise the OAuth client.
+function callerLabel(caller) {
+  if (!caller) return null;
+  if (caller.agent) return caller.agent;
+  return caller.client_id ? `client ${caller.client_id.slice(0, 14)}…` : null;
+}
 
 function ago(ts) {
   const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -79,12 +87,30 @@ export function ToolLogs() {
                 <span className="log-user-sub" title={entry.userSub}>
                   {entry.userSub ? entry.userSub.replace(/^auth0\|/, "").slice(0, 12) + "…" : "—"}
                 </span>
+                {callerLabel(entry.caller) && (
+                  <span className="log-user-sub" title={JSON.stringify(entry.caller?.act_chain || [])}>
+                    {callerLabel(entry.caller)}
+                  </span>
+                )}
                 <span className="log-time">{ago(entry.timestamp)}</span>
                 <span className="log-chevron">{expanded[i] ? "▲" : "▼"}</span>
               </div>
 
               {expanded[i] && (
                 <div className="log-entry-detail">
+                  {entry.caller && (
+                    <div className="log-detail-block">
+                      <span className="log-detail-label">Caller (from the validated token)</span>
+                      <pre className="log-json">{JSON.stringify({
+                        sub: entry.caller.sub,
+                        client_id: entry.caller.client_id,
+                        client_profile: entry.caller.client_profile,
+                        "act.sub (agent)": entry.caller.agent,
+                        act_depth: entry.caller.act_chain?.length || 0,
+                        act_chain: entry.caller.act_chain,
+                      }, null, 2)}</pre>
+                    </div>
+                  )}
                   <div className="log-detail-block">
                     <span className="log-detail-label">Args</span>
                     <pre className="log-json">{JSON.stringify(entry.args, null, 2)}</pre>

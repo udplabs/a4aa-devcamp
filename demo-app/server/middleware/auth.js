@@ -25,7 +25,7 @@ import { getJwtValidator } from "../platform/jwt.js";
 export const validateAccessToken = (req, res, next) => {
   const tenant = req.tenant;
   const issuer = tenant?.issuer || `https://${process.env.AUTH0_DOMAIN}/`;
-  const audience = tenant?.backendAudience || process.env.AUTH0_AUDIENCE || "";
+  const audience = tenant?.agentAudience || process.env.AUTH0_AUDIENCE || "";
   return getJwtValidator(issuer, audience)(req, res, next);
 };
 

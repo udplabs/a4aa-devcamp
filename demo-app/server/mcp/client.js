@@ -1,49 +1,75 @@
 // =============================================================
-// MCP Client -- Lab 04 (On-Behalf-Of token exchange)
+// MCP Client -- Module 02 (On-Behalf-Of token exchange)
 //
-// The agent backend holds the rep's access token (audience =
-// backend API). Before calling any MCP tool it must exchange
-// that token for one whose audience is the MCP server. This is
-// the RFC 8693 token-exchange / RFC 8707 resource-indicator flow.
+// The Nexus agent's backend holds the employee's access token for
+// the Nexus Agent API (the audience the SPA logs in for). Before it
+// can call any MCP tool it exchanges that token for one whose
+// audience is the Nexus MCP Server -- the RFC 8693 On-Behalf-Of
+// token exchange.
 //
-// Why OBO instead of a plain M2M token?
-//   - The rep's sub is preserved in the exchanged token, so the
-//     MCP server's FGA checks and Token Vault lookups still key
-//     off the human, not the agent.
-//   - The audience is locked to the MCP server via the resource
-//     parameter, so the exchanged token cannot be replayed against
-//     the backend API or any other resource.
-//   - The M2M client is linked to an Agent as Principal record
-//     (agent_id), so the exchanged token's act.sub identifies the
-//     agent in Auth0 logs; every exchange is auditable independent
-//     of the client's own credentials.
+// Why OBO instead of a plain client-credentials token?
+//   - The employee's `sub` is preserved in the exchanged token, so the
+//     MCP server's FGA checks and Token Vault lookups still key off
+//     the human, not the agent.
+//   - The `audience` locks the new token to the MCP server, so it
+//     can't be replayed against the Nexus Agent API or anything else.
+//   - The exchanging client (docagent-mcp-obo) is a Custom API client
+//     linked to the Nexus Agent API and to the "Nexus Agent (DevCamp)"
+//     Agent record, so the issued token carries
+//       act.sub     = agt_...            (the agent)
+//       act.act.sub = the SPA's client   (where the request started)
+//     and every exchange is attributable to the agent in Auth0 logs.
 //
-// Lab 04 orientation:
-//   - resolveConfig(): reads the tenant's provisioned M2M creds
-//     from deploymentData. Falls back to env for local runs.
-//   - getToken(): the OBO exchange. Observe the grant_type,
-//     subject_token, audience, and resource fields -- these are
-//     the four required parameters of RFC 8693 + RFC 8707.
-//   - callTool(): wraps getToken() + the actual MCP HTTP call.
-//     A 403 response means the MCP server enforced a scope check;
-//     the error body names the missing scope (step-up signal).
+// Note: OBO takes Auth0's `audience` parameter. The RFC 8707
+// `resource` parameter belongs to authorization-code flows -- see
+// the third-party Acme agent in ../acme/app.js.
+//
+// Module 02 orientation:
+//   - resolveConfig(): the OBO client's credentials + target audience.
+//   - getToken(): the OBO exchange, requesting only the scope the tool
+//     being called needs (least privilege per call).
+//   - callTool(): getToken() + the MCP HTTP call. A 403 carries a
+//     WWW-Authenticate insufficient_scope challenge naming the scope.
 // =============================================================
 
+import { createHash } from "crypto";
 import { decodeUnverified } from "../platform/jwt.js";
 import { tenantResolver } from "../platform/tenantResolver.js";
+import { TOOLS } from "./server.js";
 
-// Cache exchanged tokens per user (keyed by last 16 chars of user token)
+// Exchanged tokens, keyed by (hash of the full subject token, scope).
 const cachedTokens = new Map();
+
+function cacheKeyFor(userAccessToken, scope) {
+  return `${createHash("sha256").update(userAccessToken).digest("hex")}:${scope}`;
+}
+
+// Token Vault first-party fallback (on unless
+// TOKEN_VAULT_FIRST_PARTY_FALLBACK=false). If Auth0 refuses to exchange
+// the OBO token itself at Token Vault -- it carries an `act` chain -- the
+// MCP server may instead use the employee's original Nexus Agent API
+// token. It is not a credential the MCP server trusts on sight: it is
+// used only after the MCP server verifies it was issued for the Nexus
+// Agent API, to the same user, by a client in the bearer's own `act`
+// chain (validatedNexusSubjectToken in mcp/server.js). Turn it off to run
+// strictly to the MCP spec's "no token passthrough" rule.
+function firstPartyFallbackHeader(userAccessToken) {
+  if (process.env.TOKEN_VAULT_FIRST_PARTY_FALLBACK === "false") return {};
+  return { "X-Nexus-Subject-Token": userAccessToken };
+}
+
+function scopeForTool(name) {
+  return TOOLS.find((t) => t.name === name)?.requiredScope;
+}
 
 export class MCPClient {
   constructor(config) {
     this.config = config;
   }
 
-  // Resolve M2M creds + MCP audience + issuer for the demo that
-  // minted the user's token. Each demo is its own Auth0 tenant, so
-  // the token's `iss` host identifies the tenant; we look it up in
-  // the shared in-process resolver and fall back to env defaults.
+  // Resolve the OBO client creds + MCP server audience for the tenant
+  // that minted the user's token (looked up by the token's `iss`), with
+  // env defaults for local single-tenant runs.
   resolveConfig(userAccessToken) {
     const payload = decodeUnverified(userAccessToken);
     let domain = "";
@@ -59,10 +85,7 @@ export class MCPClient {
         auth0Domain: tenant.domain,
         clientId: tenant.deploymentData.m2m_client_id,
         clientSecret: tenant.deploymentData.m2m_client_secret || this.config.clientSecret,
-        // OBO target is the backend/tool API (fine-grained per-tool scopes).
-        // Use deploymentData.backend_audience directly — backendAudience getter
-        // falls back to AUTH0_AUDIENCE which now points to the MCP server, not the tool API.
-        audience: tenant.deploymentData.backend_audience || this.config.audience,
+        audience: tenant.mcpResource || this.config.audience,
       };
     }
     // Env fallback: re-read env vars at call time so hot-reloaded values
@@ -70,56 +93,50 @@ export class MCPClient {
     if (!this.config.clientId && !process.env.AUTH0_OBO_CLIENT_ID) {
       console.warn(
         "[MCP Client] AUTH0_OBO_CLIENT_ID is not set. " +
-        "Complete Module 01 to create the M2M client from the " +
-        "devcamp-mcp-server API screen and add credentials to .env."
+        "Complete Module 02: create docagent-mcp-obo from the Nexus Agent API " +
+        "screen (APIs → Nexus Agent API → Add Application) and add its credentials to .env."
       );
     }
     return {
       ...this.config,
+      auth0Domain: process.env.AUTH0_DOMAIN || this.config.auth0Domain,
       audience: process.env.AUTH0_TOOL_AUDIENCE || this.config.audience,
       clientId: process.env.AUTH0_OBO_CLIENT_ID || this.config.clientId,
       clientSecret: process.env.AUTH0_OBO_CLIENT_SECRET || this.config.clientSecret,
     };
   }
 
-  // Exchange the user's access token for one scoped to the MCP server
-  async getToken(userAccessToken) {
+  // Exchange the user's Nexus Agent API token for an MCP server token
+  // carrying `scope`.
+  async getToken(userAccessToken, scope) {
     const cfg = this.resolveConfig(userAccessToken);
-    const cacheKey = userAccessToken.slice(-16);
+    const cacheKey = cacheKeyFor(userAccessToken, scope);
     const cached = cachedTokens.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
       return cached.token;
     }
     if (cached) cachedTokens.delete(cacheKey);
 
-    console.log("[MCP Client] Exchanging user token for MCP-scoped token...");
-    console.log("[MCP Client] OBO cfg: domain=%s clientId=%s audience=%s AUTH0_TOOL_AUDIENCE=%s",
-      cfg.auth0Domain, cfg.clientId, cfg.audience, process.env.AUTH0_TOOL_AUDIENCE);
+    console.log(`[MCP Client] OBO exchange: clientId=${cfg.clientId} audience=${cfg.audience} scope=${scope}`);
 
-    // Lab 05 -- On-Behalf-Of token exchange.
-    // The `audience` and `resource` parameters both name the MCP
-    // server's resource indicator so the issued token's aud claim
-    // locks it to that MCP server and nothing else. The `sub`
-    // claim (rep's user id) is preserved from the subject_token
-    // by Auth0, giving the MCP server end-to-end user attribution
-    // without the agent ever forging identity.
-    const response = await fetch(
-      `https://${cfg.auth0Domain}/oauth/token`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-          subject_token: userAccessToken,
-          subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          audience: process.env.AUTH0_TOOL_AUDIENCE || cfg.audience,
-          scope: "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share mcp:github:read",
-          client_id: cfg.clientId,
-          client_secret: cfg.clientSecret,
-        }),
-      }
-    );
+    // On-Behalf-Of token exchange (RFC 8693). Auth0 validates the
+    // subject_token against the API docagent-mcp-obo is linked to (the
+    // Nexus Agent API), keeps the user as `sub`, and adds the agent as
+    // the outermost `act`.
+    const response = await fetch(`https://${cfg.auth0Domain}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+        subject_token: userAccessToken,
+        subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+        requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
+        audience: cfg.audience,
+        scope,
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+      }),
+    });
 
     if (!response.ok) {
       const error = await response.text();
@@ -128,11 +145,9 @@ export class MCPClient {
 
     const data = await response.json();
     // Cap the cache TTL well under the token's actual lifetime. The lab's
-    // negative-test steps (e.g. "Missing scope") change a client's Auth0
-    // authorized scopes live in the Dashboard and expect the *next* tool
-    // call to reflect it -- a long-lived cache would mask that change
-    // until the token naturally expired.
-    const cacheTtlMs = Math.min(data.expires_in - 60, 300) * 1000;
+    // negative-test steps (e.g. "Missing scope") change a client's grant
+    // live in the Dashboard and expect the *next* tool call to reflect it.
+    const cacheTtlMs = Math.max(Math.min(data.expires_in - 60, 300), 0) * 1000;
     cachedTokens.set(cacheKey, {
       token: data.access_token,
       expiresAt: Date.now() + cacheTtlMs,
@@ -144,7 +159,7 @@ export class MCPClient {
 
   // List available tools from the MCP server
   async listTools(userAccessToken) {
-    const token = await this.getToken(userAccessToken);
+    const token = await this.getToken(userAccessToken, "mcp:docs:search");
     const response = await fetch(`${this.config.serverUrl}/mcp/tools`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -159,25 +174,21 @@ export class MCPClient {
 
   // Call a tool on the MCP server
   async callTool(name, args, userAccessToken) {
-    const token = await this.getToken(userAccessToken);
+    const scope = scopeForTool(name);
+    if (!scope) throw new Error(`Unknown tool: ${name}`);
+    const token = await this.getToken(userAccessToken, scope);
 
     console.log(`[MCP Client] Calling tool: ${name}`);
 
-    const response = await fetch(
-      `${this.config.serverUrl}/mcp/tools/call`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          // Original user token (aud: MCP server, no `act` claim) so the
-          // server can use it as the Token Vault subject_token instead of
-          // this OBO-derived token, which Token Vault rejects.
-          "X-User-Token": userAccessToken,
-        },
-        body: JSON.stringify({ name, arguments: args }),
-      }
-    );
+    const response = await fetch(`${this.config.serverUrl}/mcp/tools/call`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...firstPartyFallbackHeader(userAccessToken),
+      },
+      body: JSON.stringify({ name, arguments: args }),
+    });
 
     if (response.status === 403) {
       const error = await response.json();
@@ -201,7 +212,7 @@ export function createMCPClient() {
     auth0Domain: process.env.AUTH0_DOMAIN,
     clientId: process.env.AUTH0_OBO_CLIENT_ID,
     clientSecret: process.env.AUTH0_OBO_CLIENT_SECRET,
-    // OBO target: backend/tool API with fine-grained per-tool scopes.
+    // OBO target: the Nexus MCP Server's resource identifier.
     audience: process.env.AUTH0_TOOL_AUDIENCE,
   });
 }

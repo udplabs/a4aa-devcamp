@@ -20,8 +20,8 @@ This module wires in CIBA (Client-Initiated Backchannel Authentication), so one 
 - A CIBA client on your tenant (`docagent-ciba-codespace`)
   - This is a regular web app with:
     - The **urn:openid:params:grant-type:ciba** grant already enabled
-    - Authorization against the MCP API (**chat:send**)
-    - Authorization against the Nexus Backend API (**mcp:docs:share**)
+    - Authorization against the Nexus Agent API (**chat:send**)
+    - Authorization against the Nexus MCP Server (**mcp:docs:share**)
 
 ## Dashboard steps
 

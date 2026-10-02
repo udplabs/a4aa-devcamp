@@ -35,17 +35,21 @@ Express  ── Tenant (local-fallback path) ──► reads AUTH0_* from .env
 /api/config → { domain, clientId, audience }  ► SPA initializes Auth0
 ```
 
-The SPA fetches `/api/config` on mount (`src/config/runtimeConfig.jsx`) and gates render until it returns, so the same build initializes Auth0 correctly against whichever tenant this instance is pointed at. Provisioning Auth0 resources (Module 01's **Provision Resources** button) calls `server/platform/provision.js`, which creates the resource servers, M2M client, CIBA client, CRM connection, and, when credentials are supplied, the FGA store, directly against the tenant named in `.env`.
+The SPA fetches `/api/config` on mount (`src/config/runtimeConfig.jsx`) and gates render until it returns, so the same build initializes Auth0 correctly against whichever tenant this instance is pointed at. Provisioning Auth0 resources (Module 01's **Provision Resources** button) calls `server/platform/provision.js`, which creates the resource servers, the MCP server's Custom API client, CIBA client, CRM connection, and, when credentials are supplied, the FGA store, directly against the tenant named in `.env`.
 
 **What provisioning creates:**
 
-1. **Resource servers**: `https://devcamp-docagent-api` (RBAC on, the four per-tool `mcp:*` scopes) and `https://devcamp-mcp-server` (the single `chat:send` scope).
+1. **Resource servers**:
+   - **Nexus MCP Server**: identifier = the MCP server's public URL (Codespace port 3001; `AUTH0_TOOL_AUDIENCE`). RBAC on, the five per-tool `mcp:*` scopes, `agent_subject_claims: auth0-v1`, and per-app authorization for user-delegated access. This is the `resource` the server's PRM advertises and the `aud` it validates.
+   - **Nexus Agent API**: `https://devcamp-nexus-agent-api` (`AUTH0_AUDIENCE`), the single `chat:send` scope. The SPA logs in for this audience; the Nexus backend exchanges it (OBO) for MCP server tokens.
+   - **nexus-mcp-server-codespace**: the MCP server's own Custom API client with the Token Vault grant (`MCP_SERVER_CLIENT_ID`/`_SECRET`).
+   - **Tenant settings**: Resource Parameter Compatibility Profile, Include Issuer in Authorization Responses, and Client ID Metadata Document Registration; `Username-Password-Authentication` promoted to a domain-level connection (required by third-party/CIMD clients).
 2. **SPA application**: configured for the Codespace or localhost origin.
 3. **CIBA client**: Regular web app with the `urn:openid:params:grant-type:ciba` grant, authorized against both resource servers (Module 05).
 4. **CRM connection**: A federated OAuth2 connection pointing at the CRM mock (Module 04), created when CRM OAuth credentials are supplied.
 5. **FGA store + model**: An Okta FGA store with the document authorization model written (Module 06), created only when FGA credentials are supplied.
 
-Each optional step is wrapped in a `safe()` helper, so a missing credential logs a warning and falls back to simulation rather than aborting provisioning entirely. The agent record (Agent as Principal) and the OBO M2M client are deliberately left for participants to create by hand in Module 02, since walking through that Dashboard flow is the point of the module.
+Each optional step is wrapped in a `safe()` helper, so a missing credential logs a warning and falls back to simulation rather than aborting provisioning entirely. Both agent records (Agent as Principal), the OBO Custom API client, and Acme's CIMD client are deliberately left for participants to create by hand in Modules 02 and 03, since walking through those Dashboard flows is the point of the modules.
 
 ### FGA: live store vs. in-memory simulation
 
@@ -128,11 +132,15 @@ demo-app/
 │   ├── crm/
 │   │   └── app.js                ← mock CRM OAuth2 server + activities API (:3002)
 │   │
+│   ├── acme/                     ← [Module 03] third-party agent, its own server (:3003)
+│   │   ├── app.js                ← PRM discovery, Auth Code + PKCE with `resource`, tool calls
+│   │   ├── cimd.js               ← Acme's Client ID Metadata Document (its client_id)
+│   │   └── pkce.js               ← RFC 7636 helper
+│   │
 │   ├── mcp/
 │   │   ├── server.js             ← [Module 02] MCP server :3001, token validation + scope enforcement
 │   │   ├── client.js             ← [Module 02] OBO token exchange
-│   │   ├── cimd.js               ← Client ID Metadata Document endpoint (generic MCP client discovery, not Nexus's own identity)
-│   │   ├── metadata.js           ← [Module 02] PRM (RFC 9728) + AS metadata (RFC 8414)
+│   │   ├── metadata.js           ← [Module 02] Protected Resource Metadata (RFC 9728); AS metadata comes from Auth0 itself
 │   │   └── toolLog.js            ← structured tool call event log (streamed to the UI)
 │   │
 │   ├── tools/
@@ -140,6 +148,7 @@ demo-app/
 │   │
 │   ├── utils/
 │   │   ├── port.js               ← port resolution helper
+│   │   ├── publicUrl.js          ← public origin per port (Codespace forwarded URLs vs localhost)
 │   │   └── wrongPortPage.js      ← themed fallback page when the API/MCP/CRM ports are opened directly
 │   │
 │   └── routes/guide.js           ← serves in-app lab guide markdown; LABS maps file → internal module id → title
@@ -160,7 +169,7 @@ demo-app/
     │   ├── LabGuide.jsx           ← in-app lab guide viewer, renders lab-guide/*.md
     │   ├── ModuleChecks.jsx       ← per-module Run Checks verifier + the Module 06 FGA quiz
     │   ├── ProgressTracker.jsx    ← "Lab Progress" sidebar, one row per module, embeds ModuleChecks
-    │   ├── Module01Panel.jsx      ← Agent as Principal + M2M credential setup UI for Auth for MCP (Module 02)
+    │   ├── Module01Panel.jsx      ← Agent as Principal + OBO client credential setup UI for Auth for MCP (Module 02)
     │   ├── VaultStatus.jsx        ← Connected Accounts / Token Vault link status + Connect button
     │   ├── LoginScreen.jsx        ← pre-auth landing screen
     │   ├── SetupBanner.jsx        ← environment variable setup screen
@@ -191,7 +200,7 @@ npm run dev
 
 There's no `.env.sample` to copy; create the file yourself. If you start the app before adding these three values, the setup screen tells you exactly which ones are missing.
 
-`npm run dev` boots Vite (frontend) plus the Express API on :3000, the MCP server on :3001, and the CRM mock on :3002. Without an `OPENAI_API_KEY` the agent uses the deterministic pattern-matching simulator. See [`../lab-guide/01-prerequisites.md`](../lab-guide/01-prerequisites.md) for the full participant-facing walkthrough, including where the initial `.env` values come from and the in-app **Provision Resources** step.
+`npm run dev` boots Vite (frontend) plus the Express API on :3000, the MCP server on :3001, the CRM mock on :3002, and the Acme partner agent on :3003. Ports 3001, 3002, and 3003 must be **public** in the Codespace (the devcontainer tries to set this for you): Auth0 calls the CRM mock, fetches Acme's CIMD, and the MCP server's URL is its resource identifier. Without an `OPENAI_API_KEY` the agent uses the deterministic pattern-matching simulator. See [`../lab-guide/01-prerequisites.md`](../lab-guide/01-prerequisites.md) for the full participant-facing walkthrough, including where the initial `.env` values come from and the in-app **Provision Resources** step.
 
 ### Running locally (not recommended)
 
@@ -199,6 +208,7 @@ The same `npm install && npm run dev` works against `localhost`, but plan on los
 
 - **Token Vault's live federated CRM exchange (Module 04) does not work at all.** The CRM mock's OAuth2 endpoints run on `localhost:3002`, and Auth0 cannot call back to it to complete the flow. The app falls back to the in-memory simulation automatically, so the module still runs, but you're exercising the fallback path, not the real integration.
 - Anyone testing from a different machine, or comparing notes with another participant, cannot reach your `localhost` origin at all.
+- **Third-party onboarding (Module 03) does not work.** Auth0 rejects `localhost` CIMD URLs, so Acme's metadata can't be imported unless you expose it through a tunnel and set `ACME_CIMD_URL`.
 - Every other module (login, MCP OBO exchange, CIBA, FGA) still works locally, since those don't require Auth0 to call back into the app.
 
 Use this for quick edit-and-reload iteration on code that doesn't touch Token Vault, not as a substitute for the Codespace when actually working through the lab or demoing it end to end.
@@ -209,9 +219,11 @@ Only `AUTH0_DOMAIN`, `AUTH0_MGMT_CLIENT_ID`, and `AUTH0_MGMT_CLIENT_SECRET` need
 
 | Group | Vars |
 |---|---|
-| Ports | `PORT`, `MCP_SERVER_PORT`, `THIRD_PARTY_API_PORT` |
-| Auth0 | `AUTH0_DOMAIN`, `AUTH0_MGMT_CLIENT_ID`, `AUTH0_MGMT_CLIENT_SECRET`, `AUTH0_AUDIENCE`, `MCP_AUTH0_AUDIENCE`, `AUTH0_OBO_CLIENT_ID`, `AUTH0_OBO_CLIENT_SECRET`, `AUTH0_CIBA_CLIENT_ID`, `AUTH0_CIBA_CLIENT_SECRET` |
-| Resource servers | `BACKEND_API_IDENTIFIER`, `MCP_API_IDENTIFIER` |
+| Ports | `PORT`, `MCP_SERVER_PORT`, `CRM_PORT`, `ACME_SERVER_PORT` |
+| Auth0 | `AUTH0_DOMAIN`, `AUTH0_MGMT_CLIENT_ID`, `AUTH0_MGMT_CLIENT_SECRET`, `AUTH0_AUDIENCE` (Nexus Agent API), `AUTH0_TOOL_AUDIENCE` (Nexus MCP Server identifier), `AUTH0_OBO_CLIENT_ID`, `AUTH0_OBO_CLIENT_SECRET`, `MCP_SERVER_CLIENT_ID`, `MCP_SERVER_CLIENT_SECRET`, `AUTH0_CIBA_CLIENT_ID`, `AUTH0_CIBA_CLIENT_SECRET` |
+| Resource servers | `AGENT_API_IDENTIFIER` (default `https://devcamp-nexus-agent-api`), `MCP_RESOURCE_URI` (default: the MCP server's public URL) |
+| Third-party agent | `ACME_CIMD_URL` (override Acme's CIMD URL, e.g. a tunnel when not in Codespaces), `ACME_MCP_SERVER_URL` |
+| Token Vault | `TOKEN_VAULT_FIRST_PARTY_FALLBACK` (default on; `false` disables the verified first-party subject-token fallback) |
 | FGA (Module 06) | `FGA_API_URL`, `FGA_API_AUDIENCE`, `FGA_API_TOKEN_ISSUER`, `FGA_CLIENT_ID`, `FGA_CLIENT_SECRET` |
 | CRM connection (Module 04) | `CRM_CLIENT_ID`, `CRM_CLIENT_SECRET` |
 | LLM | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `LLM_MODEL` |

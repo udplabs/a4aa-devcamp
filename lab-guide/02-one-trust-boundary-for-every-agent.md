@@ -2,23 +2,23 @@
 
 <!-- TODO: Flow screenshot here - Agent Identity and MCP server with arrow between. -->
 
-Here's what we're going to do:
-- Register your MCP server as an Auth0 resource
-- Give your first-party agent the two things it needs to call tools on behalf of users:
-  - A first-class identity via **Agent as Principal** with its own `agent_id`
-  - A confidential M2M client (linked to that agent) that performs an OBO token exchange
+Here's what you'll do:
+- Make your MCP server a standards-compliant OAuth resource server that any MCP client, yours or someone else's, can discover and call.
+- Give your first-party agent the two things it needs to call tools on behalf of employees:
+  - A first-class identity through **Agent as Principal**, with its own `agent_id`
+  - A **Custom API client**, linked to that agent, that performs the On-Behalf-Of (OBO) token exchange
 
-Once both items are in place, every tool call carries the employee's **sub** *and* the agent's **agent_id** (as `act.sub`) all the way to tool execution. 
+Once both are in place, every tool call carries the employee's **sub** *and* the agent's **agent_id** (as `act.sub`) all the way to tool execution.
 
-That gives Token Vault, CIBA, and FGA the identity they need to enforce policy and gives you an agent identity that survives client credential rotation.
+That gives Token Vault, CIBA, and FGA the identity they need to enforce policy, and it gives you an agent identity that survives client credential rotation.
 
-By the end, you'll (hopefully) understand:
+By the end, you'll understand:
 
-- How JWT validation protects the MCP server, and why the server only ever validates tokens rather than exchanging them itself — that job belongs to the client crossing into it.
-- How `/.well-known/oauth-protected-resource` (PRM) and `/.well-known/oauth-authorization-server` (RFC 8414 AS metadata) enable zero-config client discovery.
-- What Agent as Principal is and why a durable `agent_id` is better than treating an M2M client's own credentials as the agent's identity.
-- How the M2M client performs OBO token exchange with its own credentials, preserving the user's **sub** through the agent boundary while — once linked to the agent record — also carrying the agent's `agent_id` as `act.sub`.
-- How a distinct scope per tool enforces least-privilege and enables **WWW-Authenticate** step-up hints for clients.
+- How the MCP server's identifier, its Protected Resource Metadata (PRM), the RFC 8707 `resource` parameter, and the token's `aud` claim are all the same value, and why that matters.
+- How a 401 with **WWW-Authenticate: resource_metadata** lets an MCP client discover Auth0 knowing nothing but the server URL.
+- What Agent as Principal is, and why a durable `agent_id` beats treating a client's credentials as the agent's identity.
+- Why OBO requires a **Custom API client** linked to the API whose tokens it exchanges, and what the resulting nested `act` claim says.
+- How a distinct scope per tool enforces least privilege, and how a **403 insufficient_scope** challenge tells clients what to step up to.
 
 ## Features shown by RFC
 
@@ -26,38 +26,42 @@ This module wires six features in one flow:
 
 | Part | Feature | RFC / Spec |
 |---|---|---|
-| A | Register MCP API + Backend API as Auth0 resource servers (per-tool scopes live on the Backend API) | OAuth 2.1 |
+| A | Two resource servers: the **Nexus Agent API** (login audience) and the **Nexus MCP Server** (identifier = the server's URL, per-tool scopes) | OAuth 2.1 + RFC 8707 |
 | B | Agent as Principal: register the agent as a first-class Auth0 identity | Early Access ([auth0.com/docs/ai-agents-mcp/agent-as-principal](https://auth0.com/docs/ai-agents-mcp/agent-as-principal)) |
-| C | Protected Resource Metadata (PRM) | RFC 9728 |
-| D | Authorization Server Metadata | RFC 8414 |
-| E | On-Behalf-Of token exchange with RFC 8707 resource indicator | RFC 8693 + RFC 8707 |
-| F | Per-tool scope enforcement with **WWW-Authenticate** step-up hints | OAuth 2.1 + MCP 2025-11-25 |
+| C | Protected Resource Metadata (PRM), linked from every 401 | RFC 9728 + MCP 2025-11-25 |
+| D | Authorization server discovery: Auth0 publishes its own metadata | RFC 8414 / OIDC Discovery |
+| E | On-Behalf-Of token exchange by a Custom API client | RFC 8693 |
+| F | Per-tool scope enforcement with **WWW-Authenticate** `insufficient_scope` challenges | OAuth 2.1 + MCP 2025-11-25 |
 
 ## What's provisioned for you
 
-The previous section already registered the MCP API and Backend API resource servers for you.
+Provisioning in the previous module created:
 
-Your tenant already has:
-
-- **The MCP API (resource server)**: `devcamp-mcp-server` (RS256), with one broad scope, `chat:send`, which proves the user can access the Nexus Agent chat interface.
-- **The Nexus Backend API (resource server)**: `devcamp-docagent-api` (RS256), with the four fine-grained per-tool scopes the OBO exchange targets:
+- **Nexus Agent API (resource server)**: `https://devcamp-nexus-agent-api`, with one broad scope, `chat:send`. This is the audience employees log in for. Only the Nexus agent's own backend accepts these tokens.
+- **Nexus MCP Server (resource server)**: its identifier is your MCP server's public URL (the Codespace URL for port **3001**, also in `.env` as `AUTH0_TOOL_AUDIENCE`). It carries the per-tool scopes:
   - `mcp:docs:search`: search the document knowledge base
   - `mcp:docs:read`: retrieve a specific document
-  - `mcp:crm:log`: log activity to the CRM via Token Vault
+  - `mcp:crm:log`: log activity to the CRM through Token Vault
   - `mcp:docs:share`: share a document externally (CIBA-gated)
+  - `mcp:github:read`: check the employee's GitHub identity through Token Vault
 
-- **The Nexus SPA application**: your browser app for user login, already configured for your Codespace URL.
+  It's also set to:
+  - `agent_subject_claims: "auth0-v1"`, so tokens from agent-linked clients carry `sub_profile`, `client_profile`, and `act.sub = agt_...`
+  - **Per-app authorization** for user-delegated access. No application gets a token for it until you grant access, and that includes your own agent.
+- **nexus-mcp-server-codespace**: the MCP server's own Custom API client. The MCP server uses it later for Token Vault, so it never borrows a caller's credentials.
+- **Tenant settings** Auth for MCP relies on (**Settings → Advanced**):
+  - **Resource Parameter Compatibility Profile**: Auth0 accepts the RFC 8707 `resource` parameter MCP clients send.
+  - **Include Issuer in Authorization Responses**: RFC 9207 `iss`, which defends MCP clients against mix-up attacks.
+- **The Nexus SPA application**: your browser app for employee login, already configured for your Codespace URL.
 
-The Nexus Backend API was also provisioned with `agent_subject_claims` set to `"auth0-v1"`. This makes it so that `sub_profile`/`act.sub` claims are automatically added to tokens once the M2M client below is linked to an agent record.
-
-**Only two things aren't provisioned for you.** You will create both in this module.
+**Only two things aren't provisioned for you.** You'll create both in this module.
 
 ## Dashboard steps
 
 > [!NOTE]
 > **Two things:**
-> - **Agent record (Agent as Principal)**: the agent's unique Auth0 identity. This makes the agent a first-class object with its own `agent_id`. This identity is what shows up in the exchanged token's `act.sub` claim and in Auth0 logs independent of whichever M2M client happens to authenticate it.
-> - **M2M confidential app**: performs the actual OBO token exchange server-side. It is authorized against **both** the MCP API (the audience it exchanges from) and the Nexus Backend API (the audience it exchanges into, where the four per-tool scopes live). Once linked to the agent record, its exchanged tokens carry the agent's `agent_id` forward.
+> - **Agent record (Agent as Principal)**: the agent's unique Auth0 identity. Its `agent_id` is what shows up in the exchanged token's `act.sub` claim and in Auth0 logs, independent of whichever client authenticates it.
+> - **Custom API client `docagent-mcp-obo`**: performs the OBO exchange server-side. Auth0 only lets a Custom API client (`app_type: resource_server`) run OBO, and only on tokens issued for the API it's linked to, which here is the Nexus Agent API. It then needs a user-delegated grant on the API it exchanges *into*, the Nexus MCP Server.
 
 ### Part A: Register the agent as a first-class Auth0 identity
 
@@ -68,8 +72,8 @@ The Nexus Backend API was also provisioned with `agent_subject_claims` set to `"
 **Step 1: Create the agent record**
 
 1. Auth0 Dashboard → **Agents** → **Create New Agent**
-2. Name it ***exactly*** `Nexus Agent (DevCamp)`, the app looks this up by name
-3. Click **Create**
+2. Name it ***exactly*** `Nexus Agent (DevCamp)`. The app looks it up by name.
+3. Select **Create**.
 
 *You should see: the new agent record with a generated **Agent ID** in the form `agt_...`.*
 
@@ -77,59 +81,57 @@ The Nexus Backend API was also provisioned with `agent_subject_claims` set to `"
 
 **Step 2: Note the Agent ID**
 
-Copy the **agt_...** value somewhere handy. You'll confirm it shows up as `act.sub` on the exchanged token later in this module once the M2M client is linked to it (Part B, Step 4).
+Copy the **agt_...** value somewhere handy. You'll see it as `act.sub` on the exchanged token later in this module, once the client is linked to it (Part B, Step 4).
 
-### Part B: Create the M2M client for OBO token exchange
+### Part B: Create the Custom API client for OBO token exchange
 
 <!-- TODO: Flow screenshot here - MCP OBO token exchange-->
 
-The OBO exchange takes a token scoped to the MCP API (the user's login audience) and exchanges it for one scoped to the Nexus Backend API.
+The OBO exchange takes the employee's token for the **Nexus Agent API** and exchanges it for one for the **Nexus MCP Server**.
 
-Becasue it sits between two resources, the M2M client that performs this exchange needs to have access on **both** resource servers: the MCP API it exchanges *from*, and the Backend API it exchanges *into*.
+**Step 1: Create the client from the Nexus Agent API**
 
-**Step 1: Create the M2M client**
+1. Auth0 Dashboard → **Applications → APIs → Nexus Agent API**
+2. Select **Add Application**.
+3. Name it `docagent-mcp-obo` → **Add**.
 
-1. Auth0 Dashboard → **Applications → APIs → Nexus MCP Server**
-2. Click **Add Application**
-5. Name it `docagent-mcp-obo`
+Creating it from the API screen makes it a **Custom API Client** linked to the Nexus Agent API (open it and check **Application Properties → Application Type**). That link is how Auth0 knows this client may exchange tokens issued for that API.
 
-**Step 2: Confirm scopes on both APIs**
+**Step 2: Grant it user-delegated access on the Nexus MCP Server**
 
-Creating the client from the Nexus MCP Server's Applications tab authorizes it there automatically.
-
-If yuo want to confirm it also has access on the Nexus Backend API:
-
-- **Nexus MCP Server**: `docagent-mcp-obo` should already be authorized for `chat:send` for **User-delegated Access**.
-- **Nexus Backend API**: Auth0 Dashboard → **Applications → APIs → Nexus Backend API → Applications tab**
-  - confirm `docagent-mcp-obo` is listed with all four **mcp:\*** scopes granted for **user-delegated access**:
+1. Auth0 Dashboard → **Applications → APIs → Nexus MCP Server → Application Access** tab
+2. Find `docagent-mcp-obo` → **Edit**
+3. Under **User-Delegated Access**, select **Grant Access** and select these scopes:
     - `mcp:docs:search`
     - `mcp:docs:read`
     - `mcp:crm:log`
     - `mcp:docs:share`
+    - `mcp:github:read`
+4. Select **Save**.
 
-This shows the scopes a *user's* token *can* carry through this client.
+This is the ceiling on what an employee's token can carry through this client. The employee's own role (RBAC) narrows it further.
 
-![docagent-mcp-obo API Access tab with all four mcp:* scopes granted](images/01-obo-api-access-scopes.png)
+![docagent-mcp-obo user-delegated access with the mcp:* scopes granted](images/01-obo-api-access-scopes.png)
 
-**Step 3: Enable On-Behalf-Of Token Exchange on the client**
+**Step 3: Turn on On-Behalf-Of Token Exchange for the client**
 
-This toggle is a security posture choice and must be opted in explicitly. It is not enabled by default.
+This toggle is a security posture choice and must be turned on explicitly. It's off by default.
 
-1. On Auth0 Dashboard → **Applications → Applications → docagent-mcp-obo → Settings**
-2. Scroll to the **Token Exchange** section
-3. Toggle on **On-Behalf-Of Token Exchange** → **Save**
+1. Auth0 Dashboard → **Applications → Applications → docagent-mcp-obo → Settings**
+2. Scroll to the **Token Exchange** section.
+3. Turn on **On-Behalf-Of Token Exchange** → **Save**.
 
 ![Token Exchange section with On-Behalf-Of Token Exchange toggled on](images/01-obo-token-exchange-enabled.png)
 
-**Step 4: Link the M2M client to the agent record**
+**Step 4: Link the client to the agent record**
 
 1. Auth0 Dashboard → **Agents** → **Nexus Agent (DevCamp)** → **Applications** tab
-2. Click **Add Application**
-3. Select `docagent-mcp-obo` and confirm
+2. Select **Add Application**.
+3. Select `docagent-mcp-obo` and confirm.
 
 <!-- TODO: this step needs a screenshot of the Agent's Applications tab with `docagent-mcp-obo` added. -->
 
-**Step 5: Add the M2M credentials to `.env`**
+**Step 5: Add the client's credentials to `.env`**
 
 From the `docagent-mcp-obo` application settings, copy the **Client ID** and **Client Secret**. Open `demo-app/.env` and add:
 
@@ -140,7 +142,7 @@ AUTH0_OBO_CLIENT_SECRET=<client-secret-from-dashboard>
 
 **Step 6: Restart the app**
 
-If the app doesn't auto-refresh, stop the running app (`Ctrl+C`) and restart:
+If the app doesn't auto-refresh, stop the running app (`Ctrl+C`) and restart it:
 
 ```bash
 npm run dev
@@ -149,38 +151,70 @@ npm run dev
 The MCP client is now configured and can perform OBO token exchanges.
 
 > [!CAUTION]
-> # **Do not log in yet.** The next modulke walks you through logging in for the first time.
+> # **Don't log in yet.** The next modules walk you through logging in for the first time.
 
 ## Code steps
 
 > [!NOTE]
-> This code is already implemented in the demo-app. **You are not writing new code in this DevCamp.**
+> This code is already implemented in the demo-app. **You aren't writing new code in this DevCamp.**
+
+### One identifier, four places
+
+The MCP server's identifier is its own public origin. Provisioning derives it from your Codespace URL:
+
+**server/index.js** (`/api/setup/provision`):
+
+```js
+const mcpResourceUri = process.env.MCP_RESOURCE_URI || originForPort(appUrl, mcpPort());
+```
+
+That one value is:
+1. the Auth0 API identifier of the **Nexus MCP Server**,
+2. the `resource` the server advertises in its PRM,
+3. the RFC 8707 `resource` parameter an MCP client sends when it asks Auth0 for a token (you'll see Acme do this in the next module), and
+4. the `aud` the server requires on every token.
+
+The MCP authorization spec requires clients to check that these match, which is why an arbitrary string like `https://devcamp-docagent-api` isn't good enough for a server real MCP clients connect to.
 
 ### Agent as Principal claims
-
-The Nexus Backend API opts into agent-aware claims at provisioning time, before you ever create the agent record.
 
 **server/platform/provision.js**:
 
 ```js
 await createResourceServer(ctx, {
-  identifier: BACKEND_API_IDENTIFIER,
-  name: "Nexus Backend API",
-  scopes: BACKEND_SCOPES,
+  identifier: MCP_RESOURCE,
+  name: "Nexus MCP Server",
+  scopes: MCP_SERVER_SCOPES,
   rbac: true,
-  // Opts this API into agent-aware claims (sub_profile, act.sub = agent_id)
-  // once docagent-mcp-obo is linked to an Agent record.
-  agentSubjectClaims: true,
+  agentSubjectClaims: true,   // agent_subject_claims: "auth0-v1"
+  requireClientGrant: true,   // per-app authorization for user-delegated access
 });
 ```
 
-which sets `agent_subject_claims: "auth0-v1"` on the resource server via the Management API. Once `docagent-mcp-obo` is linked to the `Nexus Agent (DevCamp)` record (Part B, Step 4 above), every OBO-exchanged token targeting this API carries the agent's `agent_id` as `act.sub`.
+Once `docagent-mcp-obo` is linked to `Nexus Agent (DevCamp)`, every OBO token Auth0 issues for this API looks like this:
 
-You can see this directly: **server/mcp/server.js** logs the full decoded token payload on every tool call. After completing Part B, Step 4 above, make a tool call and look for the `act` claim in that log line. Its `sub` will equal the `agt_...` value from Part B.
+```json
+{
+  "sub": "auth0|alice...",
+  "sub_profile": "user",
+  "aud": "https://<codespace>-3001.app.github.dev",
+  "client_id": "<docagent-mcp-obo client id>",
+  "client_profile": "service ai_agent",
+  "scope": "mcp:docs:search",
+  "act": {
+    "sub": "agt_...",
+    "sub_profile": "ai_agent",
+    "client_id": "<docagent-mcp-obo client id>",
+    "act": { "sub": "<SPA client id>", "sub_profile": "browser_app" }
+  }
+}
+```
 
-### JWT validation
+The employee stays the subject. The outer `act` is the agent. The nested `act` is where the request started, the SPA. **server/mcp/server.js** logs the full decoded payload on every tool call, and the **Tool Logs** panel shows the caller block for each entry.
 
-Every call to `/mcp/tools` and `/mcp/tools/call` runs through `validateMCPToken` first. It checks the token's `aud` claim against the Backend API audience and rejects anything else with a 401, so a token minted for the wrong resource never reaches a tool.
+### Resource server validation
+
+Every call to `/mcp/tools` and `/mcp/tools/call` runs through `validateMCPToken`. It checks signature, issuer, expiry, and `aud` equal to the server's resource identifier, and rejects anything else.
 
 **server/mcp/server.js**:
 
@@ -188,94 +222,91 @@ Every call to `/mcp/tools` and `/mcp/tools/call` runs through `validateMCPToken`
 const validateMCPToken = (req, res, next) => {
   const token = bearerFromHeader(req);
   const payload = token ? decodeUnverified(token) : null;
-  let issuer = `https://${process.env.AUTH0_DOMAIN}`;
-  let audience = process.env.AUTH0_TOOL_AUDIENCE || "";
-
-  if (payload?.iss) {
-    const tenant = tenantResolver.getByDomain(new URL(payload.iss).host);
-    if (tenant) {
-      issuer = tenant.issuer;
-      audience = process.env.AUTH0_TOOL_AUDIENCE || audience;
-      req.tenant = tenant;
-    }
-  }
+  let issuer = `https://${process.env.AUTH0_DOMAIN}/`;
+  let audience = mcpResource();
+  // ...pick the tenant by `iss` in multi-tenant mode...
   return getJwtValidator(issuer, audience)(req, res, next);
 };
 ```
 
-This is the MCP server's own half of the boundary, separate from the OBO exchange below. The client (the agent's backend) exchanges tokens. The server only ever validates them — it never calls out to Auth0 to authorize an inbound request. Publishing its resource identity via PRM and checking the `aud`/scope on what it receives is the whole job.
+A rejected request gets a 401 that points the client at the PRM, as RFC 9728 §5.1 and the MCP spec require:
 
-The server *does* act as its own client for one thing: downstream calls it makes on the user's behalf. The Token Vault exchange behind `log_crm_activity` (see *The agent acts as the employee, not a shared bot*) is the same OBO pattern, one hop further down the chain, with the MCP server now standing in the position the agent's backend holds here.
+```
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer resource_metadata="https://<codespace>-3001.app.github.dev/.well-known/oauth-protected-resource"
+```
+
+The server only uses the token it just validated. It never accepts a token issued for another API, and it never passes a caller's token on to anyone else.
 
 ### Protected Resource Metadata (PRM, RFC 9728)
 
-PRM enables an MCP client that knows only your server URL to discover which authorization server issues tokens for it without any hardcoded configuration.
+PRM lets an MCP client that knows only your server URL find out which authorization server issues tokens for it.
 
 **server/mcp/metadata.js**:
 
 ```js
 export function protectedResourceMetadata(_req, res) {
   res.json({
-    resource: process.env.AUTH0_TOOL_AUDIENCE,
-    authorization_servers: [`https://${process.env.AUTH0_DOMAIN}`],
-    scopes_supported: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"],
+    resource: mcpResource(),                                  // = AUTH0_TOOL_AUDIENCE
+    authorization_servers: [`https://${process.env.AUTH0_DOMAIN}/`],
+    scopes_supported: MCP_SCOPES_SUPPORTED,
     bearer_methods_supported: ["header"],
-    client_registration_types_supported: ["metadata"],
-    resource_documentation: "https://auth0.com/ai",
+    resource_name: "Nexus MCP Server",
   });
 }
 ```
 
-### Authorization Server Metadata
+### Authorization server metadata comes from Auth0
 
-**server/mcp/server.js**:
+The client follows `authorization_servers` to Auth0 and reads **Auth0's own** metadata, `https://<tenant>/.well-known/oauth-authorization-server` (or `/.well-known/openid-configuration`). That document lists the real authorization and token endpoints, PKCE support (`code_challenge_methods_supported`), and, once you turn it on in the next module, `client_id_metadata_document_supported`.
 
-```js
-app.get("/.well-known/oauth-authorization-server", (_req, res) => {
-  res.json({
-    issuer: `https://${process.env.AUTH0_DOMAIN}/`,
-    token_endpoint: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
-    jwks_uri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
-    scopes_supported: ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"],
-    grant_types_supported: ["urn:ietf:params:oauth:grant-type:token-exchange"],
-    client_registration_types_supported: ["metadata"],
-  });
-});
-```
+The MCP server deliberately doesn't publish its own copy. Only the authorization server can describe its grant types and registration options truthfully, and a stale or partial copy would steer clients wrong.
 
 ### OBO token exchange
 
-The agent's backend holds the user's access token. To call the MCP server, it exchanges that token for one scoped to the Backend API. The user's **sub** is preserved so FGA and Token Vault evaluate identity against the human rather than the agent.
+The agent's backend holds the employee's Nexus Agent API token. To call a tool, it exchanges that token for an MCP server token carrying *only the scope that tool needs*.
 
 **server/mcp/client.js**:
 
 ```js
 body: JSON.stringify({
   grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-  subject_token: userAccessToken,
+  subject_token: userAccessToken,          // aud = Nexus Agent API
   subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
   requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
-  audience: cfg.audience,
-  scope: "mcp:docs:search mcp:docs:read mcp:crm:log mcp:docs:share",
-  client_id: cfg.clientId,         // M2M confidential client (opaque UUID)
-  client_secret: cfg.clientSecret, // M2M client secret
+  audience: cfg.audience,                  // the Nexus MCP Server identifier
+  scope,                                   // e.g. "mcp:docs:search" for search_documents
+  client_id: cfg.clientId,                 // docagent-mcp-obo (Custom API client)
+  client_secret: cfg.clientSecret,
 }),
 ```
 
-The `client_id` here is the M2M app's opaque UUID, the confidential exchanger you created. The agent record's `agent_id` is the agent's *durable identity*; the M2M client is its *exchange credential*, now linked to that identity. Both are necessary and serve different roles.
+OBO uses Auth0's `audience` parameter. The RFC 8707 `resource` parameter belongs to authorization-code flows, which is how the third-party agent in the next module gets its token.
+
+The `client_id` is the exchanger's credential. The agent record's `agent_id` is the agent's *durable identity*. Rotate the client's secret, or swap in a different client for another region, and the `agent_id` in tokens and logs stays the same.
+
+### Per-tool scopes and step-up
+
+If a token lacks the tool's scope, the server answers with a challenge a compliant client can act on:
+
+```
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope", scope="mcp:docs:share",
+                  resource_metadata="https://<codespace>-3001.app.github.dev/.well-known/oauth-protected-resource"
+```
 
 ### Route the agent's tool calls through MCP
 
-**server/llm.js**, before triggering, all tools route through **executeTool**:
+In **server/llm.js**, all tools route through **executeTool**:
 
 ```js
 import { executeTool } from "./tools/registry.js";
 
-// inside processMessage, after the CIBA gate (explained in Module 04):
+// inside processMessage, after the CIBA gate (explained in a later module):
 result = await executeTool(toolName, parameters, user.accessToken);
 ```
 
-**executeTool** calls **mcpClient.callTool**, which calls **getToken** (the OBO exchange) before every MCP request.
+**executeTool** calls **mcpClient.callTool**, which runs the OBO exchange (`getToken`) before every MCP request.
 
 ## Checkpoint
 
@@ -284,14 +315,15 @@ result = await executeTool(toolName, parameters, user.accessToken);
 Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms these conditions automatically:
 
 - An agent named **Nexus Agent (DevCamp)** exists and is linked (`agent_id`) to `docagent-mcp-obo`.
-- The Nexus Backend API has **agent_subject_claims** set to `"auth0-v1"`.
-- The Protected Resource Metadata endpoint returns **resource**, **authorization_servers**, and **scopes_supported**.
-- The AS Metadata endpoint returns **issuer**, **token_endpoint**, the four scopes, and **"metadata"** in **client_registration_types_supported**.
-- An unauthenticated **GET /mcp/tools** returns **401** with a **WWW-Authenticate** header.
-- The On-Behalf-Of Token Exchange toggle is active on your M2M client, and it holds a user-delegated grant on the Nexus Backend API.
+- `docagent-mcp-obo` is a Custom API client (`app_type: resource_server`) linked to the Nexus Agent API.
+- The Nexus MCP Server API has **agent_subject_claims** set to `"auth0-v1"`.
+- The tenant has the Resource Parameter Compatibility Profile and the `iss` response parameter turned on.
+- PRM returns `resource` equal to `AUTH0_TOOL_AUDIENCE` and your Auth0 tenant as the authorization server.
+- An unauthenticated **GET /mcp/tools** returns **401** with a `WWW-Authenticate` header carrying `resource_metadata`.
+- On-Behalf-Of Token Exchange is on for `docagent-mcp-obo`, and it holds a user-delegated grant on the Nexus MCP Server.
 
 > [!TIP]
-> If a check fails, the result row shows the exact reason. Fix the flagged item and click **Re-run checks**.
+> If a check fails, the result row shows the exact reason. Fix the flagged item and select **Re-run checks**.
 
 
 <details>
@@ -302,23 +334,23 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
     What we learned
   </summary>
 
-Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the user's actual identity on a resource server that enforces scope. The trust boundary moves from the agent backend to the MCP server. That same boundary is where FGA and Token Vault plug in later. This module builds the identity pipe they both depend on, but doesn't wire either one up yet.
+Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the employee's actual identity on a resource server that enforces scope. The trust boundary moves from the agent backend to the MCP server. That same boundary is where FGA and Token Vault plug in later.
 
-The two sides of that boundary have different jobs, and it's worth naming them separately:
-- **The MCP server (resource server) publishes and validates.** It advertises its resource identity and required scopes via PRM, then checks every incoming token's `aud` and scope. It never initiates a token exchange to authorize a caller.
-- **The agent's backend (client) exchanges.** Before it can call a tool, it exchanges the user's token for one scoped to the MCP server's Backend API audience. That's the OBO exchange in `server/mcp/client.js`.
+The two sides of that boundary have different jobs:
+- **The MCP server (resource server) publishes and validates.** It advertises its identity via PRM, points lost clients at it with a 401 challenge, and checks every token's `aud` and scope. It treats every caller the same way, whoever built it.
+- **The agent's backend (client) exchanges.** Before it can call a tool, it exchanges the employee's Nexus Agent API token for an MCP server token with just the scope it needs.
 
-Concretely, you just walked through the full A4AA "Auth for MCP" pattern:
+Concretely, you walked through the A4AA "Auth for MCP" pattern for a first-party agent:
 
-- **Agent as Principal: durable agent identity.** The agent record gives the agent an `agent_id` that survives M2M client credential rotation. It shows up as `act.sub` on every OBO-exchanged token once the client is linked, and as `event.agent` in Actions at token-issuance time, giving you a real identity to key audit and policy off of, rather than a proxy for "whichever client happened to authenticate." Multi-hop delegation preserves this through nested `act` claims.
-- **M2M client: confidential OBO exchanger.** The M2M client is authorized against both the MCP API and the Backend API, and performs token exchanges with its own credentials. The issued token preserves the **sub** from the user's token, so FGA and Token Vault evaluate identity against the human rather than the agent — and now also carries the agent's `agent_id` alongside it.
-- **Discovery without config.** RFC 9728 PRM and RFC 8414 AS metadata let a new MCP client point at your server URL and resolve the issuer, scopes, and grant types on its own.
-- **Graceful step-up.** **403 insufficient_scope** tells the client exactly which scope is missing, so the next OBO exchange can request it and retry.
+- **Agent as Principal: durable agent identity.** The agent record gives the agent an `agent_id` that survives credential rotation. It shows up as `act.sub` on every token its linked clients obtain, and as `event.agent` in Actions, so you can key audit and policy off a real identity. Multi-hop delegation is preserved in nested `act` claims.
+- **Custom API client: the OBO exchanger.** Linked to the API whose tokens it exchanges, granted user-delegated access on the API it exchanges into. The issued token keeps the employee as `sub`, so FGA and Token Vault evaluate the human, and adds the agent as `act`.
+- **Discovery without config.** A 401 challenge points to PRM, PRM points to Auth0, and Auth0's own metadata describes everything else.
+- **Graceful step-up.** A **403 insufficient_scope** challenge tells the client exactly which scope is missing.
 
 Why this matters beyond the lab:
 
-- **Opex.** Multiple agents (Claude Agent SDK, custom runtime, a future mobile client) inherit one authorization engine from one MCP server. You eliminate the burden of maintaining separate auth logic across each client.
-- **GTM.** A resource server with PRM, scope enforcement, a durable agent identity, and a verified M2M exchanger is what a procurement team wants to see in the security questionnaire. It shortens the review cycle from months to weeks.
+- **Opex.** Multiple agents (Claude Agent SDK, a custom runtime, a partner's agent, a future mobile client) inherit one authorization engine from one MCP server. You don't maintain separate auth logic per client.
+- **GTM.** A resource server with PRM, scope enforcement, and a durable agent identity is what a procurement team wants to see in the security questionnaire. It shortens the review cycle from months to weeks.
 
 </details>
 
@@ -333,9 +365,11 @@ Why this matters beyond the lab:
   </summary>
 
 - Agent as Principal (Early Access): [auth0.com/docs/ai-agents-mcp/agent-as-principal](https://auth0.com/docs/ai-agents-mcp/agent-as-principal)
-- Auth for AI Agents product overview: [auth0.com/ai](https://auth0.com/ai)
-- MCP authorization spec (2025-11-25): [modelcontextprotocol.io/specification](https://modelcontextprotocol.io/specification)
-- RFC 9728 Protected Resource Metadata, RFC 8414 AS Metadata, RFC 8693 Token Exchange, RFC 8707 Resource Indicators
+- Agent identity in tokens: [auth0.com/docs/ai-agents-mcp/agent-as-principal/agent-identity-in-tokens](https://auth0.com/docs/ai-agents-mcp/agent-as-principal/agent-identity-in-tokens)
+- On-Behalf-Of Token Exchange: [auth0.com/docs/secure/call-apis-on-users-behalf/on-behalf-of-token-exchange](https://auth0.com/docs/secure/call-apis-on-users-behalf/on-behalf-of-token-exchange)
+- Auth for MCP: [auth0.com/ai/docs/mcp/overview](https://auth0.com/ai/docs/mcp/overview)
+- MCP authorization spec (2025-11-25): [modelcontextprotocol.io/specification/2025-11-25/basic/authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
+- RFC 9728 Protected Resource Metadata, RFC 8414 AS Metadata, RFC 8693 Token Exchange, RFC 8707 Resource Indicators, RFC 9207 Issuer Identification
 
 </details>
 
@@ -349,27 +383,23 @@ You've successfully:
 
 <ul>
   <li style="list-style-type:'✅ ';">
-      Registered the agent as a first-class Auth0 identity and linked it to the M2M client;
+      Registered the agent as a first-class Auth0 identity and linked it to its OBO client;
   </li>
   <li style="list-style-type:'✅ '">
-      Created an M2M confidential client authorized it on the Backend API, and enabled Token Exchange;
+      Created a Custom API client, granted it user-delegated access on the MCP server, and turned on OBO;
   </li>
   <li style="list-style-type:'✅ '">
-      Understood how CIMD and PRM discovery documents enable zero-config client integration;
+      Seen how the 401 challenge, PRM, and Auth0's own metadata let any MCP client discover your server;
   </li>
   <li style="list-style-type:'✅ '">
-      Confirmed OBO token exchange preserves the user's <b>sub</b> all the way to tool execution.
+      Confirmed OBO token exchange preserves the employee's <b>sub</b> and names the agent in <b>act</b> all the way to tool execution.
   </li>
 </ul>
 
-The MCP server now has a trust boundary. 
+The MCP server now has a trust boundary.
 
-It validates every caller and scopes every tool call to a resource and an identity. 
+It validates every caller and scopes every tool call to a resource and an identity.
 
-The next module onboards a second agent, a third party's this time, through the real-world trust path: a self-published discovery document and a manual admin review.
+The next module onboards a second agent, a third party's this time, through the path Auth0 and the MCP spec define for it: a Client ID Metadata Document, an admin import, a reviewed grant, and user consent.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>
-
-
-
-

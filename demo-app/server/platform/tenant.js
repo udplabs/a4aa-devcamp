@@ -34,14 +34,18 @@ export class Tenant {
       this.clientSecret = undefined;
       this.idpType = "default";
       this.deploymentData = {
-        backend_audience: process.env.AUTH0_AUDIENCE,
+        // Naming kept for the platform contract (see provision.js):
+        // backend_audience = Nexus MCP Server, mcp_audience = Nexus Agent API.
+        backend_audience: process.env.AUTH0_TOOL_AUDIENCE,
         mcp_audience: process.env.AUTH0_AUDIENCE,
         m2m_client_id: process.env.AUTH0_OBO_CLIENT_ID,
         m2m_client_secret: process.env.AUTH0_OBO_CLIENT_SECRET,
+        mcp_server_client_id: process.env.MCP_SERVER_CLIENT_ID,
+        mcp_server_client_secret: process.env.MCP_SERVER_CLIENT_SECRET,
         ciba_client_id: process.env.AUTH0_CIBA_CLIENT_ID,
         ciba_client_secret: process.env.AUTH0_CIBA_CLIENT_SECRET,
-        vault_connections: process.env.VAULT_CONN_CRM
-          ? { crm: process.env.VAULT_CONN_CRM }
+        vault_connections: (process.env.VAULT_CONN_CRM || process.env.VAULT_CONN_GITHUB)
+          ? { crm: process.env.VAULT_CONN_CRM || null, github: process.env.VAULT_CONN_GITHUB || null }
           : undefined,
         demo_users: (process.env.DEMO_USER_ALICE_ID || process.env.DEMO_USER_BOB_ID)
           ? { alice: process.env.DEMO_USER_ALICE_ID, bob: process.env.DEMO_USER_BOB_ID }
@@ -50,13 +54,15 @@ export class Tenant {
     }
   }
 
-  // The audience the SPA should request for the backend API.
-  get backendAudience() {
-    return this.deploymentData.backend_audience || process.env.AUTH0_AUDIENCE;
+  // The audience the SPA logs in for: the Nexus Agent API.
+  get agentAudience() {
+    return this.deploymentData.mcp_audience || process.env.AUTH0_AUDIENCE;
   }
 
-  get mcpAudience() {
-    return this.deploymentData.mcp_audience || process.env.MCP_AUTH0_AUDIENCE;
+  // The MCP server's resource identifier (what its PRM advertises and
+  // what every token presented to it must carry as `aud`).
+  get mcpResource() {
+    return this.deploymentData.backend_audience || process.env.AUTH0_TOOL_AUDIENCE;
   }
 
   isExpired() {

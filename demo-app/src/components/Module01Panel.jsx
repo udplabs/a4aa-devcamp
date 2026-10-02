@@ -39,13 +39,13 @@ export function Module01Panel({ onReady }) {
 
         <p className="setup-desc">
           Resources are provisioned. Before you can log in and use Nexus,
-          follow <strong>Module 01</strong> (Parts B &amp; C) in your Lab Guide to register the
-          agent's identity (Agent as Principal) and create the M2M client for OBO token exchange.
+          follow <strong>One trust boundary for every agent</strong> (Parts A &amp; B) in your Lab Guide to register the
+          agent's identity (Agent as Principal) and create the Custom API client for OBO token exchange.
         </p>
 
         <div className="setup-resource-list">
-          <span className="setup-resource-pill">Part B: Agent Identity</span>
-          <span className="setup-resource-pill">Part C: M2M Client</span>
+          <span className="setup-resource-pill">Part A: Agent Identity</span>
+          <span className="setup-resource-pill">Part B: OBO Custom API Client</span>
         </div>
 
         <p className="setup-terminal-hint">

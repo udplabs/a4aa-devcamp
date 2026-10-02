@@ -9,7 +9,7 @@
 
 - All steps from all previous modules are completed.
 - You've already clicked **Connect** next to "CRM" and "GitHub" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** and **check_github_identity** fail with "No account linked" instead of returning a live federated token below.
-- `AUTH0_ACME_CLIENT_ID` is set in `.env` (from *A second agent knocks*), and Acme has completed its PKCE login at `/login`, so the Tool Tester's **Acme Partner Agent** selector works.
+- Acme's CIMD is imported and granted `mcp:docs:search` and `mcp:docs:read` (from *A second agent knocks*), and Acme has completed its consent flow at its `/login` route, so the Tool Tester's **Acme Partner Agent** selector works.
 - `VAULT_CONN_GITHUB` is set in `.env` (from *The agent acts as the employee, not a shared bot*).
 - Demo users: **`alice@docagent.demo`** (engineering team, editor on q3-roadmap), **`bob@docagent.demo`** (all-company docs only).
 
@@ -74,7 +74,8 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 2. Set **Call as** to **Nexus Agent (first-party)** and call **search_documents** with any query.
 3. Open **Tool Logs** and note the `act.sub` value — the first-party agent's `agt_...` ID.
 4. Set **Call as** to **Acme Partner Agent (third-party)** and call the same tool with the same query.
-5. Check **Tool Logs** again — `act.sub` now shows Acme's `agt_...` ID instead, for the same scoped call.
+5. Check **Tool Logs** again. `act.sub` now shows Acme's `agt_...` ID, the `act` chain is one level deep instead of two, and `client_id` is Acme's CIMD URL. Same employee `sub`, different agent.
+6. With **Call as: Acme Partner Agent**, call **share_document**. Expected: **403 insufficient_scope** naming `mcp:docs:share`. Acme asked for that scope in its CIMD, but its admin-reviewed grant doesn't include it.
 
 ## CIBA path: external document share
 
@@ -126,25 +127,21 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 
 ### Missing scope
 
-- In the Auth0 Dashboard, go to **APIs > Nexus Backend API > Settings**, scroll to **Application Access Policy**, and set **User Access** to **Per-app authorization** > **Save**
-- You need to do this because the API defaults to "All apps allowed," which grants every scope to every authorized app and makes individual scopes non-deselectable.
+- The Nexus MCP Server API already uses **Per-app authorization** for user-delegated access (provisioning set it), so each application's scopes are individually selectable.
+- In the Auth0 Dashboard, go to **Applications > APIs > Nexus MCP Server > Application Access**, select **Edit** on `docagent-mcp-obo`, and under **User-Delegated Access** deselect **mcp:docs:share** > **Save**.
 
-![Nexus Backend API Application Access Policy, User Access changed from All apps allowed to Per-app authorization](images/06-application-access-policy-per-app.png)
-
-- Navigate to **Applications > Applications > `docagent-mcp-obo` > APIs tab > Nexus Backend API** and deselect **mcp:docs:share**.
-
-![docagent-mcp-obo APIs tab with mcp:docs:share deselected](images/06-missing-scope-deselected.png)
+![docagent-mcp-obo user-delegated access with mcp:docs:share deselected](images/06-missing-scope-deselected.png)
 
 - Prompt: `Share the Q3 roadmap with external@partner.com`
 - A push notification card appears. Approve it on your enrolled Guardian device.
-- Expected after approval: **403 { "error": "Insufficient scope", "required": "mcp:docs:share" }**.
+- Expected after approval: **403 { "error": "Insufficient scope", "required": "mcp:docs:share" }**, with a `WWW-Authenticate: Bearer error="insufficient_scope", scope="mcp:docs:share", ...` header from the MCP server.
 
 <!-- TODO: screenshot - chat/tool card showing the insufficient-scope 403 error -->
 - If the share still succeeds, the OBO-scoped token from an earlier call may still be cached (it's cached for up to 5 minutes). Wait a few minutes and retry, or restart the dev server to force a fresh token exchange.
 - Re-enable the scope when done.
 
 > [!TIP]
-> Optionally, repeat this test against the **Acme Partner Agent** application (remove **mcp:docs:share** from its grant on the Nexus Backend API, then call **share_document** via the Tool Tester with **Call as: Acme Partner Agent**). The same **403 insufficient_scope** applies — scope enforcement is agent-agnostic, so it's not a special case for the first-party client. Re-enable the scope when done.
+> Acme already demonstrates the same thing without any Dashboard change (step 6 of the two-agent comparison above): it never held **mcp:docs:share**. Scope enforcement is agent-agnostic. The MCP server applies the same check to every token, whichever client obtained it.
 
 ### Token Vault disabled: fails closed
 
@@ -152,7 +149,7 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 
   ![CRM connection Purpose section reverted to plain Authentication](images/06-token-vault-purpose-disabled.png)
 - Prompt: `Log that I read the Q3 roadmap in the CRM.`
-- Expected: the tool call fails: **{ "success": false, "error": "CRM connection does not allow API access (it's set to authentication-only). Ask the user to enable API access for this connection, or reconnect via Connected Accounts." }**. The server log shows **[Token Vault] (live) exchange failed for crm: ...** right before it.
+- Expected: the tool call fails: **{ "success": false, "error": "Token Vault refused the CRM exchange: ... Check that the CRM connection's Purpose includes Connected Accounts for Token Vault ..." }**. The server log shows **[Token Vault] (live) exchange failed for crm: ...** right before it.
 - This is a real deny, not a fallback: once a real federated connection exists for a user, Auth0 rejecting the exchange is treated as a hard denial and surfaces as this specific error. It never silently succeeds via the in-memory mock credential, which only exists for the fully-offline case where no live connection is provisioned at all. A missing or disabled credential should never be papered over with a fake one.
 - Toggle the Token Vault purpose back on and re-confirm the Connected Accounts link (*The agent acts as the employee, not a shared bot*) when done.
 

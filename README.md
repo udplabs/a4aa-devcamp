@@ -12,8 +12,8 @@ Nexus exposes four tools through an MCP server: document search, document retrie
 
 | Module | Title | Primitive | Outcome |
 |---|--------|-----------|---------|
-| 02 | Auth for MCP | RFC 9728 + RFC 8414 + RFC 8693 + RFC 8707 + Agent as Principal | MCP server becomes the trust boundary; every tool call is bearer-authenticated and OBO-scoped to the employee |
-| 03 | A second agent knocks (third-party onboarding) | CIMD self-registration + manual admin trust decision + a second Agent as Principal identity | A partner's agent gets equivalent, independently auditable access without a shared credential |
+| 02 | Auth for MCP | RFC 9728 + RFC 8707 + RFC 8693 + Agent as Principal | MCP server becomes a spec-compliant resource server (PRM, 401/403 challenges, audience = its URL); the first-party agent calls it with an OBO token naming the employee (`sub`) and the agent (`act.sub`) |
+| 03 | A second agent knocks (third-party onboarding) | Client ID Metadata Document (CIMD) import + reviewed per-app grant + consent + a second Agent as Principal identity | A partner's agent registers by URL, gets only the scopes an admin approves, and is independently auditable, with no shared credential |
 | 04 | User Authentication | Auth0 Universal Login, `express-oauth2-jwt-bearer` | Employee logs in, JWT `sub` flows to every downstream tool call |
 | 05 | Token Vault | Per-user federated CRM and GitHub credentials | Agent calls the CRM and GitHub with the employee's identity, refreshed automatically, never held in agent memory |
 | 06 | Async Authorization (CIBA) | Client-Initiated Backchannel Authentication + Auth0 Guardian push | External document shares require out-of-band employee approval with a binding message |
@@ -85,6 +85,7 @@ npm run dev
 - **:3000** — Express API
 - **:3001** — MCP server
 - **:3002** — CRM mock
+- **:3003** — Acme Partner Agent (third-party MCP client, serves its CIMD)
 
 See [`demo-app/README.md`](./demo-app/README.md) for the full environment variable reference and production/Docker instructions.
 
@@ -118,7 +119,7 @@ Your Auth0 tenant's footprint is provisioned with one click from inside the app 
 |---|---|
 | Auth0 login, JWT validation, OAuth flows | **Real** |
 | MCP protocol, OBO token exchange, audience enforcement | **Real** |
-| Tenant provisioning (SPA, APIs, M2M, CRM connection) | **Real**, one click from inside the app |
+| Tenant provisioning (SPA, APIs, MCP server client, Auth for MCP tenant settings, CRM connection) | **Real**, one click from inside the app |
 | FGA | **Live** against a real Okta FGA store provisioned per tenant. Witnessed as a live demo (Module 07); in-memory tuples as fallback |
 | CIBA | **Real** via Auth0 Guardian push; in-memory approve/deny as fallback for anyone who skips device enrollment |
 | Token Vault | **Live** when a CRM federated connection is provisioned for the tenant; in-memory mint and refresh as fallback |
@@ -130,7 +131,8 @@ Your Auth0 tenant's footprint is provisioned with one click from inside the app 
 - [`demo-app/README.md`](./demo-app/README.md) — application architecture and environment variables
 - [Auth0 for AI Agents overview](https://auth0.com/ai)
 - [MCP authorization spec (2025-11-25)](https://modelcontextprotocol.io/specification)
-- RFC 9728 (Protected Resource Metadata), RFC 8414 (AS Metadata), RFC 8693 (Token Exchange), RFC 8707 (Resource Indicators)
+- RFC 9728 (Protected Resource Metadata), RFC 8414 (AS Metadata), RFC 8693 (Token Exchange), RFC 8707 (Resource Indicators), RFC 9207 (Issuer Identification)
+- OAuth Client ID Metadata Document (draft-ietf-oauth-client-id-metadata-document), as profiled by the MCP 2025-11-25 authorization spec
 
 ## TODO: 
 
