@@ -194,12 +194,22 @@ export async function deleteLegacyCimdApp(ctx) {
 // ---- Agents (Agent as Principal, Early Access) -------------------
 
 // Find the agent record registered for this lab by name. Auth0 does not
-// support filtering /api/v2/agents by name server-side, so page through
-// and filter client-side (same pattern as deleteLegacyCimdApp above).
+// support filtering /api/v2/agents by name server-side, and the endpoint
+// uses cursor pagination (take/from), not page/per_page -- so page through
+// with the cursor and filter client-side (same pattern as deleteLegacyCimdApp
+// above).
 export async function findAgentByName(ctx, name) {
-  const result = await mgmt(ctx, "GET", "/agents?page=0&per_page=100");
-  const agents = result?.agents || result || [];
-  return (agents || []).find((a) => a.name === name) || null;
+  let cursor;
+  do {
+    const qs = new URLSearchParams({ take: "100" });
+    if (cursor) qs.set("from", cursor);
+    const result = await mgmt(ctx, "GET", `/agents?${qs.toString()}`);
+    const agents = result?.agents || [];
+    const found = agents.find((a) => a.name === name);
+    if (found) return found;
+    cursor = result?.next;
+  } while (cursor);
+  return null;
 }
 
 export async function deleteAgentByName(ctx, name) {
