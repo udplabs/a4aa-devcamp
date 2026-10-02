@@ -2,7 +2,7 @@
 
 <!-- TODO: Flow screenshot here - Agent Identity and MCP server with arrow between. -->
 
-Here's what you'll do:
+Here's what we're going to do:
 - Make your MCP server a standards-compliant OAuth resource server that any MCP client, yours or someone else's, can discover and call.
 - Give your first-party agent the two things it needs to call tools on behalf of employees:
   - A first-class identity through **Agent as Principal**, with its own `agent_id`
@@ -108,6 +108,8 @@ Creating it from the API screen makes it a **Custom API Client** linked to the N
 4. Select **Save**.
 
 This is the ceiling on what an employee's token can carry through this client. The employee's own role (RBAC) narrows it further.
+
+<!-- TODO: new screenshot -->
 
 ![docagent-mcp-obo user-delegated access with the mcp:* scopes granted](images/01-obo-api-access-scopes.png)
 
@@ -310,15 +312,7 @@ result = await executeTool(toolName, parameters, user.accessToken);
 
 <!-- TODO: screenshot - Run Checks panel with all conditions passing (reused UI, first appearance) -->
 
-Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms these conditions automatically:
-
-- An agent named **Nexus Agent (DevCamp)** exists and is linked (`agent_id`) to `docagent-mcp-obo`.
-- `docagent-mcp-obo` is a Custom API client (`app_type: resource_server`) linked to the Nexus Agent API.
-- The Nexus MCP Server API has **agent_subject_claims** set to `"auth0-v1"`.
-- The tenant has the Resource Parameter Compatibility Profile and the `iss` response parameter turned on.
-- PRM returns `resource` equal to `AUTH0_TOOL_AUDIENCE` and your Auth0 tenant as the authorization server.
-- An unauthenticated **GET /mcp/tools** returns **401** with a `WWW-Authenticate` header carrying `resource_metadata`.
-- On-Behalf-Of Token Exchange is on for `docagent-mcp-obo`, and it holds a user-delegated grant on the Nexus MCP Server.
+Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms everything is set up properly.
 
 > [!TIP]
 > If a check fails, the result row shows the exact reason. Fix the flagged item and select **Re-run checks**.

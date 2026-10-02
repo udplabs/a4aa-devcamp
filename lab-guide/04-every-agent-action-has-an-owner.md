@@ -2,7 +2,9 @@
 
 <!-- TODO: Flow screenshot here - User Identity -->
 
-So the MCP server now has a trust boundary.
+<!-- TODO: discuss cutting htis out entirely? -->
+
+Now we can idenitfy our first and third party agents.
 
 But OBO token exchange needs a user identity to carry through to tool execution and right now it has no user to carry.
 
@@ -28,6 +30,16 @@ When you clicked **Provision Resources**, the app created everything Nexus needs
     - password: **`DevCamp1!`**
   - `bob@docagent.demo`: all-company access only, denied on engineering, HR, and executive documents
     - password: **`DevCamp1!`**
+
+> [!IMPORTANT]
+> **You can log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!`.
+>
+> Everything from here on assumes you're logged in.
+>
+> Guardian push MFA is enforced tenant-wide, so login also triggers an MFA enrollment in the Auth0 Guardian app.
+
+<!-- TODO: screenshot - Guardian MFA enrollment QR/prompt screen on first login -->
+<!-- TODO: screenshot - Nexus chat interface header showing logged-in user's name and Log Out button -->
 
 ## Code steps
 
@@ -105,16 +117,6 @@ const { loginWithRedirect, isLoading } = useAuth0();
   {isLoading ? "Loading..." : "Log In"}
 </button>
 ```
-
-> [!IMPORTANT]
-> **You can log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!`.
->
-> Everything from here on assumes you're logged in.
->
-> Guardian push MFA is enforced tenant-wide, so login also triggers an MFA enrollment in the Auth0 Guardian app.
-
-<!-- TODO: screenshot - Guardian MFA enrollment QR/prompt screen on first login -->
-<!-- TODO: screenshot - Nexus chat interface header showing logged-in user's name and Log Out button -->
 
 ### Step 4: the access token is attached to **/api/chat**
 
