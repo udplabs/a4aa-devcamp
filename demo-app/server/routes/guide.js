@@ -10,21 +10,22 @@ const router = Router();
 
 // `id` must match the real filename (minus .md) in lab-guide/ exactly --
 // this is what resolves the file on disk below. `module` is the internal
-// checkable-step id consumed by ModuleChecks.jsx / ProgressTracker.jsx and
-// is intentionally one behind the file's own number prefix, since
-// "00-introduction" has no automated check. `title` shows the file's own
-// number prefix so what's displayed here matches what the lab guide file
-// itself is called.
+// checkable-step id consumed by ModuleChecks.jsx / ProgressTracker.jsx; it's
+// null when a file has no matching automated check (00-introduction,
+// 04-auth-for-mcp). `07-ciba-and-fga` covers two checkable steps in one
+// file; it points at CIBA ("05") since that's the one with a concrete
+// backend check. `title` shows the file's own number prefix so what's
+// displayed here matches what the lab guide file itself is called.
 export const LABS = [
   { id: "overview",                                                    title: "Overview",                        module: null },
   { id: "00-introduction",                                             title: "Introduction",                    module: null },
   { id: "01-prerequisites",                                            title: "Module 01: Prerequisites",        module: "00" },
-  { id: "02-one-trust-boundary-for-every-agent",                       title: "Module 02: Auth for MCP",         module: "01" },
-  { id: "03-a-second-agent-knocks",                                   title: "Module 03: Third-Party Agent Onboarding", module: "02" },
-  { id: "04-every-agent-action-has-an-owner",                         title: "Module 04: User Authentication",  module: "03" },
-  { id: "05-the-agent-acts-as-the-employee,-not-a-shared-bot",        title: "Module 05: Token Vault",          module: "04" },
-  { id: "06-humans-approve-what-cant-be-undone",                      title: "Module 06: CIBA",                 module: "05" },
-  { id: "07-access-that-knows-where-it-ends",                         title: "Module 07: FGA",                  module: "06" },
+  { id: "02-first-party-agent-setup",                                  title: "Module 02: First-Party Agent Setup", module: "01" },
+  { id: "03-third-party-agent-setup",                                  title: "Module 03: Third-Party Agent Setup", module: "02" },
+  { id: "04-auth-for-mcp",                                             title: "Module 04: Auth for MCP",         module: null },
+  { id: "05-every-agent-action-has-an-owner",                          title: "Module 05: User Authentication",  module: "03" },
+  { id: "06-the-agent-acts-as-the-employee-not-a-shared-bot",          title: "Module 06: Token Vault",          module: "04" },
+  { id: "07-ciba-and-fga",                                             title: "Module 07: CIBA and FGA",         module: "05" },
   { id: "08-putting-it-all-together",                                 title: "Module 08: End-to-End",           module: "07" },
   { id: "99-conclusion",                                               title: "Conclusion",                      module: null },
 ];

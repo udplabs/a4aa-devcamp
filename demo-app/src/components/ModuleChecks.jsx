@@ -132,7 +132,7 @@ const FGA_QUIZ = {
   question: "Why can Alice read the Q3 Roadmap but Bob cannot?",
   options: [
     { id: "a", label: "Alice has the 'engineer' role in Auth0 RBAC; Bob has 'employee' only" },
-    { id: "b", label: "Alice is a member of department:engineering, which has viewer on document:q3-roadmap — Bob has no department membership" },
+    { id: "b", label: "Alice has a direct editor tuple on document:q3-roadmap (alice editor document:q3-roadmap) — Bob has no tuple on that document" },
     { id: "c", label: "Alice's JWT contains mcp:docs:read; Bob's token is missing that scope" },
     { id: "d", label: "Alice is listed as owner in the FGA model definition; Bob is not" },
   ],
@@ -186,7 +186,7 @@ function FGAQuiz({ onPass }) {
         </button>
       )}
       {wrong && <p className="fga-quiz-feedback fga-quiz-feedback--wrong">Incorrect — review the authorization model and try again.</p>}
-      {correct && <p className="fga-quiz-feedback fga-quiz-feedback--correct">Correct. Department-membership inheritance is the key FGA concept in this module.</p>}
+      {correct && <p className="fga-quiz-feedback fga-quiz-feedback--correct">Correct. A direct editor relationship tuple is the key FGA concept in this module.</p>}
     </div>
   );
 }

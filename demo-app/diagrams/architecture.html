@@ -8,7 +8,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #FAF8F5; }
   #card {
-    width: 1240px;
+    width: 1460px;
     padding: 48px 56px 40px 56px;
     background: #FAF8F5;
     font-family: 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
@@ -48,9 +48,9 @@
 <div id="card">
   <p class="eyebrow">Nexus (A4AA) &middot; demo-app</p>
   <h1>System architecture</h1>
-  <p class="subtitle">The whole app, including the API, MCP server, and CRM mock, runs inside one GitHub Codespace or locally, with only Auth0, FGA, and the LLM external.</p>
+  <p class="subtitle">The whole app, including the API, MCP server, CRM mock, and the Acme third-party agent, runs inside one GitHub Codespace or locally, with only Auth0, FGA, and the LLM external.</p>
 
-  <svg width="1200" height="740" viewBox="0 0 1200 740" xmlns="http://www.w3.org/2000/svg">
+  <svg width="1400" height="770" viewBox="0 0 1400 770" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
         <path d="M0,0 L10,5 L0,10 z" fill="#3A3450"/>
@@ -58,71 +58,89 @@
       <marker id="arrowDashed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
         <path d="M0,0 L10,5 L0,10 z" fill="#A8A2B0"/>
       </marker>
+      <marker id="arrowAcme" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#7C3AED"/>
+      </marker>
     </defs>
 
     <!-- ================= CONNECTORS ================= -->
 
     <!-- Client -> Codespace -->
-    <path d="M600,100 L600,150" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <text x="616" y="141" font-size="12.5" fill="#3A3450" font-weight="600">Universal Login / API calls (JWT)</text>
+    <path d="M430,100 L430,150" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="446" y="141" font-size="12.5" fill="#3A3450" font-weight="600">Universal Login / API calls (JWT)</text>
 
     <!-- Express API -> MCP Server -->
-    <path d="M445,262 L468,262" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <text x="456" y="196" text-anchor="middle" font-size="12" fill="#3A3450" font-weight="600">OBO exchange</text>
+    <path d="M420,262 L440,262" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="430" y="196" text-anchor="middle" font-size="12" fill="#3A3450" font-weight="600">OBO exchange</text>
 
     <!-- MCP Server -> CRM Mock -->
-    <path d="M740,262 L763,262" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <text x="752" y="196" text-anchor="middle" font-size="12" fill="#3A3450" font-weight="600">Vaulted call</text>
+    <path d="M690,262 L710,262" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="700" y="196" text-anchor="middle" font-size="12" fill="#3A3450" font-weight="600">Vaulted call</text>
 
     <!-- Express API -> LLM (dashed, external, optional) -->
-    <path d="M430,205 L430,118 L1075,118 L1075,102" fill="none" stroke="#A8A2B0" stroke-width="2" stroke-dasharray="6,5" marker-end="url(#arrowDashed)"/>
-    <text x="855" y="112" text-anchor="middle" font-size="12" fill="#8B8494">tool-calling loop &middot; optional</text>
+    <path d="M295,205 L295,118 L845,118 L845,102" fill="none" stroke="#A8A2B0" stroke-width="2" stroke-dasharray="6,5" marker-end="url(#arrowDashed)"/>
+    <text x="650" y="112" text-anchor="middle" font-size="12" fill="#8B8494">tool-calling loop &middot; optional</text>
 
     <!-- Express API -> Auth0 -->
-    <path d="M310,320 L310,488" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <text x="326" y="392" font-size="12.5" fill="#3A3450" font-weight="600">Login &middot; Token Exchange (OBO)</text>
-    <text x="326" y="410" font-size="12.5" fill="#3A3450" font-weight="600">Token Vault &middot; CIBA</text>
+    <path d="M295,320 L295,488" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="311" y="392" font-size="12.5" fill="#3A3450" font-weight="600">Login &middot; Token Exchange (OBO)</text>
+    <text x="311" y="410" font-size="12.5" fill="#3A3450" font-weight="600">Token Vault &middot; CIBA</text>
 
     <!-- MCP Server -> FGA -->
-    <path d="M605,320 L605,508" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <text x="621" y="400" font-size="12.5" fill="#3A3450" font-weight="600">FGA access check</text>
+    <path d="M565,320 L565,508" fill="none" stroke="#3A3450" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="581" y="400" font-size="12.5" fill="#3A3450" font-weight="600">FGA access check</text>
+
+    <!-- Acme -> MCP Server (routed under CRM Mock, tool calls with its own token) -->
+    <path d="M1105,320 L1105,335 L565,335 L565,320" fill="none" stroke="#7C3AED" stroke-width="2.5" marker-end="url(#arrowAcme)"/>
+    <text x="835" y="330" text-anchor="middle" font-size="11.5" fill="#6B3FBF" font-weight="600">Tool calls &middot; own token (no OBO)</text>
+
+    <!-- Acme -> Auth0 (its own Authorization Code + PKCE, with consent) -->
+    <path d="M1100,320 L1100,440 L430,440 L430,488" fill="none" stroke="#7C3AED" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="835" y="434" text-anchor="middle" font-size="12" fill="#6B3FBF" font-weight="600">Authorization Code + PKCE &middot; employee consent</text>
 
     <!-- ================= NODES ================= -->
 
     <!-- Client SPA -->
-    <rect x="460" y="20" width="280" height="80" rx="14" fill="#FFFFFF" stroke="#2D6CDF" stroke-width="2.5"/>
-    <text x="600" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">React SPA</text>
-    <text x="600" y="72" text-anchor="middle" font-size="12" fill="#6B6470">Browser &middot; Vite :5173</text>
+    <rect x="290" y="20" width="280" height="80" rx="14" fill="#FFFFFF" stroke="#2D6CDF" stroke-width="2.5"/>
+    <text x="430" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">React SPA</text>
+    <text x="430" y="72" text-anchor="middle" font-size="12" fill="#6B6470">Browser &middot; Vite :5173</text>
 
     <!-- LLM optional -->
-    <rect x="980" y="20" width="190" height="80" rx="14" fill="#FFFFFF" stroke="#A8A2B0" stroke-width="2" stroke-dasharray="6,5"/>
-    <text x="1075" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#4A4456">LLM</text>
-    <text x="1075" y="72" text-anchor="middle" font-size="11.5" fill="#8B8494">OpenAI &middot; sim fallback</text>
+    <rect x="750" y="20" width="190" height="80" rx="14" fill="#FFFFFF" stroke="#A8A2B0" stroke-width="2" stroke-dasharray="6,5"/>
+    <text x="845" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#4A4456">LLM</text>
+    <text x="845" y="72" text-anchor="middle" font-size="11.5" fill="#8B8494">OpenAI &middot; sim fallback</text>
 
     <!-- Codespace outer -->
-    <rect x="140" y="150" width="920" height="200" rx="16" fill="#F1EEEA" stroke="#16112B" stroke-width="2"/>
+    <rect x="140" y="150" width="1120" height="200" rx="16" fill="#F1EEEA" stroke="#16112B" stroke-width="2"/>
     <text x="164" y="180" font-size="13" font-weight="700" fill="#16112B" letter-spacing="0.06em">GITHUB CODESPACE &middot; OR LOCAL</text>
 
     <!-- Express API -->
-    <rect x="175" y="205" width="270" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
-    <text x="310" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">Express API</text>
-    <text x="310" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3000</text>
-    <text x="310" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">JWT validation &middot; /api/chat</text>
-    <text x="310" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">CIBA gate &middot; provisioning</text>
+    <rect x="170" y="205" width="250" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
+    <text x="295" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">Express API</text>
+    <text x="295" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3000</text>
+    <text x="295" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">JWT validation &middot; /api/chat</text>
+    <text x="295" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">CIBA gate &middot; provisioning</text>
 
     <!-- MCP Server -->
-    <rect x="470" y="205" width="270" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
-    <text x="605" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">MCP Server</text>
-    <text x="605" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3001</text>
-    <text x="605" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">Tool execution &middot; scope check</text>
-    <text x="605" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">CIMD &middot; PRM &middot; AS metadata</text>
+    <rect x="440" y="205" width="250" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
+    <text x="565" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">MCP Server</text>
+    <text x="565" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3001</text>
+    <text x="565" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">Tool execution &middot; scope check</text>
+    <text x="565" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">CIMD &middot; PRM &middot; AS metadata</text>
 
     <!-- CRM Mock -->
-    <rect x="765" y="205" width="260" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
-    <text x="895" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">CRM Mock</text>
-    <text x="895" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3002</text>
-    <text x="895" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">OAuth2 + activities API</text>
-    <text x="895" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">same Node process</text>
+    <rect x="710" y="205" width="250" height="115" rx="12" fill="#FFFFFF" stroke="#16112B" stroke-width="2"/>
+    <text x="835" y="236" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">CRM Mock</text>
+    <text x="835" y="256" text-anchor="middle" font-size="12" fill="#6B6470">:3002</text>
+    <text x="835" y="276" text-anchor="middle" font-size="11.5" fill="#6B6470">OAuth2 + activities API</text>
+    <text x="835" y="294" text-anchor="middle" font-size="11.5" fill="#6B6470">same Node process</text>
+
+    <!-- Acme Partner Agent -->
+    <rect x="980" y="205" width="250" height="115" rx="12" fill="#FBF8FF" stroke="#7C3AED" stroke-width="2.5"/>
+    <text x="1105" y="232" text-anchor="middle" font-size="16" font-weight="700" fill="#16112B">Acme Partner Agent</text>
+    <text x="1105" y="252" text-anchor="middle" font-size="12" fill="#6B6470">:3003</text>
+    <text x="1105" y="272" text-anchor="middle" font-size="11.5" fill="#6B6470">third-party MCP client &middot; CIMD</text>
+    <text x="1105" y="289" text-anchor="middle" font-size="11.5" fill="#6B6470">co-located for the lab</text>
 
     <!-- Auth0 -->
     <rect x="170" y="488" width="280" height="185" rx="14" fill="#FFF6F1" stroke="#EB5424" stroke-width="2.5"/>
@@ -145,6 +163,7 @@
 
   <div class="legend">
     <span><span class="swatch" style="background:#3A3450"></span>required path</span>
+    <span><span class="swatch" style="background:#7C3AED"></span>third-party agent (Acme)</span>
     <span><span class="swatch" style="background:#A8A2B0; border-top:2px dashed #A8A2B0; height:0;"></span>optional / simulated fallback</span>
   </div>
 </div>

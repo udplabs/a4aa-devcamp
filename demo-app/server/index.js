@@ -38,7 +38,6 @@ import {
   findClientByExternalId,
   getClient,
   getConnectionByName,
-  listClientGrants,
 } from "./platform/auth0Management.js";
 import {
   runProvision,
@@ -46,7 +45,6 @@ import {
   deploymentDataToEnvVars,
   AGENT_NAME,
   THIRD_PARTY_AGENT_NAME,
-  THIRD_PARTY_REVIEWED_SCOPES,
   MCP_SERVER_SCOPES,
 } from "./platform/provision.js";
 import { requestOrigin, originForPort, mcpPort, acmePort, acmeCimdUrl } from "./utils/publicUrl.js";
@@ -292,7 +290,7 @@ async function mgmtGet(ctx, path) {
   return r.json();
 }
 
-// Module 02 (lab guide 02): Auth for MCP + first-party agent.
+// Module 01 (lab guide 02-first-party-agent-setup): Agent as Principal + OBO client.
 app.get("/api/verify/module01", async (req, res) => {
   const mcpBase = `http://localhost:${mcpPort()}`;
   const checks = [];
@@ -348,69 +346,16 @@ app.get("/api/verify/module01", async (req, res) => {
       }
     }
 
-    // 3. The MCP server API opted into agent subject claims.
-    try {
-      const list = await mgmtGet(ctx, `/resource-servers?identifier=${encodeURIComponent(mcpResource)}`);
-      const rs = Array.isArray(list) ? list.find((r) => r.identifier.replace(/\/$/, "") === mcpResource) : null;
-      const enabled = rs?.agent_subject_claims === "auth0-v1";
-      checks.push({ id: "agent_subject_claims", name: "MCP server API accepts agent subject claims", pass: enabled,
-        message: enabled
-          ? `agent_subject_claims = auth0-v1 on ${mcpResource}`
-          : `Nexus MCP Server API (${mcpResource || "AUTH0_TOOL_AUDIENCE unset"}) is missing agent_subject_claims — re-run Provision Resources` });
-    } catch (e) {
-      checks.push({ id: "agent_subject_claims", name: "MCP server API accepts agent subject claims", pass: false, message: e.message });
-    }
-
-    // 4. Tenant settings Auth for MCP relies on.
-    try {
-      const t = await mgmtGet(ctx, "/tenants/settings");
-      const resourceParam = t.resource_parameter_profile === "compatibility";
-      const issParam = t.authorization_response_iss_parameter_supported === true;
-      checks.push({ id: "auth_for_mcp_settings", name: "Resource Parameter Compatibility Profile and iss parameter enabled",
-        pass: resourceParam && issParam,
-        message: resourceParam && issParam
-          ? "resource_parameter_profile=compatibility, authorization_response_iss_parameter_supported=true"
-          : "Dashboard → Settings → Advanced: enable Resource Parameter Compatibility Profile and Include Issuer in Authorization Responses" });
-    } catch (e) {
-      checks.push({ id: "auth_for_mcp_settings", name: "Resource Parameter Compatibility Profile and iss parameter enabled", pass: false, message: e.message });
-    }
   } else if (!checks.length) {
     checks.push({ id: "mgmt", name: "Management API access", pass: false,
       message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
   }
 
-  // 5. Protected Resource Metadata: `resource` is the MCP server's identifier
-  // and the authorization server is this tenant.
-  try {
-    const r = await fetch(`${mcpBase}/.well-known/oauth-protected-resource`);
-    const body = await r.json();
-    const resourceOk = (body.resource || "").replace(/\/$/, "") === mcpResource && !!mcpResource;
-    const asOk = body.authorization_servers?.[0] === `https://${domain}/`;
-    checks.push({ id: "prm", name: "Protected Resource Metadata (RFC 9728)", pass: resourceOk && asOk,
-      message: resourceOk && asOk
-        ? `resource=${body.resource}, authorization_servers=[${body.authorization_servers[0]}]`
-        : `resource=${body.resource} (expected ${mcpResource}), authorization_servers=${JSON.stringify(body.authorization_servers)}` });
-  } catch (e) {
-    checks.push({ id: "prm", name: "Protected Resource Metadata (RFC 9728)", pass: false, message: e.message });
-  }
-
-  // 6. 401 without a token, with a WWW-Authenticate pointer to the PRM.
-  try {
-    const r = await fetch(`${mcpBase}/mcp/tools`);
-    const challenge = r.headers.get("www-authenticate") || "";
-    const ok = r.status === 401 && challenge.includes("resource_metadata=");
-    checks.push({ id: "mcp_401", name: "MCP server returns 401 with a resource_metadata challenge", pass: ok,
-      message: ok ? `401, WWW-Authenticate: ${challenge}` : `Expected 401 with resource_metadata, got ${r.status} "${challenge}"` });
-  } catch (e) {
-    checks.push({ id: "mcp_401", name: "MCP server returns 401 with a resource_metadata challenge", pass: false, message: e.message });
-  }
-
-  // 7. OBO toggle + user-delegated grant on the MCP server API.
+  // 3. OBO toggle — a test exchange with a bogus token returns
+  // access_denied/invalid_grant (toggle on), not unauthorized_client.
   const oboSecret = process.env.AUTH0_OBO_CLIENT_SECRET;
   if (domain && oboClientId && oboSecret) {
     try {
-      // 7a. OBO toggle — a test exchange with a bogus token returns
-      // access_denied/invalid_grant (toggle on), not unauthorized_client.
       const r = await fetch(`https://${domain}/oauth/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -428,32 +373,6 @@ app.get("/api/verify/module01", async (req, res) => {
       const toggled = body.error !== "unauthorized_client";
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
         message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable On-Behalf-Of Token Exchange on nexus-agent-obo" });
-
-      // 7b. User-delegated grant from nexus-agent-obo to the MCP server API.
-      if (toggled && ctx) {
-        try {
-          const grants = await listClientGrants(ctx, oboClientId, mcpResource);
-          const userGrant = grants.find((g) => g.subject_type === "user");
-          const grantScopes = userGrant?.scope || [];
-          const required = ["mcp:docs:search", "mcp:docs:read", "mcp:crm:log", "mcp:docs:share"];
-          const missing = required.filter((sc) => !grantScopes.includes(sc));
-          const allScopesGranted = userGrant?.allow_all_scopes === true;
-          const pass = !!userGrant && (missing.length === 0 || allScopesGranted);
-          checks.push({
-            id: "obo_user_grant",
-            name: "User-delegated grant: nexus-agent-obo → Nexus MCP Server",
-            pass,
-            message: !userGrant
-              ? "Missing user-delegated grant — Nexus MCP Server → Application Access → nexus-agent-obo → User-Delegated Access → authorize the mcp:* scopes"
-              : pass
-                ? `User-delegated access grant exists${allScopesGranted ? " (all permissions)" : ` (${grantScopes.join(", ")})`}`
-                : `Grant is missing: ${missing.join(", ")}`,
-          });
-        } catch (e) {
-          checks.push({ id: "obo_user_grant", name: "User-delegated grant: nexus-agent-obo → Nexus MCP Server", pass: false,
-            message: `${e.message} (the management client needs read:client_grants)` });
-        }
-      }
     } catch (e) {
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false, message: e.message });
     }
@@ -544,27 +463,7 @@ app.get("/api/verify/module02", async (req, res) => {
     checks.push({ id: "cimd_registered", name: "Acme registered from its CIMD URL as a third-party client", pass: false, message: e.message });
   }
 
-  // 4. The trust decision: a reviewed, read-only user-delegated grant.
-  if (acme) {
-    try {
-      const grants = await listClientGrants(ctx, acme.client_id, mcpResource);
-      const userGrant = grants.find((g) => g.subject_type === "user");
-      const scopes = userGrant?.allow_all_scopes ? MCP_SERVER_SCOPES : userGrant?.scope || [];
-      const missing = THIRD_PARTY_REVIEWED_SCOPES.filter((sc) => !scopes.includes(sc));
-      const excess = scopes.filter((sc) => !THIRD_PARTY_REVIEWED_SCOPES.includes(sc));
-      const ok = !!userGrant && missing.length === 0 && excess.length === 0;
-      checks.push({ id: "thirdparty_api_grant", name: "Acme holds only the reviewed scopes on the MCP server API", pass: ok,
-        message: !userGrant
-          ? "No user-delegated grant — Nexus MCP Server → Application Access → Acme Partner Agent → User-Delegated Access → Grant Access"
-          : ok
-            ? `User-delegated grant: ${scopes.join(", ")}`
-            : `Grant should be exactly ${THIRD_PARTY_REVIEWED_SCOPES.join(", ")}${missing.length ? `; missing ${missing.join(", ")}` : ""}${excess.length ? `; remove ${excess.join(", ")}` : ""}` });
-    } catch (e) {
-      checks.push({ id: "thirdparty_api_grant", name: "Acme holds only the reviewed scopes on the MCP server API", pass: false, message: e.message });
-    }
-  }
-
-  // 5. Agent as Principal: THIRD_PARTY_AGENT_NAME linked to Acme's client.
+  // 4. Agent as Principal: THIRD_PARTY_AGENT_NAME linked to Acme's client.
   try {
     const agent = await findAgentByName(ctx, THIRD_PARTY_AGENT_NAME);
     if (!agent) {
@@ -583,24 +482,6 @@ app.get("/api/verify/module02", async (req, res) => {
     }
   } catch (e) {
     checks.push({ id: "thirdparty_agent_registered", name: "Third-party agent registered and linked to Acme's client", pass: false, message: e.message });
-  }
-
-  // 6. Acme completed consent and holds a token for the MCP server.
-  try {
-    const r = await fetch(`${acmeBase}/status`);
-    const body = await r.json();
-    const aud = Array.isArray(body.aud) ? body.aud : [body.aud];
-    const ok = body?.connected === true && body.client_id === cimdUrl &&
-      aud.map((a) => String(a || "").replace(/\/$/, "")).includes(mcpResource);
-    checks.push({ id: "thirdparty_consent_granted", name: "Acme completed its consent flow", pass: ok,
-      message: body?.connected !== true
-        ? `Acme hasn't logged in yet — open ${originForPort(requestOrigin(req), acmePort())}/login`
-        : ok
-          ? `sub=${body.sub}, client_id=${body.client_id}, act.sub=${body.act?.sub || "(none)"}, scope=${body.scope}`
-          : `Token has client_id=${body.client_id}, aud=${JSON.stringify(body.aud)} — expected ${cimdUrl} and ${mcpResource}` });
-  } catch (e) {
-    checks.push({ id: "thirdparty_consent_granted", name: "Acme completed its consent flow", pass: false,
-      message: `Could not reach Acme server at ${acmeBase} — is it running? (${e.message})` });
   }
 
   res.json({ module: "02", checks, allPassed: checks.every((c) => c.pass) });

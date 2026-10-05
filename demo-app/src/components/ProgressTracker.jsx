@@ -4,9 +4,9 @@ import { ModuleChecks } from "./ModuleChecks";
 
 const MODULES = [
   { id: "00", label: "Prerequisites" },
-  { id: "01", label: "Auth for MCP" },
-  { id: "02", label: "Third-Party Agent" },
-  { id: "03", label: "User Auth" },
+  { id: "01", label: "First-Party Agent Setup" },
+  { id: "02", label: "Third-Party Agent Setup" },
+  { id: "03", label: "User Authentication" },
   { id: "04", label: "Token Vault" },
   { id: "05", label: "CIBA" },
   { id: "06", label: "FGA" },
