@@ -178,28 +178,8 @@ curl https://<your-codespace-name>-3003.app.github.dev/status
 
 *You should see: `connected: true`, `client_id` = the CIMD URL, `aud` = the MCP server URL, and `act.sub` = Acme's `agt_...`.*
 
-<!-- TODO: This should be in the end to end testing -->
-
-### Step 7: prove the two agents are distinct
-
-Open the **Tool Tester** tab in the Nexus app.
-
-1. Set **Call as** to **Nexus Agent (first-party)**. Call `search_documents` with any query.
-2. Set **Call as** to **Acme Partner Agent (third-party)**. Call the same tool with the same query.
-3. Open **Tool Logs** and expand both entries. Compare the **Caller** blocks:
-
-    |  | Nexus | Acme |
-    |---|---|---|
-    | `sub` | alice | alice |
-    | `client_id` | `docagent-mcp-obo`'s ID | the CIMD URL |
-    | `act.sub` | `agt_...` (Nexus) | `agt_...` (Acme) |
-    | `act` depth | 2: agent, then the SPA | 1: agent |
-
-4. As Acme, call `share_document`.
-
-    *You should see: a 403 `insufficient_scope` error naming `mcp:docs:share`.* The MCP server's `WWW-Authenticate` challenge names the missing scope. Acme asked for it, but you didn't grant it, so Auth0 never put it in the token.
-
-Same employee, same server, same enforcement code, two distinguishable agents with different, admin-decided privileges.
+> [!NOTE]
+> Acme can already call `search_documents` and `get_document` on the strength of this grant. **Auth for MCP** (the next module) finishes wiring your own first-party agent's access, then proves the two agents are distinct side by side.
 
 ## Checkpoint
 
@@ -279,10 +259,10 @@ You've successfully:
       Given the partner's agent its own Agent as Principal identity;
   </li>
   <li style="list-style-type:'✅ '">
-      Confirmed both agents act for the same employee with distinguishable <code>act.sub</code> values, and that Acme can't use a scope you didn't grant.
+      Confirmed Acme can call its granted tools and connected as alice with explicit consent.
   </li>
 </ul>
 
-Two agents now call Nexus with fully separable identities and admin-decided access. The next module anchors every one of those calls to a real, verified employee.
+Two agents now have fully separable identities and admin-decided access, but neither can call a tool yet. The next module, **Auth for MCP**, grants your first-party agent's client access to the MCP server and proves the two agents are distinct.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

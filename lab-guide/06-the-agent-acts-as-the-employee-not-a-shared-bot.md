@@ -26,7 +26,7 @@ In this module, you'll:
 - A CRM OAuth2 connection on your tenant pointing to the CRM mock running on port 3002 of your Codespace.
 - **nexus-mcp-server-codespace**, the MCP server's own **Custom API Client**, linked to the Nexus MCP Server API, with the **Token Vault** grant type (Advanced Settings → Grant Types).
   - Auth0 only lets a client exchange a token at Token Vault if the client is linked to the API in that token's `aud`. Every tool call reaches the MCP server with a token for the Nexus MCP Server, from the first or third party agent, so the MCP server's own client is the one that can exchange it.
-- `docagent-mcp-obo`, the Custom API Client you created in *One trust boundary for every agent*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the user's Nexus Agent API token.
+- `docagent-mcp-obo`, the Custom API Client you created in *Auth for MCP*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the user's Nexus Agent API token.
 
 **Nothing is provisioned for GitHub.** Unlike the CRM connection, the GitHub social connection is entirely your responsibility to create, mirroring how a real enterprise admin onboards a new federated credential by hand.
 
@@ -103,13 +103,13 @@ If either condition isn't met, it falls back to the in-memory mock so the lab ca
 > The grant type here:
 > **urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token**
 > 
-> is Auth0's own variant, distinct from the RFC 8693 OBO grant you used in *One trust boundary for every agent* (**urn:ietf:params:oauth:grant-type:token-exchange**).
+> is Auth0's own variant, distinct from the RFC 8693 OBO grant you used in *Auth for MCP* (**urn:ietf:params:oauth:grant-type:token-exchange**).
 >
 > Both are token exchanges but they serve different purposes:
 > - OBO preserves user identity across the agent boundary.
 > - This one retrieves a stored third-party credential from Token Vault.
 >
-> There's also a role reversal worth noticing. In *One trust boundary for every agent*, the MCP server only validated tokens and the agent's backend did the exchanging. Here, the MCP server itself becomes a client. It exchanges the token it just validated, using its own Custom API client, for a CRM credential before calling the CRM API.
+> There's also a role reversal worth noticing. In *Auth for MCP*, the MCP server only validated tokens and the agent's backend did the exchanging. Here, the MCP server itself becomes a client. It exchanges the token it just validated, using its own Custom API client, for a CRM credential before calling the CRM API.
 >
 > **Token Vault and the `act` claim.** Both agents' tokens carry an `act` delegation chain once their clients are linked to Agent records. If your tenant refuses to exchange such a token at Token Vault, the MCP server can fall back, for the first-party agent only, to the employee's original Nexus Agent API token. It does so only after verifying that token's signature and audience, that it belongs to the same employee, and that it was issued to a client in the bearer's own `act` chain. Set `TOKEN_VAULT_FIRST_PARTY_FALLBACK=false` in `.env` to turn the fallback off and run strictly to the MCP spec's no-token-passthrough rule.
 
@@ -224,6 +224,6 @@ You've successfully:
   </li>
 </ul>
 
-Per-user credentials are now handled. Now we need to worry about the agent sharing documents with external recipients without any confirmation. The next module adds the approval gate.
+Per-user credentials are now handled. Two gaps remain: the agent can share documents with external recipients without any confirmation, and document-level access hasn't been enforced yet. The next module closes both.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

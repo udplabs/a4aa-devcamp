@@ -158,10 +158,11 @@ The same user **sub** flows through every hop, giving you one audit key for ever
     What you learned
   </summary>
 
-Six controls are stacked behind one MCP server: MCP with Agent as Principal, OBO, and PRM; third-party agent onboarding; Authentication; Token Vault; CIBA; and FGA. Each one mitigates a specific risk:
+Six controls are stacked behind one MCP server: Agent as Principal; third-party agent onboarding; MCP with OBO and PRM; Authentication; Token Vault; and CIBA with FGA. Each one mitigates a specific risk:
 
-- MCP, from *One trust boundary for every agent*, prevents anonymous callers and agent-framework lock-in on your authorization code.
+- Agent as Principal, from *First-party agent setup*, gives your own agent a durable, auditable identity independent of client credential rotation.
 - Third-party onboarding, from *A second agent knocks*, prevents ad hoc vendor access without a documented trust decision.
+- MCP, from *Auth for MCP*, prevents anonymous callers and agent-framework lock-in on your authorization code.
 - JWT validation, from *Every agent action has an owner*, prevents unauthenticated use and anchors every downstream decision to a person.
 - Token Vault, from *The agent acts as the employee, not a shared bot*, prevents shared-credential sprawl, for every provider you connect.
 - CIBA, from *Humans approve what can't be undone*, prevents unilateral irreversible actions.

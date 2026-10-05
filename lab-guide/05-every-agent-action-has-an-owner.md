@@ -199,7 +199,7 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
 
 Every Nexus call now carries a verifiable user identity. This becomes the foundational anchor for everything downstream.
 
-Token Vault (from the next module) mints CRM credentials scoped to this user. CIBA (from module 5) binds device approval to the same identity. FGA (from module 6) evaluates document access keyed on this **sub**. The MCP server receives this identity on every tool call.
+Token Vault (from the next module) mints CRM credentials scoped to this user. CIBA and FGA (from *Humans approve what can't be undone and access that knows where it ends*) bind device approval and document access to the same identity. The MCP server receives this identity on every tool call.
 
 A verifiable identity at every layer makes audit trails possible. Audit trails make compliance sign-off possible.
 
