@@ -10,7 +10,7 @@ But OBO token exchange needs a user identity to carry through to tool execution 
 
 This module wires Auth0 Universal Login so every session has a verifiable user **sub** that carries downstream.
 
-This module is **read-through only**. The authentication wiring is pre-built in the starter.
+The authentication wiring itself is pre-built in the starter, so most of this module is **read-through**. Once you're logged in, there's one hands-on step: connecting Acme's agent as the same employee, so both agents hold a live token you can compare in the end-to-end run.
 
 By the end, you'll understand:
 
@@ -18,6 +18,7 @@ By the end, you'll understand:
 - How the user's access token reaches every **/api/\*** call.
 - How JWTs are validated on the backend.
 - How **sub**, **email**, and **scope** are used so downstream modules have a real user context.
+- How a third-party agent's own consent flow attaches to the same employee session, independent of your first-party agent's OBO exchange.
 
 ## What's provisioned for you
 
@@ -187,6 +188,36 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
 });
 ```
 
+### Step 7: connect Acme as the same employee
+
+Acme (from **Third-party agent setup**) was imported and granted a scope set in **Auth for MCP**, but it's never had a real employee session to consent into. Now that Alice is logged into Nexus, give Acme one too.
+
+Open Acme's login route in a new tab:
+
+```
+https://<your-codespace-name>-3003.app.github.dev/login
+```
+
+Acme discovers the MCP server and Auth0 on its own (the 401 → PRM → AS metadata chain from **Third-party agent setup**), then starts Authorization Code + PKCE with:
+- `client_id` = its CIMD URL
+- `resource` = the MCP server's URL (RFC 8707)
+- `code_challenge_method=S256`
+
+Sign in as Alice again (`alice@docagent.demo` / `DevCamp1!`).
+
+> [!NOTE]
+> **This is the first consent screen in this lab.** Every other application you've used is first-party, so Auth0 skips the prompt. Acme is a third party, so Auth0 shows Acme's `client_name` and the scopes it will actually receive, and asks you to approve.
+
+*You should see: "Acme connected." with the granted scope `mcp:docs:search mcp:docs:read`.*
+
+```bash
+curl https://<your-codespace-name>-3003.app.github.dev/status
+```
+
+*You should see: `connected: true`, `client_id` = the CIMD URL, `aud` = the MCP server URL, and `act.sub` = Acme's `agt_...`.*
+
+Both agents now hold a live token for the same employee. The end-to-end run compares them side by side.
+
 --- 
 
 <details>
@@ -209,7 +240,7 @@ A verifiable identity at every layer makes audit trails possible. Audit trails m
 
 ## Checkpoint
 
-Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms all four conditions automatically:
+Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms all conditions automatically:
 
 <ul>
   <li style="list-style-type:'✅ ';">
@@ -224,8 +255,11 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
   <li style="list-style-type:'✅ '">
       Guardian push MFA was completed at login.
   </li>
+  <li style="list-style-type:'✅ '">
+      Acme completed its consent flow and holds a token whose `client_id` is its CIMD URL and whose `aud` is the MCP server.
+  </li>
 </ul>
 
-Every request now carries a verified human identity. The next module uses that identity to retrieve per-user credentials from Token Vault, so the agent never touches a shared service account.
+Every request now carries a verified human identity, for both your own agent and Acme's. The next module uses that identity to retrieve per-user credentials from Token Vault, so the agent never touches a shared service account.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

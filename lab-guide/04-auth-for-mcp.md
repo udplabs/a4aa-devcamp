@@ -8,6 +8,7 @@ Here's what we're going to do:
 
 - Make your MCP server a standards-compliant OAuth resource server that any MCP client, yours or someone else's, can discover and call.
 - Grant your first-party agent's OBO client access to the MCP server, so the OBO exchange you wired in **First-party agent setup** actually has somewhere to go.
+- Review Acme's CIMD request against least privilege and grant it a deliberately smaller scope set, so the two agents' access lives on the same page and is easy to compare.
 - Walk through the code that enforces all of it: PRM, AS discovery, token validation, and per-tool scope.
 
 Once this module is done, every tool call carries the employee's **sub** *and* the calling agent's **agent_id** (as `act.sub`) all the way to tool execution, for both agents.
@@ -51,17 +52,14 @@ Provisioning in **Prerequisites** created:
   - **Resource Parameter Compatibility Profile**: Auth0 accepts the RFC 8707 `resource` parameter MCP clients send.
   - **Include Issuer in Authorization Responses**: RFC 9207 `iss`, which defends MCP clients against mix-up attacks.
 
-**Only one thing isn't provisioned for you.** You'll grant it in this module.
-
-> [!NOTE]
-> Acme's grant was already reviewed and set in **Third-party agent setup**: `mcp:docs:search` and `mcp:docs:read` only. This module grants the broader set your own agent is trusted with.
+**Neither agent has a grant yet.** You'll set both in this module, on the same **Application Access** tab, so the contrast between them is easy to see.
 
 ## Dashboard steps
 
 ### Grant the first-party agent's OBO client access to the Nexus MCP Server
 
 1. Auth0 Dashboard → **Applications → APIs → Nexus MCP Server → Application Access** tab
-2. Find `docagent-mcp-obo` → **Edit**
+2. Find `nexus-agent-obo` → **Edit**
 3. Under **User-Delegated Access**, select **Grant Access** and select these scopes:
     - `mcp:docs:search`
     - `mcp:docs:read`
@@ -71,9 +69,27 @@ Provisioning in **Prerequisites** created:
 
 This is the ceiling on what an employee's token can carry through this client. The employee's own role (RBAC) narrows it further.
 
-![docagent-mcp-obo user-delegated access with the mcp:* scopes granted](images/01-obo-api-access-scopes.png)
+![nexus-agent-obo user-delegated access with the mcp:* scopes granted](images/01-obo-api-access-scopes.png)
 
 The MCP client is now configured and can perform OBO token exchanges.
+
+### Review and grant Acme a smaller scope set
+
+Acme's CIMD (from the previous module) requested all five tool scopes. Review that request against least privilege:
+
+- `mcp:docs:search`, `mcp:docs:read`: a partner agent that answers questions from shared documents needs these. **Grant.**
+- `mcp:docs:share`: an irreversible external share. This is something we typically **don't want to grant** to a third party.
+- `mcp:crm:log`: this acts in an *other* system with the employee's own federated credentials (Token Vault). **Don't grant** unless the partnership specifically requires it.
+
+To implement those decisions, on the same **Application Access** tab:
+
+1. Find **Acme Partner Agent** → **Edit**
+2. Under **User-Delegated Access**, select **Grant Access**, then select only:
+    - `mcp:docs:search`
+    - `mcp:docs:read`
+3. Select **Save**.
+
+This grant is what Auth0 enforces. When Acme requests all five scopes, the token it receives carries only these two. Side by side on the same screen, the first-party agent's four scopes and Acme's two make the admin-decided difference concrete.
 
 > [!CAUTION]
 > # **Don't log in yet.** The next module walks you through logging in for the first time.
@@ -116,20 +132,20 @@ await createResourceServer(ctx, {
 });
 ```
 
-Now that `docagent-mcp-obo` is linked to `Nexus Agent (DevCamp)` and granted access above, every OBO token Auth0 issues for this API looks like this:
+Now that `nexus-agent-obo` is linked to `Nexus Agent (DevCamp)` and granted access above, every OBO token Auth0 issues for this API looks like this:
 
 ```json
 {
   "sub": "auth0|alice...",
   "sub_profile": "user",
   "aud": "https://<codespace>-3001.app.github.dev",
-  "client_id": "<docagent-mcp-obo client id>",
+  "client_id": "<nexus-agent-obo client id>",
   "client_profile": "service ai_agent",
   "scope": "mcp:docs:search",
   "act": {
     "sub": "agt_...",
     "sub_profile": "ai_agent",
-    "client_id": "<docagent-mcp-obo client id>",
+    "client_id": "<nexus-agent-obo client id>",
     "act": { "sub": "<SPA client id>", "sub_profile": "browser_app" }
   }
 }
@@ -201,7 +217,7 @@ body: JSON.stringify({
   requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
   audience: cfg.audience,                  // the Nexus MCP Server identifier
   scope,                                   // e.g. "mcp:docs:search" for search_documents
-  client_id: cfg.clientId,                 // docagent-mcp-obo (Custom API client)
+  client_id: cfg.clientId,                 // nexus-agent-obo (Custom API client)
   client_secret: cfg.clientSecret,
 }),
 ```
@@ -231,26 +247,8 @@ result = await executeTool(toolName, parameters, user.accessToken);
 
 **executeTool** calls **mcpClient.callTool**, which runs the OBO exchange (`getToken`) before every MCP request.
 
-## Prove the two agents are distinct
-
-Open the **Tool Tester** tab in the Nexus app.
-
-1. Set **Call as** to **Nexus Agent (first-party)**. Call `search_documents` with any query.
-2. Set **Call as** to **Acme Partner Agent (third-party)**. Call the same tool with the same query.
-3. Open **Tool Logs** and expand both entries. Compare the **Caller** blocks:
-
-    |  | Nexus | Acme |
-    |---|---|---|
-    | `sub` | alice | alice |
-    | `client_id` | `docagent-mcp-obo`'s ID | the CIMD URL |
-    | `act.sub` | `agt_...` (Nexus) | `agt_...` (Acme) |
-    | `act` depth | 2: agent, then the SPA | 1: agent |
-
-4. As Acme, call `share_document`.
-
-    *You should see: a 403 `insufficient_scope` error naming `mcp:docs:share`.* The MCP server's `WWW-Authenticate` challenge names the missing scope. Acme asked for it, but you didn't grant it, so Auth0 never put it in the token.
-
-Same employee, same server, same enforcement code, two distinguishable agents with different, admin-decided privileges.
+> [!NOTE]
+> Both agents are now granted, but neither can call a tool live yet: Acme still needs a real employee session to consent into (**Every agent action has an owner**, the next module), and the first-party agent needs that same logged-in employee. The end-to-end run proves both agents side by side with live tokens, including the 403 `insufficient_scope` Acme gets if it tries `share_document`.
 
 ## Checkpoint
 
@@ -281,6 +279,8 @@ Concretely, you walked through the A4AA "Auth for MCP" pattern for a first-party
 - **Custom API client: the OBO exchanger.** Linked to the API whose tokens it exchanges, granted user-delegated access on the API it exchanges into. The issued token keeps the employee as `sub`, so FGA and Token Vault evaluate the human, and adds the agent as `act`.
 - **Discovery without config.** A 401 challenge points to PRM, PRM points to Auth0, and Auth0's own metadata describes everything else.
 - **Graceful step-up.** A **403 insufficient_scope** challenge tells the client exactly which scope is missing.
+
+Granting both agents on the same **Application Access** tab makes least privilege concrete: four scopes for the agent you own, two for the partner you reviewed, enforced by Auth0 regardless of what either one asks for.
 
 Why this matters beyond the lab:
 
@@ -321,6 +321,9 @@ You've successfully:
       Granted the first-party agent's OBO client access to the Nexus MCP Server;
   </li>
   <li style="list-style-type:'✅ '">
+      Reviewed Acme's CIMD request and granted it a deliberately smaller scope set, on the same screen;
+  </li>
+  <li style="list-style-type:'✅ '">
       Seen how the 401 challenge, PRM, and Auth0's own metadata let any MCP client discover your server;
   </li>
   <li style="list-style-type:'✅ '">
@@ -330,6 +333,6 @@ You've successfully:
 
 The MCP server now has a trust boundary. It validates every caller and scopes every tool call to a resource and an identity, for both your own agent and Acme's.
 
-The next module anchors every one of those calls to a real, verified employee.
+Neither agent can call a tool live yet, both still need a real employee session. The next module anchors every one of those calls to a real, verified employee.
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>

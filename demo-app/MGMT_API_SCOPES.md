@@ -40,7 +40,7 @@ All scopes required by `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` acros
 | Scope | Endpoint(s) | Used for |
 |---|---|---|
 | `read:agents` | `GET /agents` | `module01`/`module02`: find the Nexus and Acme agent records by name |
-| `read:clients` | `GET /clients/{id}?fields=agent_id,app_type,resource_server_identifier` | `module01`: docagent-mcp-obo is a Custom API client linked to the Nexus Agent API and to the agent record |
+| `read:clients` | `GET /clients/{id}?fields=agent_id,app_type,resource_server_identifier` | `module01`: nexus-agent-obo is a Custom API client linked to the Nexus Agent API and to the agent record |
 | `read:clients` | `GET /clients?external_client_id=...` | `module02`: Acme's CIMD client exists, is third-party, and is linked to its agent record |
 | `read:resource_servers` | `GET /resource-servers?identifier=...` | `module01`: verify `agent_subject_claims` is set on the Nexus MCP Server API |
 | `read:tenant_settings` | `GET /tenants/settings` | `module01`/`module02`: resource parameter profile, `iss` parameter, CIMD registration |

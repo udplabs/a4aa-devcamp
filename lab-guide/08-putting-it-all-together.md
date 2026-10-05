@@ -9,7 +9,7 @@
 
 - All steps from all previous modules are completed.
 - You've already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** fails with "No account linked" instead of returning a live federated token below.
-- Acme's CIMD is imported and granted `mcp:docs:search` and `mcp:docs:read` (from *A second agent knocks*), and Acme has completed its consent flow at its `/login` route, so the Tool Tester's **Acme Partner Agent** selector works.
+- Acme's CIMD is imported (*A second agent knocks*), granted `mcp:docs:search` and `mcp:docs:read` (*Auth for MCP*), and has completed its consent flow at its `/login` route as Alice (*Every agent action has an owner*), so the Tool Tester's **Acme Partner Agent** selector works.
 - Demo users: **`alice@docagent.demo`** (engineering team, editor on q3-roadmap), **`bob@docagent.demo`** (all-company docs only).
 
 --- 
@@ -123,9 +123,9 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 ### Missing scope
 
 - The Nexus MCP Server API already uses **Per-app authorization** for user-delegated access (provisioning set it), so each application's scopes are individually selectable.
-- In the Auth0 Dashboard, go to **Applications > APIs > Nexus MCP Server > Application Access**, select **Edit** on `docagent-mcp-obo`, and under **User-Delegated Access** deselect **mcp:docs:share** > **Save**.
+- In the Auth0 Dashboard, go to **Applications > APIs > Nexus MCP Server > Application Access**, select **Edit** on `nexus-agent-obo`, and under **User-Delegated Access** deselect **mcp:docs:share** > **Save**.
 
-![docagent-mcp-obo user-delegated access with mcp:docs:share deselected](images/06-missing-scope-deselected.png)
+![nexus-agent-obo user-delegated access with mcp:docs:share deselected](images/06-missing-scope-deselected.png)
 
 - Prompt: `Share the Q3 roadmap with external@partner.com`
 - A push notification card appears. Approve it on your enrolled Guardian device.

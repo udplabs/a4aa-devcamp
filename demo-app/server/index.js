@@ -309,7 +309,7 @@ app.get("/api/verify/module01", async (req, res) => {
   }
 
   if (ctx) {
-    // 1. Agent as Principal: AGENT_NAME exists and is linked to docagent-mcp-obo.
+    // 1. Agent as Principal: AGENT_NAME exists and is linked to nexus-agent-obo.
     try {
       const agent = await findAgentByName(ctx, AGENT_NAME);
       if (!agent) {
@@ -323,8 +323,8 @@ app.get("/api/verify/module01", async (req, res) => {
         const linked = client?.agent_id === agent.agent_id;
         checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: linked,
           message: linked
-            ? `Agent ${agent.agent_id} ("${AGENT_NAME}") linked to docagent-mcp-obo`
-            : `Agent ${agent.agent_id} exists but docagent-mcp-obo is not linked to it — open the agent's Applications tab and add it` });
+            ? `Agent ${agent.agent_id} ("${AGENT_NAME}") linked to nexus-agent-obo`
+            : `Agent ${agent.agent_id} exists but nexus-agent-obo is not linked to it — open the agent's Applications tab and add it` });
       }
     } catch (e) {
       checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false, message: e.message });
@@ -427,9 +427,9 @@ app.get("/api/verify/module01", async (req, res) => {
       const body = await r.json();
       const toggled = body.error !== "unauthorized_client";
       checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
-        message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable On-Behalf-Of Token Exchange on docagent-mcp-obo" });
+        message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable On-Behalf-Of Token Exchange on nexus-agent-obo" });
 
-      // 7b. User-delegated grant from docagent-mcp-obo to the MCP server API.
+      // 7b. User-delegated grant from nexus-agent-obo to the MCP server API.
       if (toggled && ctx) {
         try {
           const grants = await listClientGrants(ctx, oboClientId, mcpResource);
@@ -441,16 +441,16 @@ app.get("/api/verify/module01", async (req, res) => {
           const pass = !!userGrant && (missing.length === 0 || allScopesGranted);
           checks.push({
             id: "obo_user_grant",
-            name: "User-delegated grant: docagent-mcp-obo → Nexus MCP Server",
+            name: "User-delegated grant: nexus-agent-obo → Nexus MCP Server",
             pass,
             message: !userGrant
-              ? "Missing user-delegated grant — Nexus MCP Server → Application Access → docagent-mcp-obo → User-Delegated Access → authorize the mcp:* scopes"
+              ? "Missing user-delegated grant — Nexus MCP Server → Application Access → nexus-agent-obo → User-Delegated Access → authorize the mcp:* scopes"
               : pass
                 ? `User-delegated access grant exists${allScopesGranted ? " (all permissions)" : ` (${grantScopes.join(", ")})`}`
                 : `Grant is missing: ${missing.join(", ")}`,
           });
         } catch (e) {
-          checks.push({ id: "obo_user_grant", name: "User-delegated grant: docagent-mcp-obo → Nexus MCP Server", pass: false,
+          checks.push({ id: "obo_user_grant", name: "User-delegated grant: nexus-agent-obo → Nexus MCP Server", pass: false,
             message: `${e.message} (the management client needs read:client_grants)` });
         }
       }
@@ -707,7 +707,7 @@ app.get("/api/verify/module04", async (req, res) => {
       });
     }
 
-    // Check 2b: docagent-mcp-obo client has the Token Vault grant type.
+    // Check 2b: nexus-agent-obo client has the Token Vault grant type.
     // Used by the Nexus backend's own Connected Accounts status check and
     // as the first-party fallback (TOKEN_VAULT_FIRST_PARTY_FALLBACK).
     if (oboClientId) {
@@ -721,11 +721,11 @@ app.get("/api/verify/module04", async (req, res) => {
       );
       checks.push({
         id: "token_vault_grant",
-        name: "Token Vault grant enabled on docagent-mcp-obo",
+        name: "Token Vault grant enabled on nexus-agent-obo",
         pass: hasVaultGrant,
         message: hasVaultGrant
           ? "Token Vault grant type is active"
-          : "Open docagent-mcp-obo in Auth0 Dashboard → Advanced Settings → Grant Types → check Token Vault",
+          : "Open nexus-agent-obo in Auth0 Dashboard → Advanced Settings → Grant Types → check Token Vault",
       });
     }
 

@@ -26,7 +26,7 @@ In this module, you'll:
 - A CRM OAuth2 connection on your tenant pointing to the CRM mock running on port 3002 of your Codespace.
 - **nexus-mcp-server-codespace**, the MCP server's own **Custom API Client**, linked to the Nexus MCP Server API, with the **Token Vault** grant type (Advanced Settings → Grant Types).
   - Auth0 only lets a client exchange a token at Token Vault if the client is linked to the API in that token's `aud`. Every tool call reaches the MCP server with a token for the Nexus MCP Server, from the first or third party agent, so the MCP server's own client is the one that can exchange it.
-- `docagent-mcp-obo`, the Custom API Client you created in *Auth for MCP*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the user's Nexus Agent API token.
+- `nexus-agent-obo`, the Custom API Client you created in *Auth for MCP*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the user's Nexus Agent API token.
 
 **Nothing is provisioned for GitHub.** Unlike the CRM connection, the GitHub social connection is entirely your responsibility to create, mirroring how a real enterprise admin onboards a new federated credential by hand.
 
@@ -116,7 +116,7 @@ If either condition isn't met, it falls back to the in-memory mock so the lab ca
 ```js
 // Pick the Custom API client linked to the API in the subject token's `aud`:
 //   aud = Nexus MCP Server -> the MCP server's own client (MCP_SERVER_CLIENT_ID)
-//   aud = Nexus Agent API  -> docagent-mcp-obo (AUTH0_OBO_CLIENT_ID)
+//   aud = Nexus Agent API  -> nexus-agent-obo (AUTH0_OBO_CLIENT_ID)
 function exchangerFor(tenant, subjectToken) { /* ... */ }
 
 // Live path: Token Vault exchange

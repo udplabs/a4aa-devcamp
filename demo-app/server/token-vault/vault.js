@@ -24,7 +24,7 @@
 //     the exchange from any other client:
 //       aud = Nexus MCP Server -> the MCP server's own client
 //                                (MCP_SERVER_CLIENT_ID, provisioned)
-//       aud = Nexus Agent API  -> docagent-mcp-obo (AUTH0_OBO_CLIENT_ID)
+//       aud = Nexus Agent API  -> nexus-agent-obo (AUTH0_OBO_CLIENT_ID)
 //     So a tool call from ANY agent -- Nexus via OBO, or Acme via its
 //     own login -- is exchanged by the MCP server with the token it
 //     validated, and the MCP server never needs a token it didn't
@@ -88,7 +88,7 @@ function exchangerFor(tenant, subjectToken) {
   if (agentApi && auds.includes(agentApi)) {
     const clientId = dd.m2m_client_id || process.env.AUTH0_OBO_CLIENT_ID;
     const clientSecret = dd.m2m_client_secret || process.env.AUTH0_OBO_CLIENT_SECRET;
-    return clientId ? { clientId, clientSecret, label: "docagent-mcp-obo" } : null;
+    return clientId ? { clientId, clientSecret, label: "nexus-agent-obo" } : null;
   }
   return null;
 }

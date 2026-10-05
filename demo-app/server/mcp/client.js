@@ -13,7 +13,7 @@
 //     the human, not the agent.
 //   - The `audience` locks the new token to the MCP server, so it
 //     can't be replayed against the Nexus Agent API or anything else.
-//   - The exchanging client (docagent-mcp-obo) is a Custom API client
+//   - The exchanging client (nexus-agent-obo) is a Custom API client
 //     linked to the Nexus Agent API and to the "Nexus Agent (DevCamp)"
 //     Agent record, so the issued token carries
 //       act.sub     = agt_...            (the agent)
@@ -93,7 +93,7 @@ export class MCPClient {
     if (!this.config.clientId && !process.env.AUTH0_OBO_CLIENT_ID) {
       console.warn(
         "[MCP Client] AUTH0_OBO_CLIENT_ID is not set. " +
-        "Complete Module 02: create docagent-mcp-obo from the Nexus Agent API " +
+        "Complete Module 02: create nexus-agent-obo from the Nexus Agent API " +
         "screen (APIs → Nexus Agent API → Add Application) and add its credentials to .env."
       );
     }
@@ -120,7 +120,7 @@ export class MCPClient {
     console.log(`[MCP Client] OBO exchange: clientId=${cfg.clientId} audience=${cfg.audience} scope=${scope}`);
 
     // On-Behalf-Of token exchange (RFC 8693). Auth0 validates the
-    // subject_token against the API docagent-mcp-obo is linked to (the
+    // subject_token against the API nexus-agent-obo is linked to (the
     // Nexus Agent API), keeps the user as `sub`, and adds the agent as
     // the outermost `act`.
     const response = await fetch(`https://${cfg.auth0Domain}/oauth/token`, {

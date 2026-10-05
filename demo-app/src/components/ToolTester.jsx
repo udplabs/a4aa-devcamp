@@ -28,7 +28,7 @@ export function ToolTester() {
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState(null);
-  // "nexus" = first-party agent (docagent-mcp-obo). It exchanges the user's
+  // "nexus" = first-party agent (nexus-agent-obo). It exchanges the user's
   // token via RFC 8693 On-Behalf-Of, so its token carries a nested act claim:
   // act.sub = the Nexus agent, act.act.sub = the SPA the request started in.
   // "acme" = a genuine third-party agent with its own standalone server. It

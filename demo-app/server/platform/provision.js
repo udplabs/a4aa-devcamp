@@ -53,7 +53,7 @@ import { provisionFgaStore, deleteFgaStore, fgaSettingsFromEnvOrRecord } from ".
 //
 //   Nexus Agent API (AGENT_API_IDENTIFIER, scope chat:send)
 //     The audience the SPA logs in for. Only the Nexus agent's own
-//     backend accepts these tokens. docagent-mcp-obo is a Custom API
+//     backend accepts these tokens. nexus-agent-obo is a Custom API
 //     client linked to this API (resource_server_identifier), which is
 //     what lets it run the On-Behalf-Of exchange on tokens issued for it.
 //
@@ -95,7 +95,7 @@ const TOKEN_VAULT_GRANT =
 const CIBA_GRANT = "urn:openid:params:grant-type:ciba";
 // Agent as Principal (Early Access): display name participants use when
 // registering the agent record in the Dashboard and linking it to
-// docagent-mcp-obo. Kept as a constant so provisioning, verification,
+// nexus-agent-obo. Kept as a constant so provisioning, verification,
 // and the frontend copy-paste helper all agree on the exact string.
 export const AGENT_NAME = "Nexus Agent (DevCamp)";
 // Agent as Principal identity for the third-party agent, created by an
@@ -134,7 +134,7 @@ export async function runProvision(
       // act.sub = agent_id) for any agent-linked client -- see Modules 02/03.
       agentSubjectClaims: true,
       // Per-app authorization: no client gets user-delegated access until an
-      // admin grants it. docagent-mcp-obo gets its grant in Module 02; the
+      // admin grants it. nexus-agent-obo gets its grant in Module 02; the
       // third-party CIMD client gets a reviewed subset in Module 03.
       requireClientGrant: true,
     })
@@ -168,7 +168,7 @@ export async function runProvision(
     );
   }
 
-  // 2. OBO Custom API client (docagent-mcp-obo) — NOT auto-provisioned.
+  // 2. OBO Custom API client (nexus-agent-obo) — NOT auto-provisioned.
   // Participants create it in Module 02 from the Nexus Agent API screen
   // (APIs → Nexus Agent API → Add Application), which makes it a Custom
   // API client (app_type: resource_server) linked to that API -- the only

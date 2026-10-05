@@ -95,7 +95,7 @@ You need:
 <!-- TODO: update this screenshot -->
 ![GitHub repository page for the lab](images/00-codespace-repo-page.png)
 
-2. Start a Codespace on the repository (**Code > Codespaces > Create codespace on the lab branch**).
+2. Start a Codespace on the repository (**Code > Codespaces > Create codespace on the main branch**).
 
 <!-- TODO: update this screenshot -->
 ![Code button dropdown showing the Codespaces tab and Create codespace button](images/00-codespace-create-menu.png)
@@ -128,69 +128,6 @@ AUTH0_DOMAIN=<your-tenant-name>.cic-demo-platform.auth0app.com
 AUTH0_MGMT_CLIENT_ID=<management-client-id>
 AUTH0_MGMT_CLIENT_SECRET=<management-client-secret>
 ```
-
-<!-- TODO: this is troubleshooting. I want to move it to the bottom. -->
-<details>
-  <summary>
-    If the credentials aren't shown in the Launch Pad on the right
-  </summary>
-
-Navigate to the Auth0 dashboard and create a custom M2M client with the following permissions, then use its Client ID and Secret in place of the Launch Pad values above:
-
-```
-read:resource_servers
-create:resource_servers
-delete:resource_servers
-read:clients
-create:clients
-update:clients
-delete:clients
-read:client_grants
-create:client_grants
-read:connections
-create:connections
-update:connections
-delete:connections
-read:users
-create:users
-delete:users
-read:roles
-create:roles
-update:roles
-delete:roles
-create:role_members
-read:actions
-create:actions
-update:actions
-delete:actions
-update:guardian_factors
-update:tenant_settings
-read:tenant_settings
-read:agents
-delete:agents
-```
-![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
-  
-</details>
-
---- 
-
-<details>
-  <summary> 
-    Optional: bring your own OpenAI key.
-  </summary>
-
-If you have an OpenAI API key you would like to use, add it to the same `.env` file:
-
-```
- OPENAI_API_KEY=<your-openai-api-key>
- ```
-
-If you don't have one, no worries, leave it blank. Nexus detects a missing key automatically and uses the simulator instead so no other change needed.
-
-</details>
-
---- 
 
 ### Step 2: start the app
 
@@ -256,6 +193,67 @@ Auth0 Guardian is needed for **Humans approve what can't be undone** (CIBA).
 | App Store                                    | Google Play                                    |
 | -------------------------------------------- | ---------------------------------------------- |
 | ![App Store](images/01-guardian-ios.png) | ![Google Play](images/01-guardian-android.png) |
+
+## Troubleshooting 
+
+<!-- TODO: this is troubleshooting. I want to move it to the bottom. -->
+<details>
+  <summary>
+    If the credentials aren't shown in the Launch Pad on the right
+  </summary>
+
+Navigate to the Auth0 dashboard and create a custom M2M client with the following permissions, then use its Client ID and Secret in place of the Launch Pad values above:
+
+```
+read:resource_servers
+create:resource_servers
+delete:resource_servers
+read:clients
+create:clients
+update:clients
+delete:clients
+read:client_grants
+create:client_grants
+read:connections
+create:connections
+update:connections
+delete:connections
+read:users
+create:users
+delete:users
+read:roles
+create:roles
+update:roles
+delete:roles
+create:role_members
+read:actions
+create:actions
+update:actions
+delete:actions
+update:guardian_factors
+update:tenant_settings
+read:tenant_settings
+read:agents
+delete:agents
+```
+![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
+  
+</details>
+
+<details>
+  <summary> 
+    Optional: bring your own OpenAI key.
+  </summary>
+
+If you have an OpenAI API key you would like to use, add it to the same `.env` file:
+
+```
+ OPENAI_API_KEY=<your-openai-api-key>
+ ```
+
+If you don't have one, no worries, leave it blank. Nexus detects a missing key automatically and uses the simulator instead so no other change needed.
+
+</details>
 
 #### <span style="font-variant: small-caps">Congrats!</span>
 

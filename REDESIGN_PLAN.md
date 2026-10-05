@@ -121,7 +121,7 @@ Update together, consistently (this is the load-bearing 4-way checkpoint contrac
 - `demo-app/src/components/ModuleChecks.jsx` — shift cases accordingly; new `case "02"` for the third-party module.
 - `demo-app/src/App.jsx` `LAB_MODULES` — becomes `["01","02","03","04","05","06"]` (everything through FGA; End-to-End module `"07"` stays excluded from the hard gate, same pattern as today).
 
-**Module 08 (End-to-End) additions**: prerequisite line for the new module's env vars and the GitHub Connected-Accounts link; a GitHub-flavored happy-path step (`check_github_identity`) alongside the existing CRM step; a new step calling the search tool as both agents via the Tool Tester selector, confirming Nexus's token carries `act.sub` while Acme's carries no `act` claim at all; "Missing scope" negative test optionally repeated against the **Acme Partner Agent** application as well as `docagent-mcp-obo`.
+**Module 08 (End-to-End) additions**: prerequisite line for the new module's env vars and the GitHub Connected-Accounts link; a GitHub-flavored happy-path step (`check_github_identity`) alongside the existing CRM step; a new step calling the search tool as both agents via the Tool Tester selector, confirming Nexus's token carries `act.sub` while Acme's carries no `act` claim at all; "Missing scope" negative test optionally repeated against the **Acme Partner Agent** application as well as `nexus-agent-obo`.
 
 ## Critical files
 

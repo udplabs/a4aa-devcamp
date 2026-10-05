@@ -2,41 +2,22 @@
 
 <!-- TODO: Flow screenshot here - Agent Identity -->
 
-Here's what we're going to do: give your first-party Nexus agent the two things it needs to call tools on behalf of employees:
+We need to give your first-party Nexus agent the two things it needs to call tools on behalf of employees:
 
-- A first-class identity through **Agent as Principal**, with its own `agent_id`.
-- A **Custom API client**, linked to that agent, that will perform the On-Behalf-Of (OBO) token exchange.
+- A first-class identity through **Agent as Principal** with its own `agent_id`.
+- A **Custom API client** (linked to that agent) that will perform the On-Behalf-Of (OBO) token exchange.
 
 By the end, you'll understand:
 
 - What Agent as Principal is, and why a durable `agent_id` beats treating a client's credentials as the agent's identity.
 - Why OBO requires a **Custom API client** linked to the API whose tokens it exchanges.
 
-> [!NOTE]
-> This module creates the agent's identity and its exchanging client. The next module does the same for a third-party partner agent. The module after that, **Auth for MCP**, wires both agents' access to the MCP server itself and is where you'll see the OBO exchange actually run.
-
-## Features shown by RFC
-
-| Feature | RFC / Spec |
-|---|---|
-| Agent as Principal: register the agent as a first-class Auth0 identity | Early Access ([auth0.com/docs/ai-agents-mcp/agent-as-principal](https://auth0.com/docs/ai-agents-mcp/agent-as-principal)) |
-| On-Behalf-Of token exchange by a Custom API client | RFC 8693 |
-
-## What's provisioned for you
-
-Provisioning in the previous module created:
-
-- **Nexus Agent API (resource server)**: `https://devcamp-nexus-agent-api`, with one broad scope, `chat:send`. This is the audience employees log in for. Only the Nexus agent's own backend accepts these tokens.
-- **The Nexus SPA application**: your browser app for employee login, already configured for your Codespace URL.
-
-**Two things aren't provisioned for you.** You'll create both in this module.
-
 ## Dashboard steps
 
 > [!NOTE]
-> **Two things:**
+> **You need to create two things:**
 > - **Agent record (Agent as Principal)**: the agent's unique Auth0 identity. Its `agent_id` is what shows up in the exchanged token's `act.sub` claim and in Auth0 logs, independent of whichever client authenticates it.
-> - **Custom API client `docagent-mcp-obo`**: performs the OBO exchange server-side. Auth0 only lets a Custom API client (`app_type: resource_server`) run OBO, and only on tokens issued for the API it's linked to, which here is the Nexus Agent API.
+> - **Custom API client `nexus-agent-obo`**: performs the OBO exchange server-side. Auth0 only lets a Custom API client (`app_type: resource_server`) run OBO, and only on tokens issued for the API it's linked to, which here is the Nexus Agent API.
 
 ### Part A: Register the agent as a first-class Auth0 identity
 
@@ -58,21 +39,23 @@ Copy the **agt_...** value somewhere handy. You'll see it as `act.sub` on the ex
 
 ### Part B: Create the Custom API client for OBO token exchange
 
+<!-- TODO: screenshot here for the flow -->
+
 The OBO exchange will take the employee's token for the **Nexus Agent API** and exchange it for one for the **Nexus MCP Server**. You'll wire the exchange itself up in the next modules; here you just create the client that performs it.
 
 **Step 1: Create the client from the Nexus Agent API**
 
 1. Auth0 Dashboard → **Applications → APIs → Nexus Agent API**
 2. Select **Add Application**.
-3. Name it `docagent-mcp-obo` → **Add**.
+3. Name it `nexus-agent-obo` → **Add**.
 
-Creating it from the API screen makes it a **Custom API Client** linked to the Nexus Agent API (open it and check **Application Properties → Application Type**). That link is how Auth0 knows this client may exchange tokens issued for that API.
+Creating it from the API screen makes it a **Custom API Client** linked to the Nexus Agent API. That link is how Auth0 knows this client may exchange tokens issued for that API.
 
 **Step 2: Turn on On-Behalf-Of Token Exchange for the client**
 
-This toggle is a security posture choice and must be turned on explicitly. It's off by default.
+This toggle is a security posture choice and must be turned on explicitly.
 
-1. Auth0 Dashboard → **Applications → Applications → docagent-mcp-obo → Settings**
+1. Auth0 Dashboard → **Applications → Applications → nexus-agent-obo → Settings**
 2. Scroll to the **Token Exchange** section.
 3. Turn on **On-Behalf-Of Token Exchange** → **Save**.
 
@@ -82,18 +65,21 @@ This toggle is a security posture choice and must be turned on explicitly. It's 
 
 1. Auth0 Dashboard → **Agents** → **Nexus Agent (DevCamp)** → **Applications** tab
 2. Select **Add Application**.
-3. Select `docagent-mcp-obo` and confirm.
+3. Select `nexus-agent-obo` and confirm.
 
-<!-- TODO: this step needs a screenshot of the Agent's Applications tab with `docagent-mcp-obo` added. -->
+<!-- TODO: this step needs a screenshot of the Agent's Applications tab with `nexus-agent-obo` added. -->
 
 **Step 4: Add the client's credentials to `.env`**
 
-From the `docagent-mcp-obo` application settings, copy the **Client ID** and **Client Secret**. Open `demo-app/.env` and add:
+From the `nexus-agent-obo` application settings, copy the **Client ID** and **Client Secret**. Open `demo-app/.env` and add:
 
 ```
 AUTH0_OBO_CLIENT_ID=<client-id-from-dashboard>
 AUTH0_OBO_CLIENT_SECRET=<client-secret-from-dashboard>
 ```
+
+> [!NOTE]
+> This is, again, first-party agent specific. You own this agent, so you can trust it with a client id/secret to authenticate directly to Auth0
 
 **Step 5: Restart the app**
 
@@ -103,30 +89,27 @@ If the app doesn't auto-refresh, stop the running app (`Ctrl+C`) and restart it:
 npm run dev
 ```
 
-> [!CAUTION]
-> # **Don't log in yet.** The client can't exchange anything useful until **Auth for MCP** grants it access to the MCP server. The next modules walk you through that, then logging in for the first time.
-
 ## Code steps
 
 > [!NOTE]
-> This code is already implemented in the demo-app. **You aren't writing new code in this DevCamp.**
+> This code is already implemented. **You aren't writing new code in this DevCamp.**
 
 ### Agent as Principal claims
 
-Once `docagent-mcp-obo` is linked to `Nexus Agent (DevCamp)` and granted access to the MCP server (next modules), every OBO token Auth0 issues for the Nexus MCP Server looks like this:
+Once `nexus-agent-obo` is linked to `Nexus Agent (DevCamp)` and granted access to the MCP server (next modules), every OBO token Auth0 issues for the Nexus MCP Server will look like this:
 
 ```json
 {
   "sub": "auth0|alice...",
   "sub_profile": "user",
   "aud": "https://<codespace>-3001.app.github.dev",
-  "client_id": "<docagent-mcp-obo client id>",
+  "client_id": "<nexus-agent-obo client id>",
   "client_profile": "service ai_agent",
   "scope": "mcp:docs:search",
   "act": {
     "sub": "agt_...",
     "sub_profile": "ai_agent",
-    "client_id": "<docagent-mcp-obo client id>",
+    "client_id": "<nexus-agent-obo client id>",
     "act": { "sub": "<SPA client id>", "sub_profile": "browser_app" }
   }
 }
@@ -140,10 +123,10 @@ The `client_id` is the exchanger's credential. The agent record's `agent_id` is 
 
 <!-- TODO: screenshot - Run Checks panel -->
 
-Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms the agent record and the OBO client are both set up and linked correctly.
+Use the **Run Checks** button on the left of the Nexus app page. The button confirms you set things up correctly.
 
 > [!TIP]
-> If a check fails, the result row shows the exact reason. Fix the flagged item and select **Re-run checks**.
+> If a check fails, the result should show the exact reason. Fix the flagged item and select **Re-run checks**.
 
 ---
 
@@ -165,6 +148,6 @@ You've successfully:
   </li>
 </ul>
 
-Your first-party agent has a durable identity and an exchanging client, but it can't call any tool yet. The next module onboards a second agent, a third party's this time, through the path Auth0 and the MCP spec define for it. **Auth for MCP**, after that, is where both agents actually get access to the MCP server.
+Your first-party agent has a durable identity and an exchanging client, but it can't call any tools yet. The next module onboards a second agent (a third party's this time).
 
 #### <span style="font-variant: small-caps">Let's move on to the next module!</span>
