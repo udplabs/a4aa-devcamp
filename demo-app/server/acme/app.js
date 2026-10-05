@@ -190,10 +190,133 @@ app.get("/callback", async (req, res) => {
   console.log(
     `[Acme] Connected as sub=${acmeToken.sub} client_id=${acmeToken.clientId} act.sub=${acmeToken.act?.sub || "(none)"} scope=${acmeToken.scope}`
   );
-  res.send(
-    `<h2>Acme connected.</h2><p>Granted scope: <code>${acmeToken.scope || "(none)"}</code></p><p>You can close this tab.</p>`
-  );
+  res.type("html").send(renderConnectedPage(acmeToken));
 });
+
+// Themed callback landing page, shown once Acme has exchanged the code
+// for a token. Styled to match the rest of the lab's dark-purple theme
+// (see server/utils/wrongPortPage.js) instead of a bare browser default.
+function renderConnectedPage(token) {
+  const scopes = (token.scope || "").split(" ").filter(Boolean);
+  const scopeChips = scopes.length
+    ? scopes.map((s) => `<span class="chip">${s}</span>`).join("")
+    : `<span class="chip chip-empty">(none)</span>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Acme connected -- Nexus</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #14091E;
+    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #EDE6F5;
+    padding: 24px;
+  }
+  .card {
+    background: #241733;
+    border: 1px solid #3A2856;
+    border-radius: 16px;
+    padding: 40px;
+    max-width: 480px;
+    text-align: center;
+  }
+  .badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9921FE, #BC6DFF);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 22px;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 8px;
+    color: #fff;
+  }
+  .sub {
+    font-size: 14px;
+    color: #B8A8CC;
+    margin: 0 0 24px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid #3A2856;
+    text-align: left;
+  }
+  .row:first-of-type { border-top: none; }
+  .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8C78A3;
+    white-space: nowrap;
+  }
+  .value {
+    font-size: 13px;
+    color: #EDE6F5;
+    text-align: right;
+    word-break: break-all;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .chip {
+    background: #2D1D40;
+    border: 1px solid #3A2856;
+    color: #D6C6EC;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .chip-empty { color: #8C78A3; }
+  .hint {
+    margin: 28px 0 0;
+    font-size: 13px;
+    color: #8C78A3;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">&#10003;</div>
+    <h1>Acme is connected</h1>
+    <p class="sub">The third-party agent exchanged its code for a token.</p>
+    <div class="row">
+      <span class="label">Granted scope</span>
+      <span class="value chips">${scopeChips}</span>
+    </div>
+    <div class="row">
+      <span class="label">Subject</span>
+      <span class="value">${token.sub || "(none)"}</span>
+    </div>
+    <div class="row">
+      <span class="label">Agent (act.sub)</span>
+      <span class="value">${token.act?.sub || "(none)"}</span>
+    </div>
+    <p class="hint">You can close this tab.</p>
+  </div>
+</body>
+</html>`;
+}
 
 // Connection status for the demo UI and the Module 03 checkpoint.
 app.get("/status", (_req, res) => {
