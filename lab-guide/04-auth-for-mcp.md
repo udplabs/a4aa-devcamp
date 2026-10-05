@@ -2,11 +2,11 @@
 
 <!-- TODO: Flow screenshot here - Agent Identity and MCP server with arrow between. -->
 
-Your two agents, first-party Nexus and third-party Acme, now have durable identities. Neither can call a tool yet.
+Your two agents, first-party Nexus and third-party Acme, now have identities but neither can call a tool yet.
 
 Here's what we're going to do:
 
-- Make your MCP server a standards-compliant OAuth resource server that any MCP client, yours or someone else's, can discover and call.
+- Make your MCP server a standards-compliant OAuth resource server that any MCP client can discover and call.
 - Grant your first-party agent's OBO client access to the MCP server, so the OBO exchange you wired in **First-party agent setup** actually has somewhere to go.
 - Review Acme's CIMD request against least privilege and grant it a deliberately smaller scope set, so the two agents' access lives on the same page and is easy to compare.
 - Walk through the code that enforces all of it: PRM, AS discovery, token validation, and per-tool scope.
@@ -24,19 +24,16 @@ By the end, you'll understand:
 
 ## Features shown by RFC
 
-This module wires five features in one flow:
+This module wires four features in one flow:
 
 | Part | Feature | RFC / Spec |
 |---|---|---|
 | A | The **Nexus MCP Server** resource server (identifier = the server's URL, per-tool scopes) | OAuth 2.1 + RFC 8707 |
 | B | Protected Resource Metadata (PRM), linked from every 401 | RFC 9728 + MCP 2025-11-25 |
 | C | Authorization server discovery: Auth0 publishes its own metadata | RFC 8414 / OIDC Discovery |
-| D | On-Behalf-Of token exchange by the first-party agent's Custom API client | RFC 8693 |
-| E | Per-tool scope enforcement with **WWW-Authenticate** `insufficient_scope` challenges | OAuth 2.1 + MCP 2025-11-25 |
+| D | Per-tool scope enforcement with **WWW-Authenticate** `insufficient_scope` challenges | OAuth 2.1 + MCP 2025-11-25 |
 
 ## What's provisioned for you
-
-Provisioning in **Prerequisites** created:
 
 - **Nexus MCP Server (resource server)**: its identifier is your MCP server's public URL (the Codespace URL for port **3001**, also in `.env` as `AUTH0_TOOL_AUDIENCE`). It carries the per-tool scopes:
   - `mcp:docs:search`: search the document knowledge base
@@ -51,8 +48,6 @@ Provisioning in **Prerequisites** created:
 - **Tenant settings** Auth for MCP relies on (**Settings → Advanced**):
   - **Resource Parameter Compatibility Profile**: Auth0 accepts the RFC 8707 `resource` parameter MCP clients send.
   - **Include Issuer in Authorization Responses**: RFC 9207 `iss`, which defends MCP clients against mix-up attacks.
-
-**Neither agent has a grant yet.** You'll set both in this module, on the same **Application Access** tab, so the contrast between them is easy to see.
 
 ## Dashboard steps
 
@@ -69,13 +64,14 @@ Provisioning in **Prerequisites** created:
 
 This is the ceiling on what an employee's token can carry through this client. The employee's own role (RBAC) narrows it further.
 
+<!-- TODO: fix this screenshot -->
 ![nexus-agent-obo user-delegated access with the mcp:* scopes granted](images/01-obo-api-access-scopes.png)
 
 The MCP client is now configured and can perform OBO token exchanges.
 
-### Review and grant Acme a smaller scope set
+### Review and grant Acme's Agent a smaller scope set
 
-Acme's CIMD (from the previous module) requested all five tool scopes. Review that request against least privilege:
+Acme's CIMD (from the previous module) requested all five tool scopes. Let's review that request against least privilege:
 
 - `mcp:docs:search`, `mcp:docs:read`: a partner agent that answers questions from shared documents needs these. **Grant.**
 - `mcp:docs:share`: an irreversible external share. This is something we typically **don't want to grant** to a third party.
@@ -89,12 +85,9 @@ To implement those decisions, on the same **Application Access** tab:
     - `mcp:docs:read`
 3. Select **Save**.
 
-This grant is what Auth0 enforces. When Acme requests all five scopes, the token it receives carries only these two. Side by side on the same screen, the first-party agent's four scopes and Acme's two make the admin-decided difference concrete.
+This grant is what Auth0 enforces. When Acme requests all five scopes, the token it receives carries only these two.
 
-> [!CAUTION]
-> # **Don't log in yet.** The next module walks you through logging in for the first time.
-
-## Code steps
+## Code review
 
 > [!NOTE]
 > This code is already implemented in the demo-app. **You aren't writing new code in this DevCamp.**
@@ -247,9 +240,6 @@ result = await executeTool(toolName, parameters, user.accessToken);
 
 **executeTool** calls **mcpClient.callTool**, which runs the OBO exchange (`getToken`) before every MCP request.
 
-> [!NOTE]
-> Both agents are now granted, but neither can call a tool live yet: Acme still needs a real employee session to consent into (**Every agent action has an owner**, the next module), and the first-party agent needs that same logged-in employee. The end-to-end run proves both agents side by side with live tokens, including the 403 `insufficient_scope` Acme gets if it tries `share_document`.
-
 ## Checkpoint
 
 <!-- TODO: screenshot - Run Checks panel with all conditions passing -->
@@ -258,36 +248,6 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
 
 > [!TIP]
 > If a check fails, the result row shows the exact reason. Fix the flagged item and select **Re-run checks**.
-
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    What we learned
-  </summary>
-
-Every tool call now leaves the agent runtime, crosses a bearer-authenticated boundary, and is evaluated against the employee's actual identity on a resource server that enforces scope. The trust boundary moves from the agent backend to the MCP server. That same boundary is where FGA and Token Vault plug in later.
-
-The two sides of that boundary have different jobs:
-- **The MCP server (resource server) publishes and validates.** It advertises its identity via PRM, points lost clients at it with a 401 challenge, and checks every token's `aud` and scope. It treats every caller the same way, whoever built it.
-- **The agent's backend (client) exchanges.** Before it can call a tool, it exchanges the employee's Nexus Agent API token for an MCP server token with just the scope it needs.
-
-Concretely, you walked through the A4AA "Auth for MCP" pattern for a first-party agent:
-
-- **Agent as Principal: durable agent identity.** The agent record gives the agent an `agent_id` that survives credential rotation. It shows up as `act.sub` on every token its linked clients obtain, and as `event.agent` in Actions, so you can key audit and policy off a real identity. Multi-hop delegation is preserved in nested `act` claims.
-- **Custom API client: the OBO exchanger.** Linked to the API whose tokens it exchanges, granted user-delegated access on the API it exchanges into. The issued token keeps the employee as `sub`, so FGA and Token Vault evaluate the human, and adds the agent as `act`.
-- **Discovery without config.** A 401 challenge points to PRM, PRM points to Auth0, and Auth0's own metadata describes everything else.
-- **Graceful step-up.** A **403 insufficient_scope** challenge tells the client exactly which scope is missing.
-
-Granting both agents on the same **Application Access** tab makes least privilege concrete: four scopes for the agent you own, two for the partner you reviewed, enforced by Auth0 regardless of what either one asks for.
-
-Why this matters beyond the lab:
-
-- **Opex.** Multiple agents (Claude Agent SDK, a custom runtime, a partner's agent, a future mobile client) inherit one authorization engine from one MCP server. You don't maintain separate auth logic per client.
-- **GTM.** A resource server with PRM, scope enforcement, and a durable agent identity is what a procurement team wants to see in the security questionnaire. It shortens the review cycle from months to weeks.
-
-</details>
 
 ---
 

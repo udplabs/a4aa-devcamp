@@ -4,7 +4,7 @@
 
 Now that we have user and agent identities, we need Nexus to log document activity to the CRM under the user's identity.
 
-**Token Vault** can solve this use case for third party APIs.
+**Token Vault** can solve this use case for third party APIs, but we're going to set it up for a first-party API to show how it's done
 
 1. Auth0 stores each user's federated credential for a connected provider.
 2. Nexus then asks the vault (politely) for a short-lived, per-user access token scoped to the job at hand.
@@ -13,22 +13,12 @@ Now that we have user and agent identities, we need Nexus to log document activi
 
 This module wires up the CRM, a custom OAuth2 connection, through Token Vault.
 
-In this module, you'll:
-
-- Understand how **getToken(userSub, provider)** selects the live Token Vault path vs. the in-memory fallback.
-- See how **log_crm_activity** calls the CRM API (port 3002) using a vaulted CRM token.
-- Enable Token Vault on the CRM connection in the Auth0 Dashboard.
-
 ## What's provisioned for you
-
-<!-- TODO: The CRM being secured here actaully looks ok? but itsn't it a first party API? Or can we logically say it's a 'third party' in the same way the 'third party' agent is? -->
 
 - A CRM OAuth2 connection on your tenant pointing to the CRM mock running on port 3002 of your Codespace.
 - **nexus-mcp-server-codespace**, the MCP server's own **Custom API Client**, linked to the Nexus MCP Server API, with the **Token Vault** grant type (Advanced Settings → Grant Types).
   - Auth0 only lets a client exchange a token at Token Vault if the client is linked to the API in that token's `aud`. Every tool call reaches the MCP server with a token for the Nexus MCP Server, from the first or third party agent, so the MCP server's own client is the one that can exchange it.
 - `nexus-agent-obo`, the Custom API Client you created in *Auth for MCP*, also has the Token Vault grant type by default. The Nexus backend uses it for the Connected Accounts status check in the app header, because those calls carry the user's Nexus Agent API token.
-
-**Nothing is provisioned for GitHub.** Unlike the CRM connection, the GitHub social connection is entirely your responsibility to create, mirroring how a real enterprise admin onboards a new federated credential by hand.
 
 ## Codespace steps
 ### Make the CRM mock's port public
@@ -61,9 +51,7 @@ Once turned on, Auth0 automatically requests a refresh token from the CRM on eve
 
 ![CRM connection Purpose section with Token Vault option selected](images/03-token-vault-purpose-enabled.png)
 
-Before you enable it, the vault falls back to an in-memory mock CRM token, so the tool call still succeeds, but Auth0 isn't involved in storing the credential.
-
-After enabling it, Auth0 stores the user's real CRM access token and refresh token, and the live federated exchange fires on every **log_crm_activity** call.
+After enabling it, Auth0 stores the user's real CRM access token and refresh token, and the live exchange fires on every **log_crm_activity** call.
 
 ### Authorize the Nexus SPA for the Auth0 My Account API
 
@@ -91,7 +79,7 @@ Now at tool-call time, the backend asks Auth0's Token Vault for a short-lived, p
 
 The user's actual refresh token never leaves Auth0.
 
-## How Token Vault is wired
+## Code Review
 
 ### The vault: **server/token-vault/vault.js**
 
@@ -101,17 +89,15 @@ If either condition isn't met, it falls back to the in-memory mock so the lab ca
 
 > [!NOTE]
 > The grant type here:
-> **urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token**
-> 
-> is Auth0's own variant, distinct from the RFC 8693 OBO grant you used in *Auth for MCP* (**urn:ietf:params:oauth:grant-type:token-exchange**).
+> **urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token** is Auth0's own variant, distinct from the RFC 8693 OBO grant you used in *Auth for MCP* (**urn:ietf:params:oauth:grant-type:token-exchange**).
 >
 > Both are token exchanges but they serve different purposes:
 > - OBO preserves user identity across the agent boundary.
 > - This one retrieves a stored third-party credential from Token Vault.
 >
-> There's also a role reversal worth noticing. In *Auth for MCP*, the MCP server only validated tokens and the agent's backend did the exchanging. Here, the MCP server itself becomes a client. It exchanges the token it just validated, using its own Custom API client, for a CRM credential before calling the CRM API.
+> There's also a role reversal worth noticing. In *Auth for MCP*, the MCP server only validated tokens and the agent's backend did the exchanging. Here, the MCP server itself becomes a client. It exchanges the token it just validated, using its own Custom API client, for a CRM credential before calling the CRM API. 
 >
-> **Token Vault and the `act` claim.** Both agents' tokens carry an `act` delegation chain once their clients are linked to Agent records. If your tenant refuses to exchange such a token at Token Vault, the MCP server can fall back, for the first-party agent only, to the employee's original Nexus Agent API token. It does so only after verifying that token's signature and audience, that it belongs to the same employee, and that it was issued to a client in the bearer's own `act` chain. Set `TOKEN_VAULT_FIRST_PARTY_FALLBACK=false` in `.env` to turn the fallback off and run strictly to the MCP spec's no-token-passthrough rule.
+> This keeps the agent from having direct access to the API.
 
 ```js
 // Pick the Custom API client linked to the API in the subject token's `aud`:
@@ -182,24 +168,7 @@ case "log_crm_activity": {
 <!-- TODO: screenshot - app header with the CRM "Connect" button before linking -->
 <!-- TODO: screenshot - app header after it's connected (Connect button replaced with connected state) -->
 
-3. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
-
---- 
-
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    What you learned
-  </summary>
-
-Token Vault eliminates the operational and compliance burden of shared bot tokens. Instead of managing long-lived service credentials across teams, each call is scoped to the job and the individual. Every record ties back to the employee's identity, and credential rotation becomes Auth0's responsibility.
-
-In the lab, the vault was auto-seeded with a simulated credential on your first tool call. In production, a real employee would go through an OAuth2 consent flow the first time they link an account. Auth0 stores the resulting refresh token, and Token Vault exchanges it for short-lived access tokens on every subsequent call. Offboarding just means revoking that connection in Auth0, with no token spreadsheet to maintain.
-
-The mechanism doesn't care who issued the credential — once a connection is configured, it's indistinguishable to `getToken` and to every downstream tool.
-</details>
+2. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
 
 --- 
 

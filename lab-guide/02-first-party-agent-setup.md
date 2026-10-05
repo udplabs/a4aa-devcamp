@@ -89,7 +89,10 @@ If the app doesn't auto-refresh, stop the running app (`Ctrl+C`) and restart it:
 npm run dev
 ```
 
-## Code steps
+> [!CAUTION]
+> # DO NOT LOG IN UNTIL MODULE 5.
+
+## Code review
 
 > [!NOTE]
 > This code is already implemented. **You aren't writing new code in this DevCamp.**
@@ -123,7 +126,7 @@ The `client_id` is the exchanger's credential. The agent record's `agent_id` is 
 
 <!-- TODO: screenshot - Run Checks panel -->
 
-Use the **Run Checks** button on the left of the Nexus app page. The button confirms you set things up correctly.
+Use the **Run Checks** button on the left of the Nexus app page. The button confirms you completed the above steps correctly.
 
 > [!TIP]
 > If a check fails, the result should show the exact reason. Fix the flagged item and select **Re-run checks**.

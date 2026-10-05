@@ -7,8 +7,6 @@ This module closes the last two gaps, both of them add-on controls that sit insi
 - **Part A: Humans approve what can't be undone** wires in CIBA (Client-Initiated Backchannel Authentication), so one specific action, sharing a document with an external recipient, requires explicit employee approval before it executes. This part is hands-on: you'll validate the Guardian push configuration and trigger a real approval.
 - **Part B: Access that knows where it ends** walks through Auth0 Fine-Grained Authorization (FGA), which has been enforcing document-level access silently throughout the lab. This part is **read-through only**; there's nothing to configure, you'll preview the expected behavior here and confirm it live in the end-to-end run.
 
----
-
 ## Part A: Humans approve what can't be undone (CIBA)
 
 ### In this part, you'll:
@@ -19,7 +17,6 @@ This module closes the last two gaps, both of them add-on controls that sit insi
 
 ### Prerequisites
 
-- You completed all previous modules.
 - The Auth0 Guardian app is installed, and your user is enrolled. This part runs the live CIBA flow end-to-end, so enrollment is required to receive the approval push.
 
 ### What's provisioned for you
@@ -42,7 +39,7 @@ Validate Guardian push is enabled so the in-app approval request can trigger a r
 
 ![docagent-ciba-codespace Notification Channels with Guardian Push enabled](images/04-guardian-push-enabled.png)
 
-### Code steps
+### Code Review
 
 Once the tenant has a provisioned CIBA client:
 - **initiateCIBA** calls Auth0's **/bc-authorize** directly
@@ -223,20 +220,6 @@ Use the **Run Checks** button on the left of the Nexus app page. The in-app veri
 > [!NOTE]
 > **Preview: you'll run this live in *Putting it all together* (End-to-End)**, once chat unlocks after Part B below.
 
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    What you learned
-  </summary>
-
-Tool-level approvals tied to the user's device turn "agent shared a document nobody signed off on" into "user explicitly approved this share action, timestamped, with the exact document and recipient in the approval record." That audit artifact is what makes irreversible external sharing safe to automate at all. Manual review cycles would defeat the point of having an agent do this work, but CIBA lets you keep both the safety and the automation.
-
-</details>
-
----
-
 ## Part B: Access that knows where it ends (FGA)
 
 Nexus gives every user access to the company knowledge base, but not all of it.
@@ -355,46 +338,6 @@ The three tool handlers that call it are:
 - **share_document** checks **can_share** before proceeding, preventing viewers from sharing (only editors and owners can).
 
 Because every check keys off the user's **sub**, the decision is always about the *human*, never the *agent*.
-
-### What you'll observe in the end-to-end run
-
-<!-- TODO: screenshot - Tool Logs panel showing an FGA ALLOWED/DENIED log line -->
-
-Once chat is unlocked, open the **Tool Logs** panel on the right side of the Nexus UI and watch the FGA decision land in real time.
-
-1. **Allow (all-company viewer).**
-- Logged in as Alice:
-  - `Find the security policy.`
-  - FGA checks **can_read(alice, security-policy)**
-  - Alice has a viewer tuple on all-company docs, so the document returns.
-  - Expected log line: **[FGA] Check: user:auth0|<alice_sub> can_read document:security-policy -> ALLOWED**.
-
-2. **Allow (department member).**
-- Still Alice:
-  - `Show me the Q3 roadmap.`
-  - FGA resolves the path through **alice member department:engineering** and **department:engineering viewer document:q3-roadmap**
-  - The content returns.
-  - Expected log line: **[FGA] Check: user:auth0|<alice_sub> can_read document:q3-roadmap -> ALLOWED**.
-
-3. **Deny (outside department).**
-- Logged in as Bob:
-  - `Show me the Q3 roadmap.`
-  - Bob has no membership in **department:engineering** and no direct viewer tuple on **document:q3-roadmap**
-  - No content returned
-  - Expected log line: **[FGA] Check: user:auth0|<bob_sub> can_read document:q3-roadmap -> DENIED**.
-
-4. **Deny (confidential).**
-- Bob or Alice:
-  - `Find the compensation review.`
-  - Neither user has any tuple on **document:compensation-q3**.
-  - Clean deny on both sides, with the document never surfacing in search results or as a retrievable ID.
-
-5. **Share allowed for editor, denied for viewer.**
-- Bob or Alice:
-  - Prompt Nexus to share a document
-  - **Approval Required** card first, then CIBA initiates.
-  - After approval, Alice's share of **q3-roadmap** succeeds because she has an editor tuple (**[FGA] Check: user:auth0|<alice_sub> can_share document:q3-roadmap -> ALLOWED**).
-  - Bob's share of **security-policy** is denied at the data boundary, since viewers don't meet the **can_share** condition, even though he can read it (**[FGA] Check: user:auth0|<bob_sub> can_share document:security-policy -> DENIED**).
 
 ### Part B checkpoint
 > [!NOTE]

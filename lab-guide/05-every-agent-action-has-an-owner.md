@@ -10,8 +10,6 @@ But OBO token exchange needs a user identity to carry through to tool execution 
 
 This module wires Auth0 Universal Login so every session has a verifiable user **sub** that carries downstream.
 
-The authentication wiring itself is pre-built in the starter, so most of this module is **read-through**. Once you're logged in, there's one hands-on step: connecting Acme's agent as the same employee, so both agents hold a live token you can compare in the end-to-end run.
-
 By the end, you'll understand:
 
 - How the chat UI is gated behind Auth0 Universal Login.
@@ -24,7 +22,7 @@ By the end, you'll understand:
 
 When you clicked **Provision Resources**, the app created everything Nexus needs in your tenant:
 
-- **The Nexus Agent API** (resource server `https://devcamp-nexus-agent-api`) with the `chat:send` scope the SPA uses. Only the Nexus agent's backend accepts these tokens. It exchanges them (OBO) for MCP server tokens before calling tools.
+- **The Nexus Agent API** (The API we created that first-party agent on) with the `chat:send` scope the SPA uses. Only the Nexus agent's backend accepts these tokens. It exchanges them (OBO) for MCP server tokens before calling tools.
 - **The Nexus SPA application**, with callbacks, logout URLs, and web origins set to your Codespace URL.
 - **Two demo users** seeded with different access for the FGA module:
   - `alice@docagent.demo`: engineering team member, can read and share engineering documents
@@ -42,11 +40,42 @@ When you clicked **Provision Resources**, the app created everything Nexus needs
 <!-- TODO: screenshot - Guardian MFA enrollment QR/prompt screen on first login -->
 <!-- TODO: screenshot - Nexus chat interface header showing logged-in user's name and Log Out button -->
 
-## Code steps
+
+## Connect Acme as the same employee
+
+Acme (from **Third-party agent setup**) was imported and granted a scope set in **Auth for MCP**, but it's never had a real employee session to consent into. Now that Alice is logged into Nexus, give Acme one too.
+
+### Step 1: Open Acme's login route in a new tab
+
+```
+https://<your-codespace-name>-3003.app.github.dev/login
+```
+
+Acme discovers the MCP server and Auth0 on its own (the 401 → PRM → AS metadata chain from **Third-party agent setup**), then starts Authorization Code + PKCE with:
+- `client_id` = its CIMD URL
+- `resource` = the MCP server's URL (RFC 8707)
+- `code_challenge_method=S256`
+
+### Step 2: Sign in as Alice again.
+
+-  `alice@docagent.demo` / `DevCamp1!`
+
+> [!NOTE]
+> **This is the first and only consent screen in this lab.** Every other application you've used is first-party, so Auth0 skips the prompt. Acme is a third party, so Auth0 shows Acme's `client_name` and the scopes it will actually receive, and asks you to approve.
+
+<!-- TODO: make the landing page better -->
+<!-- TODO: add sscreenshots -->
+
+*You should see: "Acme connected." with the granted scope `mcp:docs:search mcp:docs:read`.*
+
+Both agents now hold a live token for the same employee. The end-to-end run compares them side by side.
+
+
+## Code review
 
 Open each file in your editor as you go. You'll trace the employee's identity from the browser login all the way to the backend handler.
 
-### Step 1: the React tree is wrapped in **Auth0Provider**
+### Step 1: How we wrap the app to force authentication with **Auth0Provider**
 
 On **src/main.jsx**, a **ConfigGate** checks setup status first, then the whole app is wrapped so every component can read the auth session:
 
@@ -90,7 +119,7 @@ return (
 );
 ```
 
-### Step 2: the app is gated behind login
+### Step 2: How we gate the app behind login
 
 **src/App.jsx** uses the SDK's session state to decide what to render:
 
@@ -144,7 +173,7 @@ const response = await fetch("/api/chat", {
 });
 ```
 
-### Step 5: the backend validates JWTs
+### Step 5: the app backend validates JWTs
 
 **server/middleware/auth.js** verifies the token against the tenant's issuer and backend audience, then pulls the user's identity off the request:
 
@@ -187,56 +216,6 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
   res.json(response);
 });
 ```
-
-### Step 7: connect Acme as the same employee
-
-Acme (from **Third-party agent setup**) was imported and granted a scope set in **Auth for MCP**, but it's never had a real employee session to consent into. Now that Alice is logged into Nexus, give Acme one too.
-
-Open Acme's login route in a new tab:
-
-```
-https://<your-codespace-name>-3003.app.github.dev/login
-```
-
-Acme discovers the MCP server and Auth0 on its own (the 401 → PRM → AS metadata chain from **Third-party agent setup**), then starts Authorization Code + PKCE with:
-- `client_id` = its CIMD URL
-- `resource` = the MCP server's URL (RFC 8707)
-- `code_challenge_method=S256`
-
-Sign in as Alice again (`alice@docagent.demo` / `DevCamp1!`).
-
-> [!NOTE]
-> **This is the first consent screen in this lab.** Every other application you've used is first-party, so Auth0 skips the prompt. Acme is a third party, so Auth0 shows Acme's `client_name` and the scopes it will actually receive, and asks you to approve.
-
-*You should see: "Acme connected." with the granted scope `mcp:docs:search mcp:docs:read`.*
-
-```bash
-curl https://<your-codespace-name>-3003.app.github.dev/status
-```
-
-*You should see: `connected: true`, `client_id` = the CIMD URL, `aud` = the MCP server URL, and `act.sub` = Acme's `agt_...`.*
-
-Both agents now hold a live token for the same employee. The end-to-end run compares them side by side.
-
---- 
-
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    What you learned
-  </summary>
-
-Every Nexus call now carries a verifiable user identity. This becomes the foundational anchor for everything downstream.
-
-Token Vault (from the next module) mints CRM credentials scoped to this user. CIBA and FGA (from *Humans approve what can't be undone and access that knows where it ends*) bind device approval and document access to the same identity. The MCP server receives this identity on every tool call.
-
-A verifiable identity at every layer makes audit trails possible. Audit trails make compliance sign-off possible.
-
-</details>
-
---- 
 
 ## Checkpoint
 

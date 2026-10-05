@@ -3,24 +3,11 @@
 - Drive Nexus through document workflows as Alice and Bob.
 - Drive a second sequence that trips CIBA (external document share).
 - Run each negative test to confirm the guardrails hold.
-- Read the logs and map each line to the layer that produced it.
-
-## Prerequisites
-
-- All steps from all previous modules are completed.
-- You've already clicked **Connect** next to "CRM" in the app header and completed the Connected Accounts link as Alice. Without this, **log_crm_activity** fails with "No account linked" instead of returning a live federated token below.
-- Acme's CIMD is imported (*A second agent knocks*), granted `mcp:docs:search` and `mcp:docs:read` (*Auth for MCP*), and has completed its consent flow at its `/login` route as Alice (*Every agent action has an owner*), so the Tool Tester's **Acme Partner Agent** selector works.
-- Demo users: **`alice@docagent.demo`** (engineering team, editor on q3-roadmap), **`bob@docagent.demo`** (all-company docs only).
+- Review the logs and map each line to the layer that produced it.
 
 --- 
 
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    How to read the logs
-  </summary>
+## How to read the logs
 
 For a single end-to-end prompt, the trace looks roughly like:
 
@@ -40,9 +27,7 @@ Authenticated request from user: auth0|<alice-sub>
 The same user **sub** flows through every hop, giving you one audit key for every downstream decision.
 - All server logs appear in your Codespace's terminal.
 - For every prompt below, open the **Tool Logs** panel on the right side of the Nexus UI first. It shows the exact tool call the agent made, which is the fastest way to confirm you got the expected result instead of parsing the chat reply text alone.
-</details>
 
---- 
 
 ## Happy path: engineering document workflow
 
@@ -147,33 +132,6 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 - Expected: the tool call fails: **{ "success": false, "error": "Token Vault refused the CRM exchange: ... Check that the CRM connection's Purpose includes Connected Accounts for Token Vault ..." }**. The server log shows **[Token Vault] (live) exchange failed for crm: ...** right before it.
 - This is a real deny, not a fallback: once a real federated connection exists for a user, Auth0 rejecting the exchange is treated as a hard denial and surfaces as this specific error. It never silently succeeds via the in-memory mock credential, which only exists for the fully-offline case where no live connection is provisioned at all. A missing or disabled credential should never be papered over with a fake one.
 - Toggle the Token Vault purpose back on and re-confirm the Connected Accounts link (*The agent acts as the employee, not a shared bot*) when done.
-
---- 
-
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    What you learned
-  </summary>
-
-Six controls are stacked behind one MCP server: Agent as Principal; third-party agent onboarding; MCP with OBO and PRM; Authentication; Token Vault; and CIBA with FGA. Each one mitigates a specific risk:
-
-- Agent as Principal, from *First-party agent setup*, gives your own agent a durable, auditable identity independent of client credential rotation.
-- Third-party onboarding, from *A second agent knocks*, prevents ad hoc vendor access without a documented trust decision.
-- MCP, from *Auth for MCP*, prevents anonymous callers and agent-framework lock-in on your authorization code.
-- JWT validation, from *Every agent action has an owner*, prevents unauthenticated use and anchors every downstream decision to a person.
-- Token Vault, from *The agent acts as the employee, not a shared bot*, prevents shared-credential sprawl, for every provider you connect.
-- CIBA, from *Humans approve what can't be undone*, prevents unilateral irreversible actions.
-- FGA, from *Access that knows where it ends*, prevents cross-user document access.
-
-The commercial payoff is substantial. A document agent that finds and shares information faster than a manual workflow drives revenue through a world-class experience. CIBA clears every routine call silently and only interrupts a human for the irreversible share. Because Agent as Principal, OBO, and FGA gave you one standardized authorization layer instead of one-off logic per runtime, the next model or framework arrives without re-buying identity work. Your architecture stays current instead of constantly chasing migrations. Because every decision traces back to a real employee, external shares are gated by approval, and no credential ever lived in agent memory, security review closes clean. The risk that would otherwise burden the platform team evaporates.
-
-That's the full Nexus workshop. The implementation you just walked through is the reference pattern for production-ready AI agent identity.
-</details>
-
---- 
 
 ## <span style="font-variant: small-caps">Congrats!</span>
 

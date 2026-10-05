@@ -130,47 +130,14 @@ Auth0 stores a copy of the metadata, but the partner's hosted document stays the
 
 Once linked, every token Acme obtains through a normal login carries `act.sub` = this agent's ID and `client_profile: "ai_agent"`. Tenant logs record the agent ID on every token issuance, so the partner's activity is auditable separately from your own agent's.
 
-> [!NOTE]
-> Acme can't connect yet. It needs a reviewed scope grant (**Auth for MCP**, the next module) and a real employee session to consent into (**Every agent action has an owner**, the module after that). Both agents actually calling tools, side by side, is what the end-to-end run proves.
-
 ## Checkpoint
 
-Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms these conditions automatically:
+<!-- TODO: screenshot - Run Checks panel -->
 
-- Acme serves a CIMD document Auth0 can import: HTTPS, not localhost, under 120 bytes, `client_id` equal to its URL, public client.
-- **Client ID Metadata Document Registration** is on for the tenant.
-- **Username-Password-Authentication** is a domain-level connection.
-- A client with `external_client_id` = Acme's CIMD URL exists and is third-party.
-- An agent named **Acme Partner Agent (DevCamp)** exists and is linked to Acme's client.
+Use the **Run Checks** button on the left of the Nexus app page. The button confirms you completed the above steps correctly.
 
 > [!TIP]
-> If a check fails, the result row shows the exact reason. Fix the flagged item and select **Re-run checks**.
-
-<details>
-  <summary style='font-size: 1.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;'>
-    What we learned
-  </summary>
-
-A CIMD gets a partner's agent in front of you with no pre-shared secret and no open registration endpoint. Its URL is a stable, human-readable `client_id` that appears as-is in tokens and logs, and controlling that HTTPS origin is the proof of who published it.
-
-The trust decision is still yours, and Auth0 gives it concrete shape:
-
-- **Import** registers the partner as a strict third-party client. Consent is always shown, shared secrets are impossible, and only domain-level connections are allowed.
-- **An agent record** gives it a durable identity in `act.sub` and in tenant logs, separate from your own agent.
-
-The next module adds the piece that actually enforces least privilege: a per-app grant reviewed against what Acme asked for, not what it received by default. On-Behalf-Of exchange stays a first-party pattern: a backend you own, exchanging a token for its own API, using a confidential Custom API client. A third party authenticates employees directly, with their consent, and holds no credential of yours.
-
-Why this matters beyond the lab:
-
-- **Security.** Every partner integration is a distinct, revocable identity. Pulling a partner's access means deleting one grant or one client, not untangling a shared credential.
-- **GTM.** "Partners register with a domain-verified metadata document, an admin approves a least-privilege grant, and every employee consents" is exactly what a security questionnaire wants to read.
-
-</details>
-
----
+> If a check fails, the result should show the exact reason. Fix the flagged item and select **Re-run checks**.
 
 <details>
   <summary style='font-size: 1.5rem;
