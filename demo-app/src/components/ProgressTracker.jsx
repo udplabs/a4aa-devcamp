@@ -15,7 +15,6 @@ const MODULES = [
   { fileNum: "05", id: "03", label: "User Authentication" },
   { fileNum: "06", id: "04", label: "Token Vault" },
   { fileNum: "07", id: "05", label: "CIBA and FGA" },
-  { fileNum: "08", id: "07", label: "End-to-End" },
 ];
 
 function moduleStatus(mod, getModuleStatus) {
