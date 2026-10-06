@@ -1,8 +1,6 @@
-## Objective *(~20 min)*
+## Objective *(~10 min)*
 
-<!-- TODO: Flow screenshot here - User Identity -->
-
-<!-- TODO: discuss cutting htis out entirely? -->
+![Architecture](images/05-architecture.png)
 
 Now we can idenitfy our first and third party agents.
 
@@ -30,22 +28,27 @@ When you clicked **Provision Resources**, the app created everything Nexus needs
   - `bob@docagent.demo`: all-company access only, denied on engineering, HR, and executive documents
     - password: **`DevCamp1!`**
 
-> [!IMPORTANT]
-> **You can log in now.** In the Nexus app, click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!`.
->
-> Everything from here on assumes you're logged in.
->
-> Guardian push MFA is enforced tenant-wide, so login also triggers an MFA enrollment in the Auth0 Guardian app.
+## Log in as a user
 
-<!-- TODO: screenshot - Guardian MFA enrollment QR/prompt screen on first login -->
-<!-- TODO: screenshot - Nexus chat interface header showing logged-in user's name and Log Out button -->
+**You can log in now.** In the Nexus app:
 
+1. Click **Log In** and sign in as `alice@docagent.demo` / `DevCamp1!`.
+2. Enroll in Guardian MFA
 
-## Connect Acme as the same employee
+Everything from here on assumes you're logged in.
+
+![first party agent login](images/05-first-login.png)
+![CIBA initiation](images/05-first-login-qr.png)
+![Logged in on Nexus](images/05-first-logged-in.png)
+
+## Connect to Acme's agent as the same user
 
 Acme (from **Third-party agent setup**) was imported and granted a scope set in **Auth for MCP**, but it's never had a real employee session to consent into. Now that Alice is logged into Nexus, give Acme one too.
 
 ### Step 1: Open Acme's login route in a new tab
+
+> [!TIP]
+> To find your codespace name, you can type `echo $CODESPACE_NAME` in your github codespace's terminal
 
 ```
 https://<your-codespace-name>-3003.app.github.dev/login
@@ -59,17 +62,23 @@ Acme discovers the MCP server and Auth0 on its own (the 401 → PRM → AS metad
 ### Step 2: Sign in as Alice again.
 
 -  `alice@docagent.demo` / `DevCamp1!`
+- if you just logged in on Nexus, Auth0 will notice the session on the other application and send you a Guardian notification to login
 
-> [!NOTE]
-> **This is the first and only consent screen in this lab.** Every other application you've used is first-party, so Auth0 skips the prompt. Acme is a third party, so Auth0 shows Acme's `client_name` and the scopes it will actually receive, and asks you to approve.
+![Acme push sent](images/05-third-login.png)
 
-<!-- TODO: make the landing page better -->
-<!-- TODO: add sscreenshots -->
+### Step 3: Consent to allow Acme's Agent to act on your behalf
+
+- **This is the first and only consent screen in this lab.** 
+
+![Acme consent](images/05-third-consent.png)
+
+Every other application you've used is first-party, so Auth0 skips the prompt. Acme is a third party, so Auth0 shows Acme's `client_name` and the scopes it will actually receive, and asks you to approve.
 
 *You should see: "Acme connected." with the granted scope `mcp:docs:search mcp:docs:read`.*
 
-Both agents now hold a live token for the same employee. The end-to-end run compares them side by side.
+![Acme logged in](images/05-third-granted.png)
 
+Both agents now hold a live token for the same employee. The end-to-end run compares them side by side.
 
 ## Code review
 
@@ -218,6 +227,8 @@ app.post("/api/chat", validateAccessToken, async (req, res) => {
 ```
 
 ## Checkpoint
+
+![Module complete](images/05-module-complete.png)
 
 Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms all conditions automatically:
 

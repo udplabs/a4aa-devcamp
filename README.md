@@ -12,14 +12,14 @@ Nexus exposes four tools through an MCP server: document search, document retrie
 
 | Module | Title | Primitive | Outcome |
 |---|--------|-----------|---------|
-| 02 | Auth for MCP | RFC 9728 + RFC 8707 + RFC 8693 + Agent as Principal | MCP server becomes a spec-compliant resource server (PRM, 401/403 challenges, audience = its URL); the first-party agent calls it with an OBO token naming the employee (`sub`) and the agent (`act.sub`) |
+| 02 | First-party agent setup | Agent as Principal + Custom API client | Nexus agent gets a durable `agent_id` independent of client credential rotation, plus the client that will perform On-Behalf-Of (OBO) token exchange |
 | 03 | A second agent knocks (third-party onboarding) | Client ID Metadata Document (CIMD) import + reviewed per-app grant + consent + a second Agent as Principal identity | A partner's agent registers by URL, gets only the scopes an admin approves, and is independently auditable, with no shared credential |
-| 04 | User Authentication | Auth0 Universal Login, `express-oauth2-jwt-bearer` | Employee logs in, JWT `sub` flows to every downstream tool call |
-| 05 | Token Vault | Per-user federated CRM credentials | Agent calls the CRM with the employee's identity, refreshed automatically, never held in agent memory |
-| 06 | Async Authorization (CIBA) | Client-Initiated Backchannel Authentication + Auth0 Guardian push | External document shares require out-of-band employee approval with a binding message |
-| 07 | Fine-Grained Authorization (live demo) | Real Okta FGA, relationship-based access model | Employees read and share only the documents they are authorized to access, enforced live at the data boundary |
+| 04 | Auth for MCP | RFC 9728 + RFC 8707 + RFC 8693 | MCP server becomes a spec-compliant resource server (PRM, 401/403 challenges, audience = its URL); both agents call it with tokens naming the employee (`sub`) and the agent (`act.sub`) |
+| 05 | Every agent action has an owner (User Authentication) | Auth0 Universal Login, `express-oauth2-jwt-bearer` | Employee logs in, JWT `sub` flows to every downstream tool call |
+| 06 | The agent acts as the employee, not a shared bot (Token Vault) | Per-user federated CRM credentials | Agent calls the CRM with the employee's identity, refreshed automatically, never held in agent memory |
+| 07 | CIBA and FGA | Client-Initiated Backchannel Authentication + Auth0 Guardian push; real Okta FGA | External document shares require out-of-band employee approval with a binding message; employees read and share only the documents they are authorized to access, enforced live at the data boundary |
 
-Module 01 covers environment setup and tenant provisioning. Module 07 is FGA. It's already provisioned and enforced live against a real Okta FGA store, so you can see allow and deny decisions land without touching the authorization code. A closing end-to-end run (Module 08) takes one document request through every control, with both agents and Token Vault, at once.
+Module 01 covers environment setup and tenant provisioning. FGA, covered in Module 07 alongside CIBA, is already provisioned and enforced live against a real Okta FGA store, so you can see allow and deny decisions land without touching the authorization code. A closing end-to-end run (Module 08) takes one document request through every control, with both agents and Token Vault, at once.
 
 See [`lab-guide/`](./lab-guide/) for the step-by-step participant instructions.
 
@@ -36,17 +36,17 @@ devcamp-a4aa/
 │   ├── images/                   ← Dashboard screenshots referenced by the guides
 │   ├── 00-introduction.md        ← mission briefing (read during kickoff)
 │   ├── 01-prerequisites.md       ← Module 01 (environment setup + tenant provisioning)
-│   ├── 02-one-trust-boundary-for-every-agent.md         ← Module 02, Auth for MCP (keystone)
-│   ├── 03-a-second-agent-knocks.md                      ← Module 03, third-party agent onboarding (CIMD)
-│   ├── 04-every-agent-action-has-an-owner.md            ← Module 04, User Authentication
-│   ├── 05-the-agent-acts-as-the-employee,-not-a-shared-bot.md ← Module 05, Token Vault (CRM)
-│   ├── 06-humans-approve-what-cant-be-undone.md         ← Module 06, CIBA
-│   ├── 07-access-that-knows-where-it-ends.md            ← Module 07, FGA live demo (witnessed)
+│   ├── 02-first-party-agent-setup.md                    ← Module 02, Agent as Principal for the Nexus agent
+│   ├── 03-third-party-agent-setup.md                    ← Module 03, third-party agent onboarding (CIMD)
+│   ├── 04-auth-for-mcp.md                               ← Module 04, Auth for MCP (keystone)
+│   ├── 05-every-agent-action-has-an-owner.md            ← Module 05, User Authentication
+│   ├── 06-the-agent-acts-as-the-employee-not-a-shared-bot.md ← Module 06, Token Vault (CRM)
+│   ├── 07-ciba-and-fga.md                               ← Module 07, CIBA + FGA live demo (witnessed)
 │   ├── 08-putting-it-all-together.md                    ← closing end-to-end run
 │   └── 99-conclusion.md          ← wrap-up (what you shipped, next steps)
 │
 ├── demo-app/                     ← the application, run via GitHub Codespaces
-└── mock-crm-service/             ← standalone CRM OAuth2 mock, deployable to Vercel (Module 05 upstream)
+└── mock-crm-service/             ← standalone CRM OAuth2 mock, deployable to Vercel (Module 06 upstream)
 ```
 
 There is a single living application tree: **`demo-app/`**. Each participant runs their own copy in GitHub Codespaces against their own provisioned Auth0 tenant. Participants work directly against `demo-app/`, guided by `lab-guide/`.
@@ -136,9 +136,5 @@ Your Auth0 tenant's footprint is provisioned with one click from inside the app 
 
 ## TODO: 
 
-- If something errors on provisioning. It should be immediately visible to the user and clear that something was not properly provisioned so they can resolve it
-- FGA - FGA should use the always-on tenant by default. How we do that isn't super clear, but I want it to actually use FGA, not fake it unless it HAS to
-- Crop out all of the super confusing text. Simple, clear terms.
-- All of the one-off 'might happen' use cases should be in their own 'troubleshooting' section per module
-- The introduction should have a flow to study and understand. perhaps the same flow from the slide deck. Every module after should highlight which section you're setting up.
-- More screenshots and settings? Would that make it longer?
+- Get the management creds to include read:agents
+- username-password needs to be promoted to domain? A-Not done for you?, and B-Why?

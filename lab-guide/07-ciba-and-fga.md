@@ -1,6 +1,6 @@
-## Objective *(~30 min)*
+## Objective *(~15 min)*
 
-<!-- TODO: Flow screenshot here - auth0 to user phone CIBA flow, and FGA area -->
+![architecture](images/07-architecture.png)
 
 This module closes the last two gaps, both of them add-on controls that sit inside the trust boundary you've already built:
 
@@ -37,7 +37,7 @@ Validate Guardian push is enabled so the in-app approval request can trigger a r
 2. In the left-side section list, look for **Client-Initiated Backchannel Authentication (CIBA)**.
 3. Validate that **Guardian Push** is turned on.
 
-![docagent-ciba-codespace Notification Channels with Guardian Push enabled](images/04-guardian-push-enabled.png)
+![docagent-ciba-codespace Notification Channels with Guardian Push enabled](images/07-guardian-push-enabled.png)
 
 ### Code Review
 
@@ -210,16 +210,6 @@ app.get("/api/ciba/pending", (_req, res) => {
 
 In **src/hooks/useChat.js**, **startPolling** checks **/api/ciba/status/:authReqId** when **data.pendingCIBA** comes back. The binding message surfaces in the pending card (wired in **Chat.jsx**).
 
-<!-- TODO: screenshot - pending CIBA card in chat showing binding message and "check your device" text -->
-<!-- TODO: screenshot - Guardian push approval prompt on mobile device -->
-
-### Part A checkpoint
-
-Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms the CIBA grant is active on your provisioned CIBA client.
-
-> [!NOTE]
-> **Preview: you'll run this live in *Putting it all together* (End-to-End)**, once chat unlocks after Part B below.
-
 ## Part B: Access that knows where it ends (FGA)
 
 Nexus gives every user access to the company knowledge base, but not all of it.
@@ -339,11 +329,13 @@ The three tool handlers that call it are:
 
 Because every check keys off the user's **sub**, the decision is always about the *human*, never the *agent*.
 
-### Part B checkpoint
-> [!NOTE]
-> This part has no **Run Checks** button. Instead, the Nexus app asks a short knowledge-check question about *why* Alice can read the Q3 roadmap and Bob can't. Answer it correctly to unlock the module.
+### Checkpoint
 
-<!-- TODO: screenshot - self-report knowledge-check question UI for this module -->
+> [!NOTE]
+> This part has a **Run Checks** button AND asks a short knowledge-check question about *why* Alice can read the Q3 roadmap and Bob can't. Answer it correctly to unlock the module.
+
+![module-complete](images/07-module-complete.png)
+
 
 ---
 

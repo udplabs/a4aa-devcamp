@@ -1,6 +1,6 @@
-## Objective *(~25 min)*
+## Objective *(~10 min)*
 
-<!-- TODO: Flow screenshot here - Agent Identity to auth0 (token vault) highlighted -->
+![architecture](images/06-architecture.png)
 
 Now that we have user and agent identities, we need Nexus to log document activity to the CRM under the user's identity.
 
@@ -29,7 +29,7 @@ This module wires up the CRM, a custom OAuth2 connection, through Token Vault.
 
  *You should see: the **Visibility** column for port 3002 now reads **Public**.*
 
-<!-- TODO: screenshot - Codespace Ports tab with port 3002 set to Public -->
+![public port](images/06-public-port.png)
 
  Without this, clicking "Connect" fails partway through with a Content-Security-Policy error after briefly redirecting to **github.com/codespaces/auth/...**.
 
@@ -49,7 +49,7 @@ This module wires up the CRM, a custom OAuth2 connection, through Token Vault.
 
 Once turned on, Auth0 automatically requests a refresh token from the CRM on every flow, so it can maintain the stored credential without user re-authentication.
 
-![CRM connection Purpose section with Token Vault option selected](images/03-token-vault-purpose-enabled.png)
+![CRM connection Purpose section with Token Vault option selected](images/06-token-vault-auth.png)
 
 After enabling it, Auth0 stores the user's real CRM access token and refresh token, and the live exchange fires on every **log_crm_activity** call.
 
@@ -62,7 +62,7 @@ That flow runs against Auth0's My Account API, so you need to activate the API o
 1. Auth0 Dashboard → **Applications → APIs**
 2. Find the **Auth0 My Account API** card and click **Activate**
 
-![Auth0 My Account API card showing active status](images/03-my-account-api-activated.png)
+![Auth0 My Account API card showing active status](images/06-my-account-api.png)
 
 3. Auth0 Dashboard → **Applications → Applications → docagent-spa-codespace**
 4. Go to the **API Access** tab
@@ -73,7 +73,7 @@ That flow runs against Auth0's My Account API, so you need to activate the API o
 6. Click **Grant Access**. This takes effect immediately. A separate **Save** button on this screen may appear grayed out. If so, there's nothing to save, and you can move on.
     - *You should see: "3 / 8 permissions granted" under User-delegated Access for Auth0 My Account API.*
 
-![docagent-spa-codespace API Access tab with 3/8 My Account API scopes granted](images/03-spa-my-account-scopes-granted.png)
+![docagent-spa-codespace API Access tab with 3/8 My Account API scopes granted](images/06-docagent-spa-on.png)
 
 Now at tool-call time, the backend asks Auth0's Token Vault for a short-lived, per-user federated access token for exactly one downstream call, preserving the user's identity.
 
@@ -163,12 +163,16 @@ case "log_crm_activity": {
 
 ## Checkpoint
 
-1. Click **Connect** next to "CRM" in the app header. This runs the real Connected Accounts flow against the CRM mock and redirects you back into the app.
+1. Log out as Alice, because vault can not save your credentials until you re-login
+2. Log in again as Alice: `alice@docagent.demo` / `DevCamp1!`.
+3. Click **Connect** next to "CRM" in the app header (you might have to click it more than once). This runs the real Connected Accounts flow against the CRM mock and redirects you back into the app.
 
-<!-- TODO: screenshot - app header with the CRM "Connect" button before linking -->
-<!-- TODO: screenshot - app header after it's connected (Connect button replaced with connected state) -->
+![CRM disconnected](images/06-crm-connect.png)
+![CRM connected](images/06-crm-connected.png)
 
-2. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
+4. Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms Token Vault is enabled on the CRM connection.
+
+![Module complete](images/06-module-complete.png)
 
 --- 
 

@@ -1,6 +1,6 @@
-## Objective *(~20 min)*
+## Objective *(~10 min)*
 
-<!-- TODO: Flow screenshot here - Agent Identity and MCP server with arrow between. -->
+![Architecture](images/04-architecture.png)
 
 Your two agents, first-party Nexus and third-party Acme, now have identities but neither can call a tool yet.
 
@@ -55,17 +55,16 @@ This module wires four features in one flow:
 
 1. Auth0 Dashboard → **Applications → APIs → Nexus MCP Server → Application Access** tab
 2. Find `nexus-agent-obo` → **Edit**
-3. Under **User-Delegated Access**, select **Grant Access** and select these scopes:
+3. Under **User-Delegated Access** select these scopes:
     - `mcp:docs:search`
     - `mcp:docs:read`
     - `mcp:crm:log`
     - `mcp:docs:share`
-4. Select **Save**.
+4. Select **Grant Access**.
 
 This is the ceiling on what an employee's token can carry through this client. The employee's own role (RBAC) narrows it further.
 
-<!-- TODO: fix this screenshot -->
-![nexus-agent-obo user-delegated access with the mcp:* scopes granted](images/01-obo-api-access-scopes.png)
+![nexus-agent-obo user-delegated access with the mcp:* scopes granted](images/04-first-party-access.png)
 
 The MCP client is now configured and can perform OBO token exchanges.
 
@@ -80,12 +79,15 @@ Acme's CIMD (from the previous module) requested all five tool scopes. Let's rev
 To implement those decisions, on the same **Application Access** tab:
 
 1. Find **Acme Partner Agent** → **Edit**
-2. Under **User-Delegated Access**, select **Grant Access**, then select only:
+2. Under **User-Delegated Access** select only:
     - `mcp:docs:search`
     - `mcp:docs:read`
-3. Select **Save**.
+3. Select **Grant Access**.
+
+![nexus-agent-obo user-delegated access with the mcp:* scopes granted](images/04-third-party-access.png)
 
 This grant is what Auth0 enforces. When Acme requests all five scopes, the token it receives carries only these two.
+
 
 ## Code review
 
@@ -242,7 +244,7 @@ result = await executeTool(toolName, parameters, user.accessToken);
 
 ## Checkpoint
 
-<!-- TODO: screenshot - Run Checks panel with all conditions passing -->
+![module complete](images/04-module-complete.png)
 
 Use the **Run Checks** button on the left of the Nexus app page. The in-app verifier confirms everything is set up properly.
 

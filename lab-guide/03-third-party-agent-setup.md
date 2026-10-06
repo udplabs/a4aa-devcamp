@@ -1,6 +1,6 @@
-## Objective *(~20 min)*
+## Objective *(~10 min)*
 
-<!-- TODO: Flow screenshot here - CIMD document → admin import → reviewed grant → second Agent as Principal record → user consent. -->
+![Architecture](images/03-architecture.png)
 
 Our Nexus MCP doesn't just want to talk to its own first-party agent. In the real world, third party agents might need to talk to it as well.
 
@@ -28,9 +28,6 @@ Provisioning laid the groundwork every third-party client needs:
 - The **Nexus MCP Server** API uses **per-app authorization** for user-delegated access. A newly imported client gets *nothing* until you grant it.
 - The 'third party' agent (for demo purposes) with CIMD for you to connect to.
 
-> [!IMPORTANT]
-> CIMD must be used over the public internet, so Acme Agent's port must be **public**. In the Codespace **Ports** tab, confirm port **3003** (Acme) shows **Public** visibility. If not, right-click → **Port Visibility → Public**. Auth0 rejects `localhost` CIMD URLs, so this module needs Codespaces, or a tunnel URL in `ACME_CIMD_URL`.
-
 ### First-party vs. third-party, at a glance
 
 |  | First-party (Nexus Agent) | Third-party (Acme Partner Agent) |
@@ -47,33 +44,33 @@ The MCP server treats both the same way: validate `aud`, enforce per-tool scope,
 
 ## Dashboard steps
 
-<!-- TODO: maybe instead of CURL, we just copy/paste the URL -->
-
 ### Step 1: Walk through how Acme's agent will find Auth0
 
-Any MCP client (Agent) that only knows your server's URL starts here. Call a tool endpoint with no token:
+Any MCP client (Agent) that only knows your server's URL starts here. Let's call a tool endpoint with no token:
 
 ```bash
-curl -i https://<your-codespace-name>-3001.app.github.dev/mcp/tools
+curl -i https://$CODESPACE_NAME-3001.app.github.dev/mcp/tools
 ```
 
 *You should see: `401` with `WWW-Authenticate: Bearer resource_metadata="https://...-3001.app.github.dev/.well-known/oauth-protected-resource"`.*
 
+![Architecture](images/03-www-prm.png)
+
 This call points it to the `.well-known/oauth-protected-resource` endpoint:
 
 ```bash
-curl https://<your-codespace-name>-3001.app.github.dev/.well-known/oauth-protected-resource
+curl https://$CODESPACE_NAME-3001.app.github.dev/.well-known/oauth-protected-resource
 ```
 
 *You should see: `resource` (the MCP server's URL), `authorization_servers` (your Auth0 tenant), and the five `mcp:*` scopes.*
 
+![prm endpoint](images/03-prm-endpoint.png)
+
 Then Auth0's own metadata, which the PRM points to:
 
-```bash
-curl https://<your-auth0-domain>/.well-known/openid-configuration | grep -E 'code_challenge|client_id_metadata'
-```
+`https://<your-auth0-tenant>/.well-known/openid-configuration`
 
-*You should see: `code_challenge_methods_supported` including `S256`, and `client_id_metadata_document_supported: true`.* That's how an agent learns, without asking anyone, that it can register with a CIMD and must use PKCE.
+*You can search with `ctl+f` and see: `code_challenge_methods_supported` including `S256`, and `client_id_metadata_document_supported: true`.* That's how an agent learns, without asking anyone, that it can register with a CIMD and must use PKCE.
 
 ### Step 2: read the partner's CIMD
 
@@ -82,13 +79,14 @@ Acme publishes its client metadata on its own server.
 > [!NOTE]
 > **Acme really is a separate server in this lab.** It runs as its own Express process (`demo-app/server/acme/`) on its own port and public URL, independent of Nexus. A real partner publishes its CIMD on its own domain. The document lives wherever the partner says, and its URL *is* the `client_id`.
 
+> [!TIP]
+> To find your codespace name, you can type `echo $CODESPACE_NAME` in your github codespace's terminal
+
 ```bash
 https://<your-codespace-name>-3003.app.github.dev/.well-known/client-metadata
 ```
 
 *You should see:*
-
-<!-- TODO: compare to claudes real CIMD. -->
 
 ```json
 {
@@ -110,13 +108,16 @@ Notice three things:
 
 ### Step 3: import the CIMD
 
-<!-- TODO: screenshot here -->
+> [!IMPORTANT]
+> CIMD must be used over the public internet, so Acme Agent's port must be **public**. In the Codespace **Ports** tab, confirm port **3003** (Acme) shows **Public** visibility. If not, right-click → **Port Visibility → Public**. Auth0 rejects `localhost` CIMD URLs, so this module needs Codespaces, or a tunnel URL in `ACME_CIMD_URL`.
 
 1. Auth0 Dashboard → **Applications → Applications** → **Create Application** → **Import from URL**
 2. Paste the CIMD URL from Step 2 → **Preview**.
 3. Select **Create**.
 
 *You should see: a new application named **Acme Partner Agent**. In **Settings**, its client is identified by the CIMD URL, it's a third-party application, and there's no client secret.*
+
+![CIMD preview](images/03-cimd-preview.png)
 
 Auth0 stores a copy of the metadata, but the partner's hosted document stays the source of truth. If Acme changes it (say, a new redirect URI), you pull the update with **Refresh Client Metadata** until dynamic CIMD is supported.
 
@@ -128,11 +129,13 @@ Auth0 stores a copy of the metadata, but the partner's hosted document stays the
 
 *You should see: a second agent record with its own `agt_...` ID, distinct from your first-party agent's.*
 
+![agent access](images/03-agent-access.png)
+
 Once linked, every token Acme obtains through a normal login carries `act.sub` = this agent's ID and `client_profile: "ai_agent"`. Tenant logs record the agent ID on every token issuance, so the partner's activity is auditable separately from your own agent's.
 
 ## Checkpoint
 
-<!-- TODO: screenshot - Run Checks panel -->
+![module complete](images/03-module-complete.png)
 
 Use the **Run Checks** button on the left of the Nexus app page. The button confirms you completed the above steps correctly.
 

@@ -65,8 +65,6 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 2. Approve the push on your enrolled Guardian device.
 3. The UI flips; the share executes with a **sharedAt** timestamp.
 
-<!-- TODO: screenshot - chat after approval showing the share result with sharedAt timestamp -->
-
 ## Negative tests
 
 ### FGA deny: outside department
@@ -110,7 +108,7 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 - The Nexus MCP Server API already uses **Per-app authorization** for user-delegated access (provisioning set it), so each application's scopes are individually selectable.
 - In the Auth0 Dashboard, go to **Applications > APIs > Nexus MCP Server > Application Access**, select **Edit** on `nexus-agent-obo`, and under **User-Delegated Access** deselect **mcp:docs:share** > **Save**.
 
-![nexus-agent-obo user-delegated access with mcp:docs:share deselected](images/06-missing-scope-deselected.png)
+![nexus-agent-obo user-delegated access with mcp:docs:share deselected](images/08-missing-scope-deselected.png)
 
 - Prompt: `Share the Q3 roadmap with external@partner.com`
 - A push notification card appears. Approve it on your enrolled Guardian device.
@@ -127,7 +125,7 @@ The same user **sub** flows through every hop, giving you one audit key for ever
 
 - In the Auth0 Dashboard, go to **Authentication > Social > crm-`{{demoName}}`** and turn off the **Authentication and Connected Accounts for Token Vault** purpose (back to plain Authentication).
 
-  ![CRM connection Purpose section reverted to plain Authentication](images/06-token-vault-purpose-disabled.png)
+  ![CRM connection Purpose section reverted to plain Authentication](images/08-token-vault-purpose-disabled.png)
 - Prompt: `Log that I read the Q3 roadmap in the CRM.`
 - Expected: the tool call fails: **{ "success": false, "error": "Token Vault refused the CRM exchange: ... Check that the CRM connection's Purpose includes Connected Accounts for Token Vault ..." }**. The server log shows **[Token Vault] (live) exchange failed for crm: ...** right before it.
 - This is a real deny, not a fallback: once a real federated connection exists for a user, Auth0 rejecting the exchange is treated as a hard denial and surfaces as this specific error. It never silently succeeds via the in-memory mock credential, which only exists for the fully-offline case where no live connection is provisioned at all. A missing or disabled credential should never be papered over with a fake one.

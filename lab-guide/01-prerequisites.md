@@ -1,4 +1,4 @@
-## Provision your environment *(~20 min)*
+## Provision your environment *(~5 min)*
 
 As part of the provisioning process for your tenant, an admin was created that corresponds to the email address you used to sign in (https://labs.demo.okta.com).
 
@@ -11,7 +11,7 @@ To activate your tenant, follow these instructions:
 2. Follow the instructions to accept the invitation.
 3. Once you accept the invitation, you'll land in your newly created Auth0 tenant.
 
-![Launch Pad Accept Invitation button](images/00-accept-invitation.png)
+![Launch Pad Accept Invitation button](images/01-accept-invitation.png)
 
 > [!NOTE]
 > - Your Auth0 management credentials are available in the Launch Pad after you launch your tenant.
@@ -71,8 +71,6 @@ Need guidance at any point? Click the **Request Help** button in the Launch Pad,
 
 You've already activated your Auth0 tenant above. The lab runs in **GitHub Codespaces**, with nothing to install locally.
 
-<!-- TODO: Update this screenshot -->
-
 ![Nexus system architecture: the whole app, including the API, MCP server, and CRM mock, runs inside one GitHub Codespace or locally, with only Auth0, FGA, and the LLM external](images/architecture.png)
 
 ## Prerequisites
@@ -92,17 +90,15 @@ You need:
 
 1. From the Launch Pad in the Lab Guide, open the repository link for the lab.
 
-<!-- TODO: update this screenshot -->
-![GitHub repository page for the lab](images/00-codespace-repo-page.png)
+![GitHub repository page for the lab](images/01-codespace-repo-page.png)
 
 2. Start a Codespace on the repository (**Code > Codespaces > Create codespace on the main branch**).
 
-<!-- TODO: update this screenshot -->
-![Code button dropdown showing the Codespaces tab and Create codespace button](images/00-codespace-create-menu.png)
+![Code button dropdown showing the Codespaces tab and Create codespace button](images/01-codespace-create-menu.png)
 
 3. Wait for the environment to finish building **(it could take up to 20 minutes)**. Once it's ready, you'll have a full VS Code editor and terminal in your browser with the cloned project.
 
-![Codespace finished building with VS Code editor and terminal ready in the browser](images/00-codespace-ready.png)
+![Codespace finished building with VS Code editor and terminal ready in the browser](images/01-codespace-ready.png)
 
 ## Configure and provision your environment
 
@@ -137,22 +133,20 @@ npm run dev
 
 The Codespace should open a browser preview automatically. If `.env` already has valid credentials, the app will skip straight to the **Provision Resources** screen (Step 3 below).
 
-<!-- TODO: Troubleshooting step, push to end? -->
 > [!TIP]
 > **Preview not open automatically?**
 >
 > If no preview opens automatically, or you're running locally instead of in the Codespace, open the **Ports** tab, find port **5173**, and click the globe icon to open it manually.
 
-<!-- TODO: Troubleshooting step, push to end? -->
 > [!NOTE]
 > **Started the app before adding your `.env` values?** You'll see a **setup screen** instead, showing the three environment variable names with a **Copy keys** button. Open `demo-app/.env` in the editor, paste the names, fill in the values from the Launch Pad, then stop the server (`Ctrl+C` in the terminal running `npm run dev`) and restart it with `npm run dev` so it picks up the change. The app reloads and advances to the next step automatically.
-> ![Nexus setup screen showing the three required environment variables](images/00-setup-screen-env-vars.png)
+> ![Nexus setup screen showing the three required environment variables](images/01-setup-screen-env-vars.png)
 
 ### Step 3: provision Auth0 resources
 
 The app shows the **Provision Resources** screen. Click the **Provision Resources** button.
 
-<!-- TODO: screenshot here -->
+![Nexus provisioning button](images/01-provision-resources-screen.png)
 
 This button calls the Auth0 Management API and create the other resources and `.env` variables your app uses throughout the lab:
 - the **Nexus Agent API** (the audience employees log in for)
@@ -170,14 +164,13 @@ When provisioning completes, the server should restart.
 
 After the reload, you should see the Nexus chat interface. You're now ready to start the next module.
 
-<!-- TODO: fix this UI in the app and re-do the screenshot -->
-![Nexus chat interface after successful provisioning](images/00-provisioning-complete.png)
+![Nexus chat interface after successful provisioning](images/01-provisioning-complete.png)
 
 ## Confirm access to your Auth0 tenant
 
 If you haven't already opened your Auth0 tenant, launch it from the Launch Pad in the Lab Guide. You'll use this throughout the lab, so keep a tab open.
 
-![Auth0 Dashboard landing page after accepting invitation](images/00-auth0-dashboard-landing.png)
+![Auth0 Dashboard landing page after accepting invitation](images/01-auth0-dashboard-landing.png)
 
 <!-- TODO: Troubleshooting step, push to end? -->
 > [!NOTE]
@@ -196,7 +189,6 @@ Auth0 Guardian is needed for **Humans approve what can't be undone** (CIBA).
 
 ## Troubleshooting 
 
-<!-- TODO: this is troubleshooting. I want to move it to the bottom. -->
 <details>
   <summary>
     If the credentials aren't shown in the Launch Pad on the right
@@ -235,9 +227,7 @@ update:tenant_settings
 read:tenant_settings
 read:agents
 delete:agents
-```
-![Auth0 Dashboard create M2M client with required permissions](images/00-manual-m2m-client-permissions.png)
-  
+```  
 </details>
 
 <details>

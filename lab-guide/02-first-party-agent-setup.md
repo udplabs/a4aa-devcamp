@@ -1,6 +1,6 @@
-## Objective *(~15 min)*
+## Objective *(~10 min)*
 
-<!-- TODO: Flow screenshot here - Agent Identity -->
+![First party agent](images/02-architecture.png)
 
 We need to give your first-party Nexus agent the two things it needs to call tools on behalf of employees:
 
@@ -31,15 +31,17 @@ By the end, you'll understand:
 
 *You should see: the new agent record with a generated **Agent ID** in the form `agt_...`.*
 
-<!-- TODO: put in a screenshot here for what it looks like -->
+![Agent as Principal page](images/02-agent-screen.png)
+
 
 **Step 2: Note the Agent ID**
 
 Copy the **agt_...** value somewhere handy. You'll see it as `act.sub` on the exchanged token once the client is linked to it (Part B, Step 3) and the MCP server grants it access in **Auth for MCP**.
 
-### Part B: Create the Custom API client for OBO token exchange
+![Agent created](images/02-agent-created.png)
 
-<!-- TODO: screenshot here for the flow -->
+
+### Part B: Create the Custom API client for OBO token exchange
 
 The OBO exchange will take the employee's token for the **Nexus Agent API** and exchange it for one for the **Nexus MCP Server**. You'll wire the exchange itself up in the next modules; here you just create the client that performs it.
 
@@ -51,6 +53,11 @@ The OBO exchange will take the employee's token for the **Nexus Agent API** and 
 
 Creating it from the API screen makes it a **Custom API Client** linked to the Nexus Agent API. That link is how Auth0 knows this client may exchange tokens issued for that API.
 
+![Nexus Agent API](images/02-nexus-agent-api.png)
+
+![Nexus Agent OBO](images/02-nexus-agent-obo.png)
+
+
 **Step 2: Turn on On-Behalf-Of Token Exchange for the client**
 
 This toggle is a security posture choice and must be turned on explicitly.
@@ -59,7 +66,7 @@ This toggle is a security posture choice and must be turned on explicitly.
 2. Scroll to the **Token Exchange** section.
 3. Turn on **On-Behalf-Of Token Exchange** → **Save**.
 
-![Token Exchange section with On-Behalf-Of Token Exchange toggled on](images/01-obo-token-exchange-enabled.png)
+![Token Exchange section with On-Behalf-Of Token Exchange toggled on](images/02-obo-token-exchange-enabled.png)
 
 **Step 3: Link the client to the agent record**
 
@@ -67,7 +74,7 @@ This toggle is a security posture choice and must be turned on explicitly.
 2. Select **Add Application**.
 3. Select `nexus-agent-obo` and confirm.
 
-<!-- TODO: this step needs a screenshot of the Agent's Applications tab with `nexus-agent-obo` added. -->
+![Agent Linked](images/02-agent-link.png)
 
 **Step 4: Add the client's credentials to `.env`**
 
@@ -124,7 +131,7 @@ The `client_id` is the exchanger's credential. The agent record's `agent_id` is 
 
 ## Checkpoint
 
-<!-- TODO: screenshot - Run Checks panel -->
+![run checks](images/02-nexus-run-checks.png)
 
 Use the **Run Checks** button on the left of the Nexus app page. The button confirms you completed the above steps correctly.
 
