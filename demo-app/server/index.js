@@ -536,6 +536,7 @@ app.get("/api/verify/module03", async (req, res) => {
 app.get("/api/verify/module05", async (req, res) => {
   const checks = [];
   const acmeBase = `http://localhost:${acmePort()}`;
+  const acmePublicBase = originForPort(requestOrigin(req), acmePort());
   const cimdUrl = acmeCimdUrl(requestOrigin(req));
   const mcpResource = (process.env.AUTH0_TOOL_AUDIENCE || "").replace(/\/$/, "");
 
@@ -549,7 +550,7 @@ app.get("/api/verify/module05", async (req, res) => {
       name: "Acme completed its consent flow and holds a token for the MCP server",
       pass: ok,
       message: !data.connected
-        ? `Acme is not connected — open ${acmeBase}/login in a new tab and sign in as alice@docagent.demo`
+        ? `Acme is not connected — open ${acmePublicBase}/login in a new tab and sign in as alice@docagent.demo`
         : ok
           ? `client_id=${data.client_id}, aud=${JSON.stringify(data.aud)}`
           : `client_id=${data.client_id || "(none)"}, aud=${JSON.stringify(data.aud)} — expected client_id=${cimdUrl}, aud including ${mcpResource}`,
