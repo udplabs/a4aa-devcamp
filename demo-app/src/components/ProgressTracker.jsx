@@ -3,18 +3,19 @@ import { useLabProgress } from "../hooks/useLabProgress";
 import { ModuleChecks } from "./ModuleChecks";
 
 // Mirrors demo-app/server/routes/guide.js LABS, in lab-guide file order.
-// `id` is the internal checkable-step id consumed by ModuleChecks. The CIBA
-// and FGA lab-guide file is a single row ("05") that covers both the CIBA
-// backend checks and the FGA knowledge-check quiz, merged under one
-// moduleId -- see ModuleChecks.jsx case "05".
+// `id` is the checkable-step id consumed by ModuleChecks, and now matches
+// `fileNum` 1:1 for every row (both match the lab-guide's own 01-07
+// numbering). The CIBA and FGA lab-guide file is a single row ("07") that
+// covers both the CIBA backend checks and the FGA knowledge-check quiz,
+// merged under one moduleId -- see ModuleChecks.jsx case "07".
 const MODULES = [
-  { fileNum: "01", id: "00", label: "Prerequisites" },
-  { fileNum: "02", id: "01", label: "First-Party Agent Setup" },
-  { fileNum: "03", id: "02", label: "Third-Party Agent Setup" },
-  { fileNum: "04", id: "06", label: "Auth for MCP" },
-  { fileNum: "05", id: "03", label: "User Authentication" },
-  { fileNum: "06", id: "04", label: "Token Vault" },
-  { fileNum: "07", id: "05", label: "CIBA and FGA" },
+  { fileNum: "01", id: "01", label: "Prerequisites" },
+  { fileNum: "02", id: "02", label: "First-Party Agent Setup" },
+  { fileNum: "03", id: "03", label: "Third-Party Agent Setup" },
+  { fileNum: "04", id: "04", label: "Auth for MCP" },
+  { fileNum: "05", id: "05", label: "User Authentication" },
+  { fileNum: "06", id: "06", label: "Token Vault" },
+  { fileNum: "07", id: "07", label: "CIBA and FGA" },
 ];
 
 function moduleStatus(mod, getModuleStatus) {
@@ -76,8 +77,8 @@ export function ProgressTracker() {
           const key = rowKey(mod);
           const status = moduleStatus(mod, getModuleStatus);
           const isExpanded = expandedModule === key;
-          // Auth for MCP has no automated check yet, so there's nothing for
-          // ModuleChecks to run and the row isn't expandable.
+          // Every module now has a real id (Prerequisites included), so
+          // every row is expandable.
           const expandable = mod.id !== null;
           const checkIds = Array.isArray(mod.id) ? mod.id : [mod.id];
 

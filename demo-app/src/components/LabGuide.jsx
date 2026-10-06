@@ -4,9 +4,9 @@ import { ModuleChecks } from "./ModuleChecks";
 import { useLabProgress } from "../hooks/useLabProgress";
 
 // Modules that show a Run Checks / knowledge-check / completion widget.
-// "07" (Module 08: End-to-End) is intentionally excluded -- that page is a
-// manual walkthrough/summary, not a checkable step, so it must not render a
-// lab-progress section.
+// Module 08 (End-to-End) is a manual walkthrough/summary with no automated
+// check, and resolves to a null `module` id from guide.js's LABS array, so
+// it's naturally excluded without needing to be listed here.
 const CHECKABLE_MODULES = ["01", "02", "03", "04", "05", "06", "07"];
 
 export function LabGuide({ onClose }) {

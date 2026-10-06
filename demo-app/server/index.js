@@ -292,8 +292,35 @@ async function mgmtGet(ctx, path) {
   return r.json();
 }
 
-// Module 01 (lab guide 02-first-party-agent-setup): Agent as Principal + OBO client.
+// Module 01 (lab guide 01-prerequisites): confirms provisioning populated .env.
 app.get("/api/verify/module01", async (req, res) => {
+  const REQUIRED_ENV_VARS = [
+    "VITE_AUTH0_CLIENT_ID",
+    "AUTH0_AUDIENCE",
+    "AUTH0_TOOL_AUDIENCE",
+    "MCP_SERVER_CLIENT_ID",
+    "MCP_SERVER_CLIENT_SECRET",
+    "AUTH0_CIBA_CLIENT_ID",
+    "AUTH0_CIBA_CLIENT_SECRET",
+    "VAULT_CONN_CRM",
+    "AUTH0_MFA_ACTION_ID",
+    "DEMO_USER_ALICE_ID",
+    "DEMO_USER_BOB_ID",
+  ];
+  const checks = REQUIRED_ENV_VARS.map((name) => {
+    const present = !!process.env[name];
+    return {
+      id: name.toLowerCase(),
+      name: `${name} is set`,
+      pass: present,
+      message: present ? `${name} is set` : `${name} is not set — re-run Provision Resources`,
+    };
+  });
+  res.json({ module: "01", checks, allPassed: checks.every((c) => c.pass) });
+});
+
+// Module 02 (lab guide 02-first-party-agent-setup): Agent as Principal + OBO client.
+app.get("/api/verify/module02", async (req, res) => {
   const mcpBase = `http://localhost:${mcpPort()}`;
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;
@@ -397,11 +424,11 @@ app.get("/api/verify/module01", async (req, res) => {
       message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
   }
 
-  res.json({ module: "01", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "02", checks, allPassed: checks.every((c) => c.pass) });
 });
 
 // Module 03 (lab guide 03): third-party agent via CIMD.
-app.get("/api/verify/module02", async (req, res) => {
+app.get("/api/verify/module03", async (req, res) => {
   const checks = [];
   const mcpResource = (process.env.AUTH0_TOOL_AUDIENCE || "").replace(/\/$/, "");
   const acmeBase = `http://localhost:${acmePort()}`;
@@ -441,7 +468,7 @@ app.get("/api/verify/module02", async (req, res) => {
       checks.push({ id: "mgmt", name: "Management API access", pass: false,
         message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
     }
-    return res.json({ module: "02", checks, allPassed: false });
+    return res.json({ module: "03", checks, allPassed: false });
   }
 
   // 2. Tenant: CIMD registration on, login connection at domain level.
@@ -500,13 +527,13 @@ app.get("/api/verify/module02", async (req, res) => {
     checks.push({ id: "thirdparty_agent_registered", name: "Third-party agent registered and linked to Acme's client", pass: false, message: e.message });
   }
 
-  res.json({ module: "02", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "03", checks, allPassed: checks.every((c) => c.pass) });
 });
 
-// Module 03 (lab guide 05-every-agent-action-has-an-owner): Acme's consent
+// Module 05 (lab guide 05-every-agent-action-has-an-owner): Acme's consent
 // flow attaches to the same employee session, holding a token whose
 // client_id is its CIMD URL and whose aud is the MCP server.
-app.get("/api/verify/module03", async (req, res) => {
+app.get("/api/verify/module05", async (req, res) => {
   const checks = [];
   const acmeBase = `http://localhost:${acmePort()}`;
   const cimdUrl = acmeCimdUrl(requestOrigin(req));
@@ -532,10 +559,10 @@ app.get("/api/verify/module03", async (req, res) => {
       message: `Could not reach Acme at ${acmeBase} (${e.message})` });
   }
 
-  res.json({ module: "03", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "05", checks, allPassed: checks.every((c) => c.pass) });
 });
 
-app.get("/api/verify/module04", async (req, res) => {
+app.get("/api/verify/module06", async (req, res) => {
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;
   const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
@@ -547,7 +574,7 @@ app.get("/api/verify/module04", async (req, res) => {
   if (!domain || !clientId || !secret || !crmConn) {
     checks.push({ id: "token_vault", name: "Token Vault enabled on CRM connection", pass: false,
       message: "Management credentials or CRM connection name not set" });
-    return res.json({ module: "04", checks, allPassed: false });
+    return res.json({ module: "06", checks, allPassed: false });
   }
 
   try {
@@ -654,10 +681,10 @@ app.get("/api/verify/module04", async (req, res) => {
     checks.push({ id: "token_vault_connection", name: "Token Vault enabled on CRM connection", pass: false, message: e.message });
   }
 
-  res.json({ module: "04", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "06", checks, allPassed: checks.every((c) => c.pass) });
 });
 
-app.get("/api/verify/module05", async (req, res) => {
+app.get("/api/verify/module07", async (req, res) => {
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;
   const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
@@ -667,7 +694,7 @@ app.get("/api/verify/module05", async (req, res) => {
   if (!domain || !clientId || !secret || !cibaClientId) {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false,
       message: !cibaClientId ? "AUTH0_CIBA_CLIENT_ID not set — re-provision resources" : "Management credentials not set" });
-    return res.json({ module: "05", checks, allPassed: false });
+    return res.json({ module: "07", checks, allPassed: false });
   }
 
   try {
@@ -738,12 +765,12 @@ app.get("/api/verify/module05", async (req, res) => {
     checks.push({ id: "ciba_client", name: "CIBA grant on docagent-ciba application", pass: false, message: e.message });
   }
 
-  res.json({ module: "05", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "07", checks, allPassed: checks.every((c) => c.pass) });
 });
 
-// Module 06 (lab guide 04-auth-for-mcp): grant nexus-agent-obo and Acme's
+// Module 04 (lab guide 04-auth-for-mcp): grant nexus-agent-obo and Acme's
 // agent their respective scopes on the Nexus MCP Server resource server.
-app.get("/api/verify/module06", async (req, res) => {
+app.get("/api/verify/module04", async (req, res) => {
   const checks = [];
   const domain = process.env.AUTH0_DOMAIN;
   const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
@@ -755,7 +782,7 @@ app.get("/api/verify/module06", async (req, res) => {
   if (!domain || !clientId || !secret) {
     checks.push({ id: "mgmt", name: "Management API access", pass: false,
       message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
-    return res.json({ module: "06", checks, allPassed: false });
+    return res.json({ module: "04", checks, allPassed: false });
   }
 
   let ctx = null;
@@ -769,7 +796,7 @@ app.get("/api/verify/module06", async (req, res) => {
       checks.push({ id: "mgmt", name: "Management API access", pass: false,
         message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
     }
-    return res.json({ module: "06", checks, allPassed: false });
+    return res.json({ module: "04", checks, allPassed: false });
   }
 
   // 1. nexus-agent-obo has a user-delegated client grant on the Nexus MCP
@@ -827,7 +854,7 @@ app.get("/api/verify/module06", async (req, res) => {
     }
   }
 
-  res.json({ module: "06", checks, allPassed: checks.every((c) => c.pass) });
+  res.json({ module: "04", checks, allPassed: checks.every((c) => c.pass) });
 });
 
 // Resolve the tenant for every /api request from the request

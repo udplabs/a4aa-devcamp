@@ -7,14 +7,8 @@ import { useRuntimeConfig } from "../config/runtimeConfig";
 async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, getIdTokenClaims, audience }) {
   switch (moduleId) {
     case "01": {
-      const r = await fetch("/api/setup/status");
-      const d = await r.json();
-      return {
-        checks: [
-          { id: "provisioned", name: "Auth0 resources provisioned", pass: !!d.isProvisioned,
-            message: d.isProvisioned ? "Resources provisioned" : "Click Provision Resources to set up Auth0" },
-        ],
-      };
+      const r = await fetch("/api/verify/module01");
+      return await r.json();
     }
 
     case "02": {
@@ -28,7 +22,7 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
     }
 
     case "04": {
-      const r = await fetch("/api/verify/module06");
+      const r = await fetch("/api/verify/module04");
       return await r.json();
     }
 
@@ -76,20 +70,20 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
       }
 
       // Backend check: Acme's consent flow and MCP-server-scoped token.
-      const r03 = await fetch("/api/verify/module03");
-      const d03 = await r03.json();
-      checks.push(...d03.checks);
+      const r05 = await fetch("/api/verify/module05");
+      const d05 = await r05.json();
+      checks.push(...d05.checks);
 
       return { checks };
     }
 
     case "06": {
-      const r = await fetch("/api/verify/module04");
+      const r = await fetch("/api/verify/module06");
       return await r.json();
     }
 
     case "07": {
-      const r = await fetch("/api/verify/module05");
+      const r = await fetch("/api/verify/module07");
       return await r.json();
     }
 
@@ -194,7 +188,7 @@ export function ModuleChecks({ moduleId, onComplete }) {
 
   // Module "07" (lab-guide/07-ciba-and-fga.md) merges two parts into one
   // checkable module: Part A (CIBA) has an automated backend check
-  // (/api/verify/module05 below); Part B (FGA) is read-through only and
+  // (/api/verify/module07 below); Part B (FGA) is read-through only and
   // is gated by a knowledge-check quiz instead. The module is complete
   // only once both parts pass.
   const hasFgaQuiz = moduleId === "07";
