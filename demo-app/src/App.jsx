@@ -18,7 +18,7 @@ const TABS = [
   { id: "fga",    label: "FGA Tuples" },
 ];
 
-const LAB_MODULES = ["01", "02", "06", "03", "04", "05", "07"];
+const LAB_MODULES = ["01", "02", "03", "04", "05", "06", "07"];
 
 // Lab 01 -- useAuth0 gives us isAuthenticated, user, and logout.
 // Auth0Provider (see src/auth/Auth0Provider.jsx) wraps this tree;

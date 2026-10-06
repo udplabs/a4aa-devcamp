@@ -93,15 +93,6 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
       return await r.json();
     }
 
-    case "07": {
-      return {
-        checks: [
-          { id: "completed", name: "End-to-end flow completed", pass: true,
-            message: "Mark as complete once you have run the full scenario from login to document share" },
-        ],
-      };
-    }
-
     default:
       return { checks: [] };
   }
