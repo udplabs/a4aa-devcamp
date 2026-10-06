@@ -30,11 +30,6 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
     case "03": {
       const checks = [];
 
-      // Backend check: tenant-level MFA customization flag
-      const r03 = await fetch("/api/verify/module03");
-      const d03 = await r03.json();
-      checks.push(...d03.checks);
-
       checks.push({
         id: "authenticated", name: "User is authenticated",
         pass: isAuthenticated,
@@ -74,6 +69,12 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
           checks.push({ id: "jwt_aud", name: "JWT contains Nexus API audience", pass: false, message: e.message });
         }
       }
+
+      // Backend check: Acme's consent flow and MCP-server-scoped token.
+      const r03 = await fetch("/api/verify/module03");
+      const d03 = await r03.json();
+      checks.push(...d03.checks);
+
       return { checks };
     }
 
@@ -87,9 +88,10 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
       return await r.json();
     }
 
-    case "06":
-      // Quiz handled inline — runChecks is not called for this module.
-      return { checks: [] };
+    case "06": {
+      const r = await fetch("/api/verify/module06");
+      return await r.json();
+    }
 
     case "07": {
       return {
@@ -139,11 +141,11 @@ const FGA_QUIZ = {
   correct: "b",
 };
 
-function FGAQuiz({ onPass }) {
+function FGAQuiz({ onPass, passed }) {
   const [selected, setSelected] = useState(null);
   const [submitted, setSubmitted] = useState(false);
-  const correct = submitted && selected === FGA_QUIZ.correct;
-  const wrong = submitted && selected !== FGA_QUIZ.correct;
+  const correct = passed || (submitted && selected === FGA_QUIZ.correct);
+  const wrong = !passed && submitted && selected !== FGA_QUIZ.correct;
 
   function handleSubmit() {
     setSubmitted(true);
@@ -153,10 +155,10 @@ function FGAQuiz({ onPass }) {
   return (
     <div className="module-checks">
       <div className="module-checks-header">
-        <h3 className="module-checks-title">{correct ? "✓ Module complete" : "Quick knowledge check"}</h3>
+        <h3 className="module-checks-title">{correct ? "✓ Part B complete (FGA)" : "Part B knowledge check (FGA)"}</h3>
       </div>
       <p className="fga-quiz-hint">
-        This module has no automated Run Checks step. Answer the question below and submit it to unlock the chat.
+        This part has no automated Run Checks step. Answer the question below and submit it to unlock the chat.
       </p>
       <p className="fga-quiz-question">{FGA_QUIZ.question}</p>
       <ul className="fga-quiz-options">
@@ -195,11 +197,19 @@ export function ModuleChecks({ moduleId, onComplete }) {
   const [state, setState] = useState("idle"); // idle | running | done
   const [checks, setChecks] = useState([]);
   const [allPassed, setAllPassed] = useState(false);
+  const [quizPassed, setQuizPassed] = useState(false);
   const { isAuthenticated, getAccessTokenSilently, getIdTokenClaims } = useAuth0Safe();
   const { audience } = useRuntimeConfigSafe();
 
-  if (moduleId === "06") {
-    return <FGAQuiz onPass={() => { if (onComplete) onComplete("06"); }} />;
+  // Module "05" (lab-guide/07-ciba-and-fga.md) merges two parts into one
+  // checkable module: Part A (CIBA) has an automated backend check
+  // (/api/verify/module05 below); Part B (FGA) is read-through only and
+  // is gated by a knowledge-check quiz instead. The module is complete
+  // only once both parts pass.
+  const hasFgaQuiz = moduleId === "05";
+
+  function maybeComplete(cibaOk, quizOk) {
+    if (onComplete && cibaOk && quizOk) onComplete(moduleId);
   }
 
   async function handleRun() {
@@ -210,7 +220,11 @@ export function ModuleChecks({ moduleId, onComplete }) {
       setChecks(result.checks);
       setAllPassed(passed);
       setState("done");
-      if (passed && onComplete) onComplete(moduleId);
+      if (hasFgaQuiz) {
+        maybeComplete(passed, quizPassed);
+      } else if (passed && onComplete) {
+        onComplete(moduleId);
+      }
     } catch (err) {
       setChecks([{ id: "error", name: "Check failed", pass: false, message: err.message }]);
       setAllPassed(false);
@@ -218,11 +232,13 @@ export function ModuleChecks({ moduleId, onComplete }) {
     }
   }
 
+  const moduleComplete = hasFgaQuiz ? allPassed && quizPassed : allPassed;
+
   return (
     <div className="module-checks">
       <div className="module-checks-header">
         <h3 className="module-checks-title">
-          {allPassed ? "✓ Module complete" : "Verify your setup"}
+          {moduleComplete ? "✓ Module complete" : hasFgaQuiz ? "Part A: Verify your setup (CIBA)" : "Verify your setup"}
         </h3>
         {state !== "running" && (
           <button
@@ -251,10 +267,20 @@ export function ModuleChecks({ moduleId, onComplete }) {
         </ul>
       )}
 
-      {state === "done" && allPassed && (
+      {state === "done" && allPassed && !hasFgaQuiz && (
         <p className="module-checks-success">
           All checks passed. This module is complete.
         </p>
+      )}
+
+      {hasFgaQuiz && (
+        <FGAQuiz
+          passed={quizPassed}
+          onPass={() => {
+            setQuizPassed(true);
+            maybeComplete(allPassed, true);
+          }}
+        />
       )}
     </div>
   );

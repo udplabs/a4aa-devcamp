@@ -38,6 +38,7 @@ import {
   findClientByExternalId,
   getClient,
   getConnectionByName,
+  listClientGrants,
 } from "./platform/auth0Management.js";
 import {
   runProvision,
@@ -46,6 +47,7 @@ import {
   AGENT_NAME,
   THIRD_PARTY_AGENT_NAME,
   MCP_SERVER_SCOPES,
+  THIRD_PARTY_REVIEWED_SCOPES,
 } from "./platform/provision.js";
 import { requestOrigin, originForPort, mcpPort, acmePort, acmeCimdUrl } from "./utils/publicUrl.js";
 import { startAcmeServer } from "./acme/app.js";
@@ -307,31 +309,22 @@ app.get("/api/verify/module01", async (req, res) => {
   }
 
   if (ctx) {
-    // 1. Agent as Principal: AGENT_NAME exists and is linked to nexus-agent-obo.
+    // 1. Part A: Agent as Principal record exists.
+    let agent = null;
     try {
-      const agent = await findAgentByName(ctx, AGENT_NAME);
-      if (!agent) {
-        checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false,
-          message: `No agent named "${AGENT_NAME}" found — create it under Dashboard → Agents` });
-      } else if (!oboClientId) {
-        checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false,
-          message: `Found agent ${agent.agent_id}, but AUTH0_OBO_CLIENT_ID is not set — complete Part B first` });
-      } else {
-        const client = await mgmtGet(ctx, `/clients/${oboClientId}?fields=agent_id&include_fields=true`);
-        const linked = client?.agent_id === agent.agent_id;
-        checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: linked,
-          message: linked
-            ? `Agent ${agent.agent_id} ("${AGENT_NAME}") linked to nexus-agent-obo`
-            : `Agent ${agent.agent_id} exists but nexus-agent-obo is not linked to it — open the agent's Applications tab and add it` });
-      }
+      agent = await findAgentByName(ctx, AGENT_NAME);
+      checks.push({ id: "agent_exists", name: "Agent record created", pass: !!agent,
+        message: agent
+          ? `Agent ${agent.agent_id} ("${AGENT_NAME}")`
+          : `No agent named "${AGENT_NAME}" found — create it under Dashboard → Agents` });
     } catch (e) {
-      checks.push({ id: "agent_registered", name: "Agent registered and linked to OBO client", pass: false, message: e.message });
+      checks.push({ id: "agent_exists", name: "Agent record created", pass: false, message: e.message });
     }
 
-    // 2. The OBO client is a Custom API client linked to the Nexus Agent API.
-    // Auth0 only lets Custom API clients (app_type resource_server) run the
-    // On-Behalf-Of exchange, and only on tokens issued for the API they're
-    // linked to.
+    // 2. Part B Step 1: the OBO client is a Custom API client linked to the
+    // Nexus Agent API. Auth0 only lets Custom API clients (app_type
+    // resource_server) run the On-Behalf-Of exchange, and only on tokens
+    // issued for the API they're linked to.
     if (oboClientId) {
       try {
         const c = await mgmtGet(ctx, `/clients/${oboClientId}?fields=app_type,resource_server_identifier,name&include_fields=true`);
@@ -344,41 +337,64 @@ app.get("/api/verify/module01", async (req, res) => {
       } catch (e) {
         checks.push({ id: "obo_custom_api_client", name: "OBO client is a Custom API client linked to the Nexus Agent API", pass: false, message: e.message });
       }
+    } else {
+      checks.push({ id: "obo_custom_api_client", name: "OBO client is a Custom API client linked to the Nexus Agent API", pass: false,
+        message: "AUTH0_OBO_CLIENT_ID is not set — complete Part B Step 1 first" });
+    }
+
+    // 3. Part B Step 2: OBO toggle — a test exchange with a bogus token
+    // returns access_denied/invalid_grant (toggle on), not unauthorized_client.
+    const oboSecret = process.env.AUTH0_OBO_CLIENT_SECRET;
+    if (domain && oboClientId && oboSecret) {
+      try {
+        const r = await fetch(`https://${domain}/oauth/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+            subject_token: "test",
+            subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+            requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
+            audience: mcpResource,
+            client_id: oboClientId,
+            client_secret: oboSecret,
+          }),
+        });
+        const body = await r.json();
+        const toggled = body.error !== "unauthorized_client";
+        checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
+          message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable On-Behalf-Of Token Exchange on nexus-agent-obo" });
+      } catch (e) {
+        checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false, message: e.message });
+      }
+    } else {
+      checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false,
+        message: "AUTH0_OBO_CLIENT_ID or AUTH0_OBO_CLIENT_SECRET not set in .env" });
+    }
+
+    // 4. Part B Step 3: the OBO client is linked to the agent record.
+    if (!agent) {
+      checks.push({ id: "agent_linked", name: "OBO client linked to agent record", pass: false,
+        message: `No agent named "${AGENT_NAME}" found — complete Part A first` });
+    } else if (!oboClientId) {
+      checks.push({ id: "agent_linked", name: "OBO client linked to agent record", pass: false,
+        message: "AUTH0_OBO_CLIENT_ID is not set — complete Part B Step 1 first" });
+    } else {
+      try {
+        const client = await mgmtGet(ctx, `/clients/${oboClientId}?fields=agent_id&include_fields=true`);
+        const linked = client?.agent_id === agent.agent_id;
+        checks.push({ id: "agent_linked", name: "OBO client linked to agent record", pass: linked,
+          message: linked
+            ? `Agent ${agent.agent_id} ("${AGENT_NAME}") linked to nexus-agent-obo`
+            : `Agent ${agent.agent_id} exists but nexus-agent-obo is not linked to it — open the agent's Applications tab and add it` });
+      } catch (e) {
+        checks.push({ id: "agent_linked", name: "OBO client linked to agent record", pass: false, message: e.message });
+      }
     }
 
   } else if (!checks.length) {
     checks.push({ id: "mgmt", name: "Management API access", pass: false,
       message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
-  }
-
-  // 3. OBO toggle — a test exchange with a bogus token returns
-  // access_denied/invalid_grant (toggle on), not unauthorized_client.
-  const oboSecret = process.env.AUTH0_OBO_CLIENT_SECRET;
-  if (domain && oboClientId && oboSecret) {
-    try {
-      const r = await fetch(`https://${domain}/oauth/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-          subject_token: "test",
-          subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          audience: mcpResource,
-          client_id: oboClientId,
-          client_secret: oboSecret,
-        }),
-      });
-      const body = await r.json();
-      const toggled = body.error !== "unauthorized_client";
-      checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: toggled,
-        message: toggled ? `OBO toggle is on (${body.error || "ok"})` : "unauthorized_client — enable On-Behalf-Of Token Exchange on nexus-agent-obo" });
-    } catch (e) {
-      checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false, message: e.message });
-    }
-  } else {
-    checks.push({ id: "obo_toggle", name: "On-Behalf-Of Token Exchange enabled", pass: false,
-      message: "AUTH0_OBO_CLIENT_ID or AUTH0_OBO_CLIENT_SECRET not set in .env" });
   }
 
   res.json({ module: "01", checks, allPassed: checks.every((c) => c.pass) });
@@ -487,36 +503,33 @@ app.get("/api/verify/module02", async (req, res) => {
   res.json({ module: "02", checks, allPassed: checks.every((c) => c.pass) });
 });
 
+// Module 03 (lab guide 05-every-agent-action-has-an-owner): Acme's consent
+// flow attaches to the same employee session, holding a token whose
+// client_id is its CIMD URL and whose aud is the MCP server.
 app.get("/api/verify/module03", async (req, res) => {
   const checks = [];
-  const domain = process.env.AUTH0_DOMAIN;
-  const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
-  const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
-
-  if (!domain || !clientId || !secret) {
-    checks.push({ id: "mfa_customization", name: "MFA customization via Actions enabled", pass: false,
-      message: "Management credentials not set" });
-    return res.json({ module: "03", checks, allPassed: false });
-  }
+  const acmeBase = `http://localhost:${acmePort()}`;
+  const cimdUrl = acmeCimdUrl(requestOrigin(req));
+  const mcpResource = (process.env.AUTH0_TOOL_AUDIENCE || "").replace(/\/$/, "");
 
   try {
-    const { getManagementToken } = await import("./platform/auth0Management.js");
-    const ctx = await getManagementToken({ domain, client_id: clientId, client_secret: secret });
-    const settings = await fetch(`https://${ctx.domain}/api/v2/tenants/settings`, {
-      headers: { Authorization: `Bearer ${ctx.token}` },
-    });
-    const data = await settings.json();
-    const enabled = !!data.customize_mfa_in_postlogin_action;
+    const r = await fetch(`${acmeBase}/status`);
+    const data = await r.json();
+    const aud = Array.isArray(data.aud) ? data.aud : [data.aud];
+    const ok = !!data.connected && data.client_id === cimdUrl && aud.map((a) => (a || "").replace(/\/$/, "")).includes(mcpResource);
     checks.push({
-      id: "mfa_customization",
-      name: "MFA customization via Actions enabled",
-      pass: enabled,
-      message: enabled
-        ? "customize_mfa_in_postlogin_action is enabled"
-        : "Not enabled — re-provision or go to Security → Multifactor Auth → Additional Settings → enable Customize MFA Factors using Actions",
+      id: "acme_consent",
+      name: "Acme completed its consent flow and holds a token for the MCP server",
+      pass: ok,
+      message: !data.connected
+        ? `Acme is not connected — open ${acmeBase}/login in a new tab and sign in as alice@docagent.demo`
+        : ok
+          ? `client_id=${data.client_id}, aud=${JSON.stringify(data.aud)}`
+          : `client_id=${data.client_id || "(none)"}, aud=${JSON.stringify(data.aud)} — expected client_id=${cimdUrl}, aud including ${mcpResource}`,
     });
   } catch (e) {
-    checks.push({ id: "mfa_customization", name: "MFA customization via Actions enabled", pass: false, message: e.message });
+    checks.push({ id: "acme_consent", name: "Acme completed its consent flow and holds a token for the MCP server", pass: false,
+      message: `Could not reach Acme at ${acmeBase} (${e.message})` });
   }
 
   res.json({ module: "03", checks, allPassed: checks.every((c) => c.pass) });
@@ -726,6 +739,95 @@ app.get("/api/verify/module05", async (req, res) => {
   }
 
   res.json({ module: "05", checks, allPassed: checks.every((c) => c.pass) });
+});
+
+// Module 06 (lab guide 04-auth-for-mcp): grant nexus-agent-obo and Acme's
+// agent their respective scopes on the Nexus MCP Server resource server.
+app.get("/api/verify/module06", async (req, res) => {
+  const checks = [];
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_MGMT_CLIENT_ID;
+  const secret = process.env.AUTH0_MGMT_CLIENT_SECRET;
+  const oboClientId = process.env.AUTH0_OBO_CLIENT_ID;
+  const mcpResource = (process.env.AUTH0_TOOL_AUDIENCE || "").replace(/\/$/, "");
+  const cimdUrl = acmeCimdUrl(requestOrigin(req));
+
+  if (!domain || !clientId || !secret) {
+    checks.push({ id: "mgmt", name: "Management API access", pass: false,
+      message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
+    return res.json({ module: "06", checks, allPassed: false });
+  }
+
+  let ctx = null;
+  try {
+    ctx = await mgmtCtxFromEnv();
+  } catch (e) {
+    checks.push({ id: "mgmt", name: "Management API access", pass: false, message: e.message });
+  }
+  if (!ctx) {
+    if (!checks.some((c) => c.id === "mgmt")) {
+      checks.push({ id: "mgmt", name: "Management API access", pass: false,
+        message: "AUTH0_MGMT_CLIENT_ID or AUTH0_MGMT_CLIENT_SECRET not set — cannot verify" });
+    }
+    return res.json({ module: "06", checks, allPassed: false });
+  }
+
+  // 1. nexus-agent-obo has a user-delegated client grant on the Nexus MCP
+  // Server carrying all four tool scopes.
+  if (!oboClientId || !mcpResource) {
+    checks.push({ id: "obo_mcp_grant", name: "nexus-agent-obo granted access to the Nexus MCP Server", pass: false,
+      message: "AUTH0_OBO_CLIENT_ID or AUTH0_TOOL_AUDIENCE not set — complete Module 02 first" });
+  } else {
+    try {
+      const grants = await listClientGrants(ctx, oboClientId, mcpResource);
+      const grant = grants.find((g) => g.audience === mcpResource);
+      const grantedScopes = grant?.scope || [];
+      const missing = MCP_SERVER_SCOPES.filter((s) => !grantedScopes.includes(s));
+      checks.push({ id: "obo_mcp_grant", name: "nexus-agent-obo granted access to the Nexus MCP Server", pass: missing.length === 0,
+        message: missing.length === 0
+          ? `nexus-agent-obo has all tool scopes: ${grantedScopes.join(", ")}`
+          : !grant
+            ? "No grant found — Applications → APIs → Nexus MCP Server → Application Access → nexus-agent-obo → Edit → grant all mcp:* scopes"
+            : `Missing scopes: ${missing.join(", ")} — Applications → APIs → Nexus MCP Server → Application Access → nexus-agent-obo → Edit → grant the missing scopes` });
+    } catch (e) {
+      checks.push({ id: "obo_mcp_grant", name: "nexus-agent-obo granted access to the Nexus MCP Server", pass: false, message: e.message });
+    }
+  }
+
+  // 2. Acme's CIMD client has a reviewed, smaller user-delegated grant on
+  // the Nexus MCP Server: exactly mcp:docs:search and mcp:docs:read, and
+  // explicitly not mcp:docs:share or mcp:crm:log.
+  if (!mcpResource) {
+    checks.push({ id: "acme_mcp_grant", name: "Acme granted a reviewed, smaller scope set", pass: false,
+      message: "AUTH0_TOOL_AUDIENCE not set" });
+  } else {
+    try {
+      const acme = await findClientByExternalId(ctx, cimdUrl);
+      if (!acme) {
+        checks.push({ id: "acme_mcp_grant", name: "Acme granted a reviewed, smaller scope set", pass: false,
+          message: "Acme's CIMD client isn't registered yet — complete Module 03 first" });
+      } else {
+        const grants = await listClientGrants(ctx, acme.client_id, mcpResource);
+        const grant = grants.find((g) => g.audience === mcpResource);
+        const grantedScopes = grant?.scope || [];
+        const hasReviewed = THIRD_PARTY_REVIEWED_SCOPES.every((s) => grantedScopes.includes(s));
+        const overGranted = grantedScopes.filter((s) => !THIRD_PARTY_REVIEWED_SCOPES.includes(s));
+        const ok = hasReviewed && overGranted.length === 0;
+        checks.push({ id: "acme_mcp_grant", name: "Acme granted a reviewed, smaller scope set", pass: ok,
+          message: ok
+            ? `${acme.name} granted exactly: ${grantedScopes.join(", ")}`
+            : !grant
+              ? `No grant found for ${acme.name} — Applications → APIs → Nexus MCP Server → Application Access → Acme Partner Agent → Edit → grant only mcp:docs:search and mcp:docs:read`
+              : overGranted.length > 0
+                ? `${acme.name} is over-granted: ${overGranted.join(", ")} — remove scopes beyond mcp:docs:search / mcp:docs:read`
+                : `${acme.name} is missing: ${THIRD_PARTY_REVIEWED_SCOPES.filter((s) => !grantedScopes.includes(s)).join(", ")}` });
+      }
+    } catch (e) {
+      checks.push({ id: "acme_mcp_grant", name: "Acme granted a reviewed, smaller scope set", pass: false, message: e.message });
+    }
+  }
+
+  res.json({ module: "06", checks, allPassed: checks.every((c) => c.pass) });
 });
 
 // Resolve the tenant for every /api request from the request

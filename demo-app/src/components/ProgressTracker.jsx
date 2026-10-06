@@ -2,24 +2,45 @@ import { useState } from "react";
 import { useLabProgress } from "../hooks/useLabProgress";
 import { ModuleChecks } from "./ModuleChecks";
 
+// Mirrors demo-app/server/routes/guide.js LABS, in lab-guide file order.
+// `id` is the internal checkable-step id consumed by ModuleChecks. The CIBA
+// and FGA lab-guide file is a single row ("05") that covers both the CIBA
+// backend checks and the FGA knowledge-check quiz, merged under one
+// moduleId -- see ModuleChecks.jsx case "05".
 const MODULES = [
-  { id: "00", label: "Prerequisites" },
-  { id: "01", label: "First-Party Agent Setup" },
-  { id: "02", label: "Third-Party Agent Setup" },
-  { id: "03", label: "User Authentication" },
-  { id: "04", label: "Token Vault" },
-  { id: "05", label: "CIBA" },
-  { id: "06", label: "FGA" },
-  { id: "07", label: "End-to-End" },
+  { fileNum: "01", id: "00", label: "Prerequisites" },
+  { fileNum: "02", id: "01", label: "First-Party Agent Setup" },
+  { fileNum: "03", id: "02", label: "Third-Party Agent Setup" },
+  { fileNum: "04", id: "06", label: "Auth for MCP" },
+  { fileNum: "05", id: "03", label: "User Authentication" },
+  { fileNum: "06", id: "04", label: "Token Vault" },
+  { fileNum: "07", id: "05", label: "CIBA and FGA" },
+  { fileNum: "08", id: "07", label: "End-to-End" },
 ];
+
+function moduleStatus(mod, getModuleStatus) {
+  if (mod.id === null) return "idle";
+  const ids = Array.isArray(mod.id) ? mod.id : [mod.id];
+  const statuses = ids.map((i) => getModuleStatus(i));
+  if (statuses.every((s) => s === "pass")) return "pass";
+  if (statuses.some((s) => s === "fail")) return "fail";
+  return "idle";
+}
+
+// Row key must stay stable and unique even for the null-id (Auth for MCP)
+// and multi-id (CIBA and FGA) rows, so it's derived from the label rather
+// than the checkable id.
+function rowKey(mod) {
+  return mod.label;
+}
 
 export function ProgressTracker() {
   const [minimized, setMinimized] = useState(false);
   const [expandedModule, setExpandedModule] = useState(null);
   const { getModuleStatus, setModuleStatus } = useLabProgress();
 
-  function toggleModule(id) {
-    setExpandedModule((prev) => (prev === id ? null : id));
+  function toggleModule(key) {
+    setExpandedModule((prev) => (prev === key ? null : key));
   }
 
   if (minimized) {
@@ -53,31 +74,42 @@ export function ProgressTracker() {
 
       <ul className="progress-tracker-list">
         {MODULES.map((mod) => {
-          const status = getModuleStatus(mod.id);
-          const isExpanded = expandedModule === mod.id;
+          const key = rowKey(mod);
+          const status = moduleStatus(mod, getModuleStatus);
+          const isExpanded = expandedModule === key;
+          // Auth for MCP has no automated check yet, so there's nothing for
+          // ModuleChecks to run and the row isn't expandable.
+          const expandable = mod.id !== null;
+          const checkIds = Array.isArray(mod.id) ? mod.id : [mod.id];
 
           return (
-            <li key={mod.id} className="progress-tracker-item">
+            <li key={key} className="progress-tracker-item">
               <button
                 className={`progress-tracker-row progress-tracker-row--${status}`}
-                onClick={() => toggleModule(mod.id)}
+                onClick={() => expandable && toggleModule(key)}
+                disabled={!expandable}
               >
                 <span className="progress-tracker-status">
                   {status === "pass" ? "✓" : status === "fail" ? "✗" : "○"}
                 </span>
-                <span className="progress-tracker-num">{mod.id}</span>
+                <span className="progress-tracker-num">{mod.fileNum}</span>
                 <span className="progress-tracker-label">{mod.label}</span>
-                <span className={`progress-tracker-chevron${isExpanded ? " open" : ""}`}>
-                  ›
-                </span>
+                {expandable && (
+                  <span className={`progress-tracker-chevron${isExpanded ? " open" : ""}`}>
+                    ›
+                  </span>
+                )}
               </button>
 
-              {isExpanded && (
+              {isExpanded && expandable && (
                 <div className="progress-tracker-checks">
-                  <ModuleChecks
-                    moduleId={mod.id}
-                    onComplete={(id) => setModuleStatus(id, "pass")}
-                  />
+                  {checkIds.map((id) => (
+                    <ModuleChecks
+                      key={id}
+                      moduleId={id}
+                      onComplete={(id) => setModuleStatus(id, "pass")}
+                    />
+                  ))}
                 </div>
               )}
             </li>

@@ -11,18 +11,18 @@ const router = Router();
 // `id` must match the real filename (minus .md) in lab-guide/ exactly --
 // this is what resolves the file on disk below. `module` is the internal
 // checkable-step id consumed by ModuleChecks.jsx / ProgressTracker.jsx; it's
-// null when a file has no matching automated check (00-introduction,
-// 04-auth-for-mcp). `07-ciba-and-fga` covers two checkable steps in one
-// file; it points at CIBA ("05") since that's the one with a concrete
-// backend check. `title` shows the file's own number prefix so what's
-// displayed here matches what the lab guide file itself is called.
+// null when a file has no matching automated check (00-introduction).
+// `07-ciba-and-fga` covers two checkable steps in one file; it points at
+// CIBA ("05") since that's the one with a concrete backend check. `title`
+// shows the file's own number prefix so what's displayed here matches what
+// the lab guide file itself is called.
 export const LABS = [
   { id: "overview",                                                    title: "Overview",                        module: null },
   { id: "00-introduction",                                             title: "Introduction",                    module: null },
   { id: "01-prerequisites",                                            title: "Module 01: Prerequisites",        module: "00" },
   { id: "02-first-party-agent-setup",                                  title: "Module 02: First-Party Agent Setup", module: "01" },
   { id: "03-third-party-agent-setup",                                  title: "Module 03: Third-Party Agent Setup", module: "02" },
-  { id: "04-auth-for-mcp",                                             title: "Module 04: Auth for MCP",         module: null },
+  { id: "04-auth-for-mcp",                                             title: "Module 04: Auth for MCP",         module: "06" },
   { id: "05-every-agent-action-has-an-owner",                          title: "Module 05: User Authentication",  module: "03" },
   { id: "06-the-agent-acts-as-the-employee-not-a-shared-bot",          title: "Module 06: Token Vault",          module: "04" },
   { id: "07-ciba-and-fga",                                             title: "Module 07: CIBA and FGA",         module: "05" },
