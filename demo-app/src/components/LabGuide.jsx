@@ -7,7 +7,7 @@ import { useLabProgress } from "../hooks/useLabProgress";
 // "07" (Module 08: End-to-End) is intentionally excluded -- that page is a
 // manual walkthrough/summary, not a checkable step, so it must not render a
 // lab-progress section.
-const CHECKABLE_MODULES = ["00", "01", "02", "06", "03", "04", "05"];
+const CHECKABLE_MODULES = ["01", "02", "03", "04", "05", "06", "07"];
 
 export function LabGuide({ onClose }) {
   const [labs, setLabs] = useState([]);

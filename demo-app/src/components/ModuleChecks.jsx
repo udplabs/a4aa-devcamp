@@ -6,7 +6,7 @@ import { useRuntimeConfig } from "../config/runtimeConfig";
 // Returns { checks, allPassed } or throws.
 async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, getIdTokenClaims, audience }) {
   switch (moduleId) {
-    case "00": {
+    case "01": {
       const r = await fetch("/api/setup/status");
       const d = await r.json();
       return {
@@ -17,17 +17,22 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
       };
     }
 
-    case "01": {
-      const r = await fetch("/api/verify/module01");
-      return await r.json();
-    }
-
     case "02": {
       const r = await fetch("/api/verify/module02");
       return await r.json();
     }
 
     case "03": {
+      const r = await fetch("/api/verify/module03");
+      return await r.json();
+    }
+
+    case "04": {
+      const r = await fetch("/api/verify/module06");
+      return await r.json();
+    }
+
+    case "05": {
       const checks = [];
 
       checks.push({
@@ -78,18 +83,13 @@ async function runChecks(moduleId, { isAuthenticated, getAccessTokenSilently, ge
       return { checks };
     }
 
-    case "04": {
+    case "06": {
       const r = await fetch("/api/verify/module04");
       return await r.json();
     }
 
-    case "05": {
+    case "07": {
       const r = await fetch("/api/verify/module05");
-      return await r.json();
-    }
-
-    case "06": {
-      const r = await fetch("/api/verify/module06");
       return await r.json();
     }
 
@@ -192,12 +192,12 @@ export function ModuleChecks({ moduleId, onComplete }) {
   const { isAuthenticated, getAccessTokenSilently, getIdTokenClaims } = useAuth0Safe();
   const { audience } = useRuntimeConfigSafe();
 
-  // Module "05" (lab-guide/07-ciba-and-fga.md) merges two parts into one
+  // Module "07" (lab-guide/07-ciba-and-fga.md) merges two parts into one
   // checkable module: Part A (CIBA) has an automated backend check
   // (/api/verify/module05 below); Part B (FGA) is read-through only and
   // is gated by a knowledge-check quiz instead. The module is complete
   // only once both parts pass.
-  const hasFgaQuiz = moduleId === "05";
+  const hasFgaQuiz = moduleId === "07";
 
   function maybeComplete(cibaOk, quizOk) {
     if (onComplete && cibaOk && quizOk) onComplete(moduleId);
