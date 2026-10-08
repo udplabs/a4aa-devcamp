@@ -93,15 +93,6 @@ function exchangerFor(tenant, subjectToken) {
   return null;
 }
 
-// Callers pass either a raw Auth0 access token, or (from the MCP server)
-// { token, fallbackToken } -- the validated bearer plus, optionally, a
-// first-party subject token the MCP server has already verified.
-function normalizeSubject(subject) {
-  if (!subject) return { token: null, fallbackToken: null };
-  if (typeof subject === "string") return { token: subject, fallbackToken: null };
-  return { token: subject.token || null, fallbackToken: subject.fallbackToken || null };
-}
-
 function connectionFor(tenant, provider) {
   const conns = tenant?.deploymentData.vault_connections;
   if (!conns) return null;
@@ -175,26 +166,9 @@ export function storeToken(userId, provider, accessToken, refreshToken, expiresI
   console.log(`[Token Vault] Stored token for ${userId} @ ${provider}`);
 }
 
-export async function getToken(userId, provider, tenant, subject) {
-  const { token, fallbackToken } = normalizeSubject(subject);
+export async function getToken(userId, provider, tenant, userAccessToken) {
   // Prefer the live federated-connection exchange when provisioned.
-  let live;
-  try {
-    live = await getLiveToken(userId, provider, tenant, token);
-  } catch (err) {
-    // Auth0 may refuse a subject token that already carries an `act`
-    // delegation chain (both agents' tokens do, once linked to an Agent
-    // record). If the MCP server verified a first-party fallback token
-    // (see validatedNexusSubjectToken in mcp/server.js), retry with it.
-    if (!(err instanceof TokenVaultAccessDeniedError) || !fallbackToken) throw err;
-    console.warn(`[Token Vault] bearer exchange refused for ${provider}; retrying with verified first-party subject token`);
-    live = await getLiveToken(userId, provider, tenant, fallbackToken);
-  }
-  // No client able to exchange the bearer (e.g. MCP_SERVER_CLIENT_ID unset
-  // on a tenant provisioned before this client existed).
-  if (!live && fallbackToken) {
-    live = await getLiveToken(userId, provider, tenant, fallbackToken);
-  }
+  const live = await getLiveToken(userId, provider, tenant, userAccessToken);
   if (live) return live;
 
   const key = vaultKey(userId, provider);
@@ -249,8 +223,7 @@ export function listLinkedProviders(userId) {
 // live federated connections provisioned, real tokens are fetched
 // on demand via Token Vault, so seeding is a no-op. Otherwise we
 // seed the in-memory simulation so the lab runs offline.
-export async function seedVaultForUser(userId, tenant, subject) {
-  const userAccessToken = normalizeSubject(subject).token;
+export async function seedVaultForUser(userId, tenant, userAccessToken) {
   const hasLiveCrm = !!connectionFor(tenant, "crm");
   if (!(hasLiveCrm && userAccessToken)) {
     storeToken(

@@ -44,20 +44,6 @@ function cacheKeyFor(userAccessToken, scope) {
   return `${createHash("sha256").update(userAccessToken).digest("hex")}:${scope}`;
 }
 
-// Token Vault first-party fallback (on unless
-// TOKEN_VAULT_FIRST_PARTY_FALLBACK=false). If Auth0 refuses to exchange
-// the OBO token itself at Token Vault -- it carries an `act` chain -- the
-// MCP server may instead use the employee's original Nexus Agent API
-// token. It is not a credential the MCP server trusts on sight: it is
-// used only after the MCP server verifies it was issued for the Nexus
-// Agent API, to the same user, by a client in the bearer's own `act`
-// chain (validatedNexusSubjectToken in mcp/server.js). Turn it off to run
-// strictly to the MCP spec's "no token passthrough" rule.
-function firstPartyFallbackHeader(userAccessToken) {
-  if (process.env.TOKEN_VAULT_FIRST_PARTY_FALLBACK === "false") return {};
-  return { "X-Nexus-Subject-Token": userAccessToken };
-}
-
 function scopeForTool(name) {
   return TOOLS.find((t) => t.name === name)?.requiredScope;
 }
@@ -185,7 +171,6 @@ export class MCPClient {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        ...firstPartyFallbackHeader(userAccessToken),
       },
       body: JSON.stringify({ name, arguments: args }),
     });

@@ -223,7 +223,6 @@ Only `AUTH0_DOMAIN`, `AUTH0_MGMT_CLIENT_ID`, and `AUTH0_MGMT_CLIENT_SECRET` need
 | Auth0 | `AUTH0_DOMAIN`, `AUTH0_MGMT_CLIENT_ID`, `AUTH0_MGMT_CLIENT_SECRET`, `AUTH0_AUDIENCE` (Nexus Agent API), `AUTH0_TOOL_AUDIENCE` (Nexus MCP Server identifier), `AUTH0_OBO_CLIENT_ID`, `AUTH0_OBO_CLIENT_SECRET`, `MCP_SERVER_CLIENT_ID`, `MCP_SERVER_CLIENT_SECRET`, `AUTH0_CIBA_CLIENT_ID`, `AUTH0_CIBA_CLIENT_SECRET` |
 | Resource servers | `AGENT_API_IDENTIFIER` (default `https://devcamp-nexus-agent-api`), `MCP_RESOURCE_URI` (default: the MCP server's public URL) |
 | Third-party agent | `ACME_CIMD_URL` (override Acme's CIMD URL, e.g. a tunnel when not in Codespaces), `ACME_MCP_SERVER_URL` |
-| Token Vault | `TOKEN_VAULT_FIRST_PARTY_FALLBACK` (default on; `false` disables the verified first-party subject-token fallback) |
 | FGA (Module 06) | `FGA_API_URL`, `FGA_API_AUDIENCE`, `FGA_API_TOKEN_ISSUER`, `FGA_CLIENT_ID`, `FGA_CLIENT_SECRET` |
 | CRM connection (Module 04) | `CRM_CLIENT_ID`, `CRM_CLIENT_SECRET` |
 | LLM | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `LLM_MODEL` |

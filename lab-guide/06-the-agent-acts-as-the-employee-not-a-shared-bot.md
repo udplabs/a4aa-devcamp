@@ -141,8 +141,8 @@ The CRM app signs its own JWTs and validates them on every **POST /crm/activitie
 ```js
 case "log_crm_activity": {
   const { action, documentId, documentTitle, notes } = args;
-  // vaultSubject = { token: the bearer this server just validated, fallbackToken }
-  const tokenResult = await getToken(userSub, "crm", tenant, vaultSubject);
+  // bearerToken = the OBO token this server just validated
+  const tokenResult = await getToken(userSub, "crm", tenant, bearerToken);
   if (!tokenResult) {
     return { success: false, error: "No CRM account linked. Ask the user to connect their CRM." };
   }

@@ -113,34 +113,6 @@ function describeCaller(payload) {
   };
 }
 
-// First-party fallback for Token Vault (see ../token-vault/vault.js).
-// Only used if Auth0 refuses to exchange the bearer itself. The Nexus
-// backend may attach the user's original Nexus Agent API token in
-// X-Nexus-Subject-Token. It is NOT trusted on presentation: it must
-// verify against the tenant's keys with aud = Nexus Agent API, belong
-// to the same user as the bearer, and have been issued to a client that
-// appears in the bearer's own `act` delegation chain -- i.e. it is
-// provably the token the bearer was exchanged from.
-async function validatedNexusSubjectToken(req, bearerPayload) {
-  if (process.env.TOKEN_VAULT_FIRST_PARTY_FALLBACK === "false") return null;
-  const raw = req.headers["x-nexus-subject-token"];
-  if (typeof raw !== "string" || !raw) return null;
-  const tenant = req.tenant;
-  const issuer = tenant?.issuer || `https://${process.env.AUTH0_DOMAIN}/`;
-  const agentAudience = tenant?.agentAudience || process.env.AUTH0_AUDIENCE;
-  try {
-    const inner = await verifyJwt(raw, issuer, agentAudience);
-    if (inner.sub !== bearerPayload.sub) return null;
-    const innerClient = inner.client_id || inner.azp;
-    const chainClients = [];
-    for (let a = bearerPayload.act; a; a = a.act) chainClients.push(a.client_id, a.sub);
-    if (!innerClient || !chainClients.includes(innerClient)) return null;
-    return raw;
-  } catch {
-    return null;
-  }
-}
-
 // ---- Tool catalog -------------------------------------------------
 
 export const TOOLS = [
@@ -259,14 +231,10 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
 
   try {
     // Seed demo FGA tuples + vault entries on first call per user.
-    const vaultSubject = {
-      token: bearerToken,
-      fallbackToken: await validatedNexusSubjectToken(req, payload),
-    };
     await seedTuplesForUser(userSub, userEmail, tenant);
-    await seedVaultForUser(userSub, tenant, vaultSubject);
+    await seedVaultForUser(userSub, tenant, bearerToken);
 
-    const result = await executeToolLogic(name, args, userSub, tenant, vaultSubject);
+    const result = await executeToolLogic(name, args, userSub, tenant, bearerToken);
     console.log(`[MCP Server] Tool ${name} executed`);
     addLog({ tool: name, userSub, caller, args, result, status: "success" });
     res.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
@@ -280,7 +248,7 @@ app.post("/mcp/tools/call", validateMCPToken, async (req, res) => {
 // Tool execution. userSub is the user's Auth0 user id -- preserved through
 // Nexus's OBO exchange, and the direct subject of Acme's login. Every FGA
 // check and Token Vault call below keys off the user, not the agent.
-async function executeToolLogic(name, args, userSub, tenant, vaultSubject) {
+async function executeToolLogic(name, args, userSub, tenant, bearerToken) {
   switch (name) {
     case "search_documents": {
       const { query } = args;
@@ -329,7 +297,7 @@ async function executeToolLogic(name, args, userSub, tenant, vaultSubject) {
       // CRM credential scoped to this user. No shared bot token.
       let tokenResult;
       try {
-        tokenResult = await getToken(userSub, "crm", tenant, vaultSubject);
+        tokenResult = await getToken(userSub, "crm", tenant, bearerToken);
       } catch (err) {
         if (err instanceof TokenVaultAccessDeniedError) {
           return {

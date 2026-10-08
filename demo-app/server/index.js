@@ -630,8 +630,7 @@ app.get("/api/verify/module06", async (req, res) => {
     }
 
     // Check 2b: nexus-agent-obo client has the Token Vault grant type.
-    // Used by the Nexus backend's own Connected Accounts status check and
-    // as the first-party fallback (TOKEN_VAULT_FIRST_PARTY_FALLBACK).
+    // Used by the Nexus backend's own Connected Accounts status check.
     if (oboClientId) {
       const clientR = await fetch(`https://${ctx.domain}/api/v2/clients/${oboClientId}?fields=grant_types,name`, {
         headers: { Authorization: `Bearer ${ctx.token}` },
